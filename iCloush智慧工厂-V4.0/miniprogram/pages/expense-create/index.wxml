@@ -1,0 +1,71 @@
+<!-- 报销单创建页 — 员工极简三项 -->
+<view class="page-container">
+
+  <!-- 凭证类型切换 -->
+  <view class="voucher-tabs">
+    <view class="tab {{voucherType === 'invoice' ? 'active' : ''}}"
+          data-type="invoice" bindtap="selectVoucherType">
+      发票报销
+    </view>
+    <view class="tab {{voucherType === 'receipt' ? 'active' : ''}}"
+          data-type="receipt" bindtap="selectVoucherType">
+      收据报销
+    </view>
+  </view>
+
+  <!-- 凭证图片上传 -->
+  <view class="upload-area" wx:if="{{voucherType === 'invoice'}}">
+    <block wx:if="{{tempInvoicePath || invoiceImage}}">
+      <image src="{{invoiceImage || tempInvoicePath}}" mode="aspectFit" class="preview-img" bindtap="previewInvoice" />
+      <view class="upload-hint" bindtap="chooseInvoice">点击更换</view>
+    </block>
+    <block wx:else>
+      <view class="upload-placeholder" bindtap="chooseInvoice">
+        <text class="upload-icon">📄</text>
+        <text class="upload-text">拍照或选择发票</text>
+      </view>
+    </block>
+    <view wx:if="{{uploading}}" class="upload-loading">上传中...</view>
+  </view>
+
+  <view class="upload-area" wx:if="{{voucherType === 'receipt'}}">
+    <block wx:if="{{tempReceiptPath || receiptImage}}">
+      <image src="{{receiptImage || tempReceiptPath}}" mode="aspectFit" class="preview-img" bindtap="previewReceipt" />
+      <view class="upload-hint" bindtap="chooseReceipt">点击更换</view>
+    </block>
+    <block wx:else>
+      <view class="upload-placeholder" bindtap="chooseReceipt">
+        <text class="upload-icon">🧾</text>
+        <text class="upload-text">拍照或选择收据</text>
+      </view>
+    </block>
+    <view wx:if="{{uploading}}" class="upload-loading">上传中...</view>
+  </view>
+
+  <!-- 表单区域 — 只有事由和金额 -->
+  <view class="form-section">
+    <view class="form-item">
+      <text class="label">报销用途</text>
+      <input class="input" placeholder="如：餐费、交通费" value="{{purpose}}" bindinput="onPurposeInput" />
+    </view>
+    <view class="form-item">
+      <text class="label">报销金额</text>
+      <input class="input" type="digit" placeholder="0.00" value="{{claimedAmount}}" bindinput="onAmountInput" />
+    </view>
+  </view>
+
+  <!-- 积分提示 -->
+  <view class="points-hint">
+    <text class="hint-label">积分变动</text>
+    <text class="hint-value {{voucherType === 'invoice' ? 'positive' : 'negative'}}">{{pointsHint}}</text>
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="btn-area">
+    <button class="btn-submit {{!canSubmit || submitting ? 'btn-disabled' : ''}}"
+            disabled="{{!canSubmit || submitting}}"
+            bindtap="submitExpense">
+      {{submitting ? '提交中...' : '提交报销单'}}
+    </button>
+  </view>
+</view>

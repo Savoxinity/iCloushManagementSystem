@@ -1,0 +1,169 @@
+<!-- 任务详情页：V10 接单网关 + 审查闭环 + 负责人信息 -->
+<view class="page-container">
+
+  <!-- ★ 驳回警告横幅 -->
+  <view wx:if="{{isRejected && canExecute}}" class="reject-banner">
+    <text class="reject-banner-icon">⚠️</text>
+    <view class="reject-banner-body">
+      <text class="reject-banner-title">任务已被驳回</text>
+      <text class="reject-banner-reason">{{task.reject_reason || '审核未通过，请检查后重新提交'}}</text>
+    </view>
+  </view>
+
+  <!-- 任务头部 -->
+  <view class="task-hero {{isRejected && canExecute ? 'hero-rejected' : ''}}">
+    <view class="hero-tags">
+      <view class="type-tag type-{{task.task_type}}"><text>{{task.typeLabel}}</text></view>
+      <view class="priority-tag priority-{{task.priority}}"><text>P{{task.priority}} {{task.priorityLabel}}</text></view>
+    </view>
+    <text class="hero-title">{{task.title}}</text>
+    <view class="hero-meta">
+      <view class="meta-row"><text class="meta-icon">📍</text><text class="meta-text">{{task.zone_name}}</text></view>
+      <view wx:if="{{task.deadline}}" class="meta-row"><text class="meta-icon">⏰</text><text class="meta-text deadline">{{task.deadlineText}}</text></view>
+      <view class="meta-row"><text class="meta-icon">🏆</text><text class="meta-text gold">+{{task.points_reward}} 积分</text></view>
+      <!-- ★ 负责人信息 -->
+      <view class="meta-row">
+        <text class="meta-icon">👤</text>
+        <view class="assignee-inline">
+          <view class="assignee-avatar-mini" style="background:{{task.assigneeColor}};">
+            <text>{{task.assigneeInitial}}</text>
+          </view>
+          <text class="meta-text">{{task.assigneeName}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="status-badge status-{{task.status}}">
+      <view class="status-dot" /><text>{{task.statusLabel}}</text>
+    </view>
+  </view>
+
+  <!-- ★★★ 接单网关（status === 0 时显示） ★★★ -->
+  <view wx:if="{{isPending}}" class="accept-gateway">
+    <view class="accept-gateway-info">
+      <text class="accept-icon">🎯</text>
+      <text class="accept-title">此任务尚未被认领</text>
+      <text class="accept-desc">接单后任务将绑定到你的名下，请确认你有能力完成此任务。</text>
+    </view>
+    <button class="accept-btn {{accepting ? 'loading' : ''}}" bindtap="onAcceptTask" disabled="{{accepting}}">
+      <text wx:if="{{!accepting}}">未接单 — 点击认领</text>
+      <text wx:else>接单中...</text>
+    </button>
+  </view>
+
+  <!-- 进度条（计件任务，仅已接单后显示） -->
+  <view wx:if="{{task.task_type === 'routine' && !isPending}}" class="progress-section">
+    <view class="progress-header">
+      <text class="progress-label">今日进度</text>
+      <text class="progress-value">{{task.progress}} / {{task.target}} {{task.unit}}</text>
+    </view>
+    <view class="progress-track"><view class="progress-fill" style="width:{{task.progressPct}}%;" /></view>
+    <text class="progress-pct">{{task.progressPct}}%</text>
+  </view>
+
+  <!-- 任务说明 -->
+  <view wx:if="{{task.description}}" class="desc-section">
+    <text class="section-title">任务说明</text>
+    <text class="desc-text">{{task.description}}</text>
+  </view>
+
+  <!-- ★ 员工执行区（仅 status === 2 进行中时显示，接单网关拦截 status=0） -->
+  <view wx:if="{{canExecute}}" class="action-section">
+    <text class="section-title">执行操作</text>
+    <!-- 计件输入 -->
+    <view wx:if="{{task.task_type === 'routine'}}" class="count-input-row">
+      <view class="count-btn" bindtap="decreaseCount"><text>－</text></view>
+      <view class="count-display">
+        <text class="count-value">{{inputCount}}</text>
+        <text class="count-unit">{{task.unit}}</text>
+      </view>
+      <view class="count-btn" bindtap="increaseCount"><text>＋</text></view>
+      <button class="count-submit-btn" bindtap="submitCount">提交计件</button>
+    </view>
+    <!-- 拍照取证 -->
+    <view class="photo-section">
+      <view class="photo-header">
+        <text class="photo-label">拍照取证</text>
+        <text wx:if="{{task.requires_photo}}" class="photo-required">必填</text>
+        <text wx:else class="photo-optional">选填</text>
+      </view>
+      <view class="photo-grid">
+        <view wx:for="{{uploadedPhotos}}" wx:key="id" class="photo-thumb" bindtap="previewPhoto" data-url="{{item.url}}">
+          <image class="thumb-img" src="{{item.url}}" mode="aspectFill" />
+          <view class="thumb-remove" catchtap="removePhoto" data-id="{{item.id}}"><text>×</text></view>
+          <view wx:if="{{item.ai_status}}" class="ai-overlay ai-{{item.ai_status}}">
+            <text class="ai-overlay-text">{{item.ai_status === 'pass' ? '✓' : item.ai_status === 'fail' ? '✗' : '…'}}</text>
+          </view>
+        </view>
+        <view wx:if="{{uploadedPhotos.length < 6}}" class="photo-add-btn" bindtap="takePhoto">
+          <text class="add-icon">📷</text><text class="add-text">拍照</text>
+        </view>
+      </view>
+    </view>
+    <!-- 提交按钮 -->
+    <button class="submit-task-btn {{submitting ? 'loading' : ''}} {{isRejected ? 'resubmit' : ''}}" bindtap="submitTask" disabled="{{submitting}}">
+      <text wx:if="{{!submitting}}">{{isRejected ? '重新提交 → 待审核' : '提交任务 → 待审核'}}</text>
+      <text wx:else>提交中...</text>
+    </button>
+  </view>
+
+  <!-- ★ 审核结果展示区 -->
+  <view wx:if="{{task.status >= 3 || isRejected}}" class="ai-review-section">
+    <text class="section-title">审核状态</text>
+    <view class="ai-review-card ai-card-{{aiReview.result}}">
+      <view class="ai-review-header">
+        <text class="ai-result-icon">{{aiReview.result === 'pass' ? '✅' : aiReview.result === 'fail' ? '❌' : '⏳'}}</text>
+        <text class="ai-result-label">{{aiReview.resultLabel}}</text>
+        <text wx:if="{{aiReview.reviewedAt}}" class="ai-review-time">{{aiReview.reviewedAt}}</text>
+      </view>
+      <text class="ai-review-comment">{{aiReview.comment}}</text>
+    </view>
+  </view>
+
+  <!-- ★ 管理端审核工作台（仅管理员 + 待审核状态） -->
+  <view wx:if="{{canReview}}" class="review-workstation">
+    <text class="section-title">管理审核</text>
+    <view class="review-actions">
+      <button class="review-btn approve-btn {{reviewing ? 'loading' : ''}}" bindtap="approveTask" disabled="{{reviewing}}">
+        <text class="review-btn-icon">✓</text>
+        <text>审核通过</text>
+      </button>
+      <button class="review-btn reject-btn {{reviewing ? 'loading' : ''}}" bindtap="rejectTask" disabled="{{reviewing}}">
+        <text class="review-btn-icon">✗</text>
+        <text>驳回</text>
+      </button>
+    </view>
+    <text class="review-hint">通过后员工将获得 +{{task.points_reward}} 积分奖励</text>
+  </view>
+
+  <!-- ★ 管理员编辑入口 -->
+  <view wx:if="{{isAdmin && task.status < 4}}" class="edit-entry-section">
+    <button class="edit-task-btn" bindtap="goEditTask">
+      <text class="edit-btn-icon">✎</text>
+      <text>编辑任务</text>
+    </button>
+  </view>
+
+  <!-- 执行记录 -->
+  <view class="timeline-section">
+    <text class="section-title">执行记录</text>
+    <view class="timeline">
+      <view wx:for="{{executionRecords}}" wx:key="id" class="timeline-item">
+        <view class="timeline-dot dot-{{item.action_type}}" />
+        <view class="timeline-content">
+          <view class="timeline-header">
+            <text class="timeline-action">{{item.actionLabel}}</text>
+            <text class="timeline-time">{{item.createdAtStr}}</text>
+          </view>
+          <text wx:if="{{item.note}}" class="timeline-note">{{item.note}}</text>
+          <view wx:if="{{item.photos && item.photos.length > 0}}" class="timeline-photos">
+            <image wx:for="{{item.photos}}" wx:key="*this" wx:for-item="photo" class="timeline-photo" src="{{photo}}" mode="aspectFill" bindtap="previewPhoto" data-url="{{photo}}" />
+          </view>
+          <view wx:if="{{item.count_delta}}" class="timeline-count"><text>+{{item.count_delta}} {{task.unit}}</text></view>
+        </view>
+      </view>
+      <view wx:if="{{executionRecords.length === 0}}" class="timeline-empty"><text>暂无执行记录</text></view>
+    </view>
+  </view>
+
+  <view class="safe-bottom" />
+</view>

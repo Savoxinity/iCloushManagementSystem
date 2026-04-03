@@ -1,0 +1,110 @@
+<!-- ============================================
+     任务列表页
+     ============================================ -->
+<view class="page-container">
+
+  <!-- 筛选栏 -->
+  <view class="filter-bar">
+    <scroll-view class="filter-scroll" scroll-x>
+      <view class="filter-inner">
+        <view
+          wx:for="{{statusFilters}}"
+          wx:key="value"
+          class="filter-chip {{activeStatus === item.value ? 'active' : ''}}"
+          bindtap="onStatusFilter"
+          data-value="{{item.value}}"
+        >
+          <text>{{item.label}}</text>
+          <text wx:if="{{item.count > 0}}" class="filter-count">{{item.count}}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 任务类型筛选 -->
+  <view class="type-filter-row">
+    <view
+      wx:for="{{typeFilters}}"
+      wx:key="value"
+      class="type-chip {{activeType === item.value ? 'active' : ''}}"
+      bindtap="onTypeFilter"
+      data-value="{{item.value}}"
+    >
+      <text>{{item.label}}</text>
+    </view>
+  </view>
+
+  <!-- 任务列表 -->
+  <view class="task-list">
+    <view
+      wx:for="{{filteredTasks}}"
+      wx:key="id"
+      class="task-card"
+      bindtap="onTaskTap"
+      data-task="{{item}}"
+    >
+      <!-- 优先级色条 -->
+      <view class="priority-bar priority-{{item.priority}}" />
+
+      <view class="task-card-body">
+        <!-- 头部 -->
+        <view class="task-card-header">
+          <view class="task-type-tag type-{{item.task_type}}">
+            <text>{{item.typeLabel}}</text>
+          </view>
+          <view class="task-status-tag status-{{item.status}}">
+            <text>{{item.statusLabel}}</text>
+          </view>
+        </view>
+
+        <!-- 标题 -->
+        <text class="task-card-title">{{item.title}}</text>
+
+        <!-- 元信息 -->
+        <view class="task-card-meta">
+          <view class="meta-item">
+            <text class="meta-icon">📍</text>
+            <text class="meta-text">{{item.zone_name}}</text>
+          </view>
+          <view wx:if="{{item.deadline}}" class="meta-item">
+            <text class="meta-icon">⏰</text>
+            <text class="meta-text deadline-text">{{item.deadlineText}}</text>
+          </view>
+        </view>
+
+        <!-- 进度条（计件任务） -->
+        <view wx:if="{{item.task_type === 'routine' && item.progress !== undefined}}" class="task-progress">
+          <view class="task-progress-track">
+            <view class="task-progress-fill" style="width:{{item.progressPct}}%;" />
+          </view>
+          <text class="task-progress-text">{{item.progress}}/{{item.target}} {{item.unit}}</text>
+        </view>
+
+        <!-- 底部 -->
+        <view class="task-card-footer">
+          <view class="task-assignee" wx:if="{{item.assigneeName}}">
+            <view class="assignee-dot" style="background:{{item.assigneeColor}};"></view>
+            <text class="assignee-name">{{item.assigneeName}}</text>
+          </view>
+          <view class="task-points-wrap">
+            <text class="task-points">+{{item.points_reward}}</text>
+            <text class="task-points-unit">分</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 空状态 -->
+    <view wx:if="{{filteredTasks.length === 0}}" class="empty-state">
+      <text class="empty-icon">📭</text>
+      <text class="empty-text">暂无任务</text>
+    </view>
+  </view>
+
+  <!-- 创建任务 FAB（主管及以上） -->
+  <view wx:if="{{canCreate}}" class="fab" bindtap="onCreateTask">
+    <text class="fab-icon">＋</text>
+  </view>
+
+  <view class="safe-bottom" />
+</view>

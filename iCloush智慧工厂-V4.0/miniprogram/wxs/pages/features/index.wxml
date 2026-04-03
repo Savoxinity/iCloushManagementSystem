@@ -1,0 +1,53 @@
+<!-- ============================================
+     功能金刚区页面
+     ============================================ -->
+<view class="page-container">
+
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view>
+      <text class="page-title">功能中心</text>
+      <text class="page-subtitle">选择功能模块进入操作</text>
+    </view>
+    <view class="header-badge">
+      <text class="badge-role">{{userRoleLabel}}</text>
+    </view>
+  </view>
+
+  <!-- 2×4 金刚区网格 -->
+  <view class="grid-container">
+    <view
+      wx:for="{{features}}"
+      wx:key="id"
+      class="grid-item {{item.disabled ? 'disabled' : ''}} {{item.hasAlert ? 'has-alert' : ''}}"
+      bindtap="onFeatureTap"
+      data-feature="{{item}}"
+    >
+      <!-- 告警角标 -->
+      <view wx:if="{{item.alertNum > 0}}" class="grid-alert-badge">
+        <text>{{item.alertNum}}</text>
+      </view>
+
+      <!-- 图标区域 -->
+      <view class="grid-icon-wrap" style="background:{{item.iconBg}};">
+        <text class="grid-icon">{{item.icon}}</text>
+      </view>
+
+      <!-- 文字 -->
+      <text class="grid-name">{{item.name}}</text>
+      <text class="grid-sub">{{item.sub}}</text>
+
+      <!-- 即将上线标签 -->
+      <view wx:if="{{item.comingSoon}}" class="coming-soon-tag">
+        <text>即将上线</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 版本信息 -->
+  <view class="version-info">
+    <text class="version-text">iCloush 智慧工厂 v1.0</text>
+  </view>
+
+  <view class="safe-bottom" />
+</view>

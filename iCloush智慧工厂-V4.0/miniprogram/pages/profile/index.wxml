@@ -1,0 +1,100 @@
+<!-- ============================================
+     我的页面
+     ============================================ -->
+<view class="page-container">
+
+  <!-- 员工卡牌区域 -->
+  <view class="card-hero">
+    <!-- 卡牌背景装饰 -->
+    <view class="card-bg-grid" />
+    <view class="card-bg-lines" />
+
+    <!-- 卡牌内容 -->
+    <view class="staff-card">
+      <!-- 头像 -->
+      <view class="card-avatar-wrap">
+        <view class="card-avatar" style="background:{{avatarColor}};">
+          <text class="card-avatar-initial">{{nameInitial}}</text>
+        </view>
+        <view class="card-online-dot" />
+      </view>
+
+      <!-- 基本信息 -->
+      <view class="card-info">
+        <text class="card-name">{{userInfo.name}}</text>
+        <view class="card-role-row">
+          <view class="card-role-tag">
+            <text>{{roleLabel}}</text>
+          </view>
+          <view wx:if="{{userInfo.is_multi_post}}" class="card-multi-tag">
+            <text>多岗位</text>
+          </view>
+          <view class="card-mode-tag" style="background:{{isAdmin ? 'rgba(201,168,76,0.15)' : 'rgba(59,130,246,0.15)'}};">
+            <text style="color:{{isAdmin ? '#C9A84C' : '#3B82F6'}};">{{isAdmin ? '管理员' : '员工版'}}</text>
+          </view>
+        </view>
+        <text class="card-dept">{{userInfo.department || '洗涤工厂'}}</text>
+      </view>
+
+      <!-- 积分 -->
+      <view class="card-points-wrap">
+        <text class="card-points-value">{{userInfo.points_balance || 0}}</text>
+        <text class="card-points-label">积分</text>
+      </view>
+    </view>
+
+    <!-- 技能标签 -->
+    <view class="skill-tags-row">
+      <view
+        wx:for="{{userInfo.skill_tags}}"
+        wx:key="*this"
+        class="skill-tag"
+      >
+        <text>{{item}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 今日数据 -->
+  <view class="today-stats-row">
+    <view class="today-stat" wx:for="{{todayStats}}" wx:key="label">
+      <text class="today-stat-value" style="color:{{item.color}};">{{item.value}}</text>
+      <text class="today-stat-label">{{item.label}}</text>
+    </view>
+  </view>
+
+  <!-- 快捷功能列表 -->
+  <view class="menu-section">
+    <view class="menu-group" wx:for="{{menuGroups}}" wx:key="title">
+      <text class="menu-group-title">{{item.title}}</text>
+      <view class="menu-list">
+        <view
+          wx:for="{{item.items}}"
+          wx:key="id"
+          wx:for-item="menu"
+          class="menu-item"
+          bindtap="onMenuTap"
+          data-menu="{{menu}}"
+        >
+          <view class="menu-item-left">
+            <view class="menu-icon-wrap" style="background:{{menu.iconBg}};">
+              <text class="menu-icon">{{menu.icon}}</text>
+            </view>
+            <text class="menu-name">{{menu.name}}</text>
+          </view>
+          <view class="menu-item-right">
+            <text wx:if="{{menu.badge}}" class="menu-badge">{{menu.badge}}</text>
+            <text class="menu-arrow">›</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 退出登录 -->
+  <view class="logout-wrap">
+    <button class="logout-btn" bindtap="onLogout">退出登录</button>
+  </view>
+
+  <view class="safe-bottom" />
+</view>

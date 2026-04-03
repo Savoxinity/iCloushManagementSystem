@@ -1,0 +1,53 @@
+<!-- 发票上传页 -->
+<view class="page-container">
+  <!-- 图片区域 -->
+  <view class="upload-area" bindtap="{{imageUrl || tempPath ? 'previewImage' : 'chooseInvoice'}}">
+    <block wx:if="{{tempPath || imageUrl}}">
+      <image src="{{imageUrl || tempPath}}" mode="aspectFit" class="preview-img" />
+      <view class="upload-hint" bindtap="chooseInvoice">点击重新选择</view>
+    </block>
+    <block wx:else>
+      <view class="upload-placeholder">
+        <text class="upload-icon">🧾</text>
+        <text class="upload-text">点击拍照或从相册选择发票</text>
+      </view>
+    </block>
+    <view wx:if="{{uploading}}" class="upload-loading">
+      <text>上传中...</text>
+    </view>
+  </view>
+
+  <!-- OCR 结果 / 手动填写区 -->
+  <view class="form-section" wx:if="{{imageUrl}}">
+    <view class="section-title">发票信息（可手动补充）</view>
+    <view class="form-item">
+      <text class="label">发票类型</text>
+      <input class="input" placeholder="如：增值税普通发票" data-field="invoice_type" bindinput="onFieldInput" />
+    </view>
+    <view class="form-item">
+      <text class="label">发票号码</text>
+      <input class="input" placeholder="发票号码" data-field="invoice_number" bindinput="onFieldInput" />
+    </view>
+    <view class="form-item">
+      <text class="label">开票日期</text>
+      <input class="input" placeholder="YYYY-MM-DD" data-field="invoice_date" bindinput="onFieldInput" />
+    </view>
+    <view class="form-item">
+      <text class="label">金额(元)</text>
+      <input class="input" type="digit" placeholder="价税合计" data-field="total_amount" bindinput="onFieldInput" />
+    </view>
+    <view class="form-item">
+      <text class="label">销方名称</text>
+      <input class="input" placeholder="销售方名称" data-field="seller_name" bindinput="onFieldInput" />
+    </view>
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="btn-area">
+    <button class="btn-submit {{submitDisabled || submitting ? 'btn-disabled' : ''}}"
+            disabled="{{submitDisabled || submitting}}"
+            bindtap="submitInvoice">
+      {{submitting ? '提交中...' : '提交发票'}}
+    </button>
+  </view>
+</view>

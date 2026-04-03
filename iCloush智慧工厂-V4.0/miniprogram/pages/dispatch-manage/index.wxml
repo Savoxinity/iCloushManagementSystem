@@ -1,0 +1,109 @@
+<!--
+  出车调度 — 车-线-人 三位一体
+  Phase 4 机动物流中台
+-->
+<view class="page-container">
+  <!-- 日期选择 -->
+  <view class="date-bar">
+    <picker mode="date" value="{{selectedDate}}" bindchange="changeDate">
+      <view class="date-picker">
+        <text class="date-icon">📅</text>
+        <text class="date-text">{{selectedDate}}</text>
+        <text class="date-arrow">▼</text>
+      </view>
+    </picker>
+    <view class="date-nav">
+      <view class="nav-btn" bindtap="prevDay">◀</view>
+      <view class="nav-btn today-btn" bindtap="goToday">今天</view>
+      <view class="nav-btn" bindtap="nextDay">▶</view>
+    </view>
+  </view>
+
+  <!-- 状态统计 -->
+  <view class="stats-bar">
+    <view class="stat-item" bindtap="filterByStatus" data-status="">
+      <text class="stat-num">{{stats.total}}</text>
+      <text class="stat-label">总计</text>
+    </view>
+    <view class="stat-item" bindtap="filterByStatus" data-status="pending">
+      <text class="stat-num stat-pending">{{stats.pending}}</text>
+      <text class="stat-label">待出车</text>
+    </view>
+    <view class="stat-item" bindtap="filterByStatus" data-status="delivering">
+      <text class="stat-num stat-delivering">{{stats.delivering}}</text>
+      <text class="stat-label">运送中</text>
+    </view>
+    <view class="stat-item" bindtap="filterByStatus" data-status="completed">
+      <text class="stat-num stat-completed">{{stats.completed}}</text>
+      <text class="stat-label">已完成</text>
+    </view>
+  </view>
+
+  <!-- 调度单列表 -->
+  <view wx:if="{{loading}}" class="loading-box">
+    <view class="loading-spinner"></view>
+    <text>加载中...</text>
+  </view>
+
+  <view wx:elif="{{dispatchList.length === 0}}" class="empty-box">
+    <text class="empty-text">{{selectedDate}} 暂无调度单</text>
+  </view>
+
+  <view wx:else class="dispatch-list">
+    <view wx:for="{{dispatchList}}" wx:key="id" class="dispatch-card" bindtap="goDispatchDetail" data-id="{{item.id}}">
+      <!-- 调度单头部 -->
+      <view class="dispatch-header">
+        <view class="dispatch-plate">
+          <text class="plate">{{item.vehicle.plate_number || '未知'}}</text>
+          <text class="route-name" wx:if="{{item.route}}">{{item.route.route_name}}</text>
+        </view>
+        <view class="dispatch-status status-{{item.status}}">
+          {{item.status === 'pending' ? '待出车' : item.status === 'delivering' ? '运送中' : item.status === 'completed' ? '已完成' : '已取消'}}
+        </view>
+      </view>
+
+      <!-- 调度信息 -->
+      <view class="dispatch-body">
+        <view class="dispatch-row">
+          <text class="row-label">🚗 司机</text>
+          <text class="row-value">{{item._driverName}}</text>
+        </view>
+        <view class="dispatch-row" wx:if="{{item.route}}">
+          <text class="row-label">📍 站点</text>
+          <text class="row-value">{{item.route.stop_count}} 个站点</text>
+        </view>
+        <view class="dispatch-row" wx:if="{{item.departed_at}}">
+          <text class="row-label">🕐 出发</text>
+          <text class="row-value">{{item._departedTime}}</text>
+        </view>
+        <view class="dispatch-row" wx:if="{{item.returned_at}}">
+          <text class="row-label">🕐 返回</text>
+          <text class="row-value">{{item._returnedTime}}</text>
+        </view>
+      </view>
+
+      <!-- 站点打卡进度 -->
+      <view wx:if="{{item.stop_checkins && item.stop_checkins.length > 0}}" class="checkin-progress">
+        <view class="progress-bar">
+          <view class="progress-fill" style="width: {{item._checkinPct}}%"></view>
+        </view>
+        <text class="progress-text">{{item._checkedCount}}/{{item.stop_checkins.length}} 站点已打卡</text>
+      </view>
+
+      <!-- 操作按钮 -->
+      <view class="dispatch-actions" wx:if="{{item.status === 'pending' || item.status === 'delivering'}}">
+        <button wx:if="{{item.status === 'pending'}}" class="action-btn btn-depart" catchtap="doDepart" data-id="{{item.id}}">
+          出发打卡
+        </button>
+        <button wx:if="{{item.status === 'delivering'}}" class="action-btn btn-return" catchtap="doReturn" data-id="{{item.id}}">
+          返回打卡
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部操作栏（管理员可见） -->
+  <view wx:if="{{isAdmin}}" class="bottom-bar">
+    <button class="btn-add" bindtap="goCreateDispatch">+ 创建调度单</button>
+  </view>
+</view>

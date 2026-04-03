@@ -1,0 +1,157 @@
+<!-- 员工管理页：员工档案 + 头像库选择 + 技能标签 -->
+<view class="page-container">
+  <!-- 搜索 + 新增 -->
+  <view class="top-bar">
+    <view class="search-box">
+      <text class="search-icon">🔍</text>
+      <input class="search-input" placeholder="搜索员工姓名..." placeholder-class="ph" bindinput="onSearch" value="{{searchKeyword}}" />
+    </view>
+    <view class="add-btn" bindtap="showAddModal"><text>+ 新增</text></view>
+  </view>
+
+  <!-- 筛选标签 -->
+  <scroll-view class="filter-scroll" scroll-x>
+    <view class="filter-row">
+      <view wx:for="{{roleFilters}}" wx:key="value" class="filter-chip {{activeRoleFilter === item.value ? 'active' : ''}}" bindtap="setRoleFilter" data-value="{{item.value}}">
+        <text>{{item.label}}</text>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- 员工列表 -->
+  <view class="staff-list">
+    <view wx:for="{{filteredStaff}}" wx:key="id" class="staff-card" bindtap="showStaffDetail" data-id="{{item.id}}">
+      <!-- 头像 -->
+      <view class="card-avatar" style="background:{{item.avatarColor}};">
+        <text class="card-initial">{{item.nameInitial}}</text>
+        <view class="avatar-badge role-{{item.role}}"><text>{{item.roleShort}}</text></view>
+      </view>
+      <!-- 基本信息 -->
+      <view class="card-info">
+        <view class="card-name-row">
+          <text class="card-name">{{item.name}}</text>
+          <view wx:if="{{item.is_multi_post}}" class="multi-tag"><text>多岗</text></view>
+        </view>
+        <text class="card-role">{{item.roleLabel}}</text>
+        <!-- 技能标签 -->
+        <view class="skill-tags">
+          <view wx:for="{{item.skills}}" wx:key="*this" wx:for-item="skill" class="skill-tag">
+            <text>{{skill}}</text>
+          </view>
+        </view>
+      </view>
+      <!-- 右侧状态 -->
+      <view class="card-right">
+        <view class="status-dot-sm status-{{item.status}}" />
+        <text class="card-points">{{item.total_points}}</text>
+        <text class="points-label">积分</text>
+        <text class="card-arrow">›</text>
+      </view>
+    </view>
+
+    <view wx:if="{{filteredStaff.length === 0}}" class="empty-state">
+      <text class="empty-icon">👥</text>
+      <text class="empty-text">暂无员工数据</text>
+    </view>
+  </view>
+
+  <!-- 员工详情/编辑弹窗 -->
+  <view wx:if="{{showDetailModal}}" class="modal-overlay" catchtap="closeDetailModal">
+    <view class="modal-box" catchtap="stopProp">
+      <!-- 弹窗标题 -->
+      <view class="modal-header">
+        <text class="modal-title">{{editMode ? '编辑员工' : '员工档案'}}</text>
+        <view wx:if="{{!editMode}}" class="edit-btn" bindtap="enterEditMode"><text>编辑</text></view>
+      </view>
+
+      <!-- 头像选择区 -->
+      <view class="avatar-select-section">
+        <text class="form-label">选择头像</text>
+        <scroll-view class="avatar-grid-scroll" scroll-x>
+          <view class="avatar-grid">
+            <view wx:for="{{avatarLibrary}}" wx:key="key" class="avatar-option {{currentStaff.avatar_key === item.key ? 'selected' : ''}}" bindtap="{{editMode ? 'selectAvatar' : ''}}" data-key="{{item.key}}" style="background:{{item.color}};">
+              <text class="avatar-option-initial">{{item.initial}}</text>
+              <text class="avatar-option-label">{{item.label}}</text>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- 基本信息 -->
+      <text class="form-label">姓名</text>
+      <view wx:if="{{editMode}}">
+        <input class="form-input" value="{{currentStaff.name}}" bindinput="onEditName" placeholder="请输入姓名" placeholder-class="ph" />
+      </view>
+      <text wx:else class="form-value">{{currentStaff.name}}</text>
+
+      <text class="form-label">角色</text>
+      <view wx:if="{{editMode}}" class="role-select-row">
+        <view wx:for="{{roleOptions}}" wx:key="value" class="role-option {{currentStaff.role === item.value ? 'active' : ''}}" bindtap="selectRole" data-value="{{item.value}}">
+          <text>{{item.label}}</text>
+        </view>
+      </view>
+      <text wx:else class="form-value">{{currentStaff.roleLabel}}</text>
+
+      <!-- 技能标签 -->
+      <text class="form-label">技能标签（工区资质）</text>
+      <view class="skill-edit-area">
+        <view wx:for="{{allSkills}}" wx:key="*this" wx:for-item="skill" class="skill-edit-chip {{currentStaff.skills && currentStaff.skills.includes(skill) ? 'active' : ''}}" bindtap="{{editMode ? 'toggleSkill' : ''}}" data-skill="{{skill}}">
+          <text>{{skill}}</text>
+        </view>
+      </view>
+
+      <!-- 多岗位开关 -->
+      <view class="switch-row">
+        <text class="switch-label">多岗位员工</text>
+        <switch checked="{{currentStaff.is_multi_post}}" bindchange="{{editMode ? 'toggleMultiPost' : ''}}" color="#C9A84C" />
+      </view>
+
+      <!-- 积分摘要（只读） -->
+      <view class="points-summary">
+        <view class="points-item"><text class="points-num gold">{{currentStaff.total_points}}</text><text class="points-desc">累计积分</text></view>
+        <view class="points-item"><text class="points-num">{{currentStaff.monthly_points}}</text><text class="points-desc">本月积分</text></view>
+        <view class="points-item"><text class="points-num green">{{currentStaff.task_completed}}</text><text class="points-desc">完成任务</text></view>
+      </view>
+
+      <!-- 操作按钮 -->
+      <view wx:if="{{editMode}}" class="modal-btns">
+        <button class="modal-btn-cancel" bindtap="cancelEdit">取消</button>
+        <button class="modal-btn-confirm" bindtap="saveStaff">保存</button>
+      </view>
+      <view wx:else class="modal-btns">
+        <button class="modal-btn-danger" bindtap="confirmDisable">停用账号</button>
+        <button class="modal-btn-close" bindtap="closeDetailModal">关闭</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 新增员工弹窗 -->
+  <view wx:if="{{showAddModal}}" class="modal-overlay" catchtap="closeAddModal">
+    <view class="modal-box" catchtap="stopProp">
+      <text class="modal-title">新增员工</text>
+      <text class="form-label">姓名</text>
+      <input class="form-input" value="{{newStaff.name}}" bindinput="onNewName" placeholder="请输入姓名" placeholder-class="ph" />
+      <text class="form-label">角色</text>
+      <view class="role-select-row">
+        <view wx:for="{{roleOptions}}" wx:key="value" class="role-option {{newStaff.role === item.value ? 'active' : ''}}" bindtap="selectNewRole" data-value="{{item.value}}">
+          <text>{{item.label}}</text>
+        </view>
+      </view>
+      <text class="form-label">选择头像</text>
+      <scroll-view class="avatar-grid-scroll" scroll-x>
+        <view class="avatar-grid">
+          <view wx:for="{{avatarLibrary}}" wx:key="key" class="avatar-option {{newStaff.avatar_key === item.key ? 'selected' : ''}}" bindtap="selectNewAvatar" data-key="{{item.key}}" style="background:{{item.color}};">
+            <text class="avatar-option-initial">{{item.initial}}</text>
+            <text class="avatar-option-label">{{item.label}}</text>
+          </view>
+        </view>
+      </scroll-view>
+      <view class="modal-btns">
+        <button class="modal-btn-cancel" bindtap="closeAddModal">取消</button>
+        <button class="modal-btn-confirm" bindtap="createStaff">创建账号</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="safe-bottom" />
+</view>

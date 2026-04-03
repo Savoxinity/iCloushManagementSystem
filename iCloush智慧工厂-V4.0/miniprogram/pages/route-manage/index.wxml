@@ -1,0 +1,65 @@
+<!--
+  排线管理 — 送货排线 CRUD
+  Phase 4 机动物流中台
+-->
+<view class="page-container">
+  <view class="page-header">
+    <text class="page-title">送货排线</text>
+    <text class="page-subtitle">管理固定送货路线与客户站点</text>
+  </view>
+
+  <!-- 排线列表 -->
+  <view wx:if="{{loading}}" class="loading-box">
+    <view class="loading-spinner"></view>
+    <text>加载中...</text>
+  </view>
+
+  <view wx:elif="{{routeList.length === 0}}" class="empty-box">
+    <text>暂无排线数据</text>
+    <text class="empty-hint">点击下方按钮创建第一条排线</text>
+  </view>
+
+  <view wx:else class="route-list">
+    <view wx:for="{{routeList}}" wx:key="id" class="route-card" bindtap="goRouteDetail" data-id="{{item.id}}">
+      <view class="route-header">
+        <view class="route-info">
+          <text class="route-name">{{item.route_name}}</text>
+          <text class="route-desc" wx:if="{{item.description}}">{{item.description}}</text>
+        </view>
+        <view class="route-meta">
+          <text class="stop-count">{{item.stop_count}} 站</text>
+        </view>
+      </view>
+
+      <!-- 站点预览 -->
+      <view class="stops-preview" wx:if="{{item.stops && item.stops.length > 0}}">
+        <view class="stop-timeline">
+          <view wx:for="{{item.stops}}" wx:for-item="stop" wx:key="seq" class="stop-node">
+            <view class="stop-dot {{index === 0 ? 'first' : index === item.stops.length - 1 ? 'last' : ''}}"></view>
+            <view class="stop-info">
+              <text class="stop-name">{{stop.client_name}}</text>
+              <text class="stop-eta" wx:if="{{stop.expected_eta}}">ETA {{stop.expected_eta}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 底部信息 -->
+      <view class="route-footer">
+        <view class="footer-item" wx:if="{{item.estimated_duration_min}}">
+          <text class="footer-icon">⏱</text>
+          <text>{{item.estimated_duration_min}} 分钟</text>
+        </view>
+        <view class="footer-item" wx:if="{{item.estimated_distance_km}}">
+          <text class="footer-icon">📏</text>
+          <text>{{item.estimated_distance_km}} km</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部操作栏（管理员可见） -->
+  <view wx:if="{{isAdmin}}" class="bottom-bar">
+    <button class="btn-add" bindtap="goCreateRoute">+ 新增排线</button>
+  </view>
+</view>

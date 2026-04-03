@@ -1,0 +1,82 @@
+<!-- 积分商城页面 -->
+<view class="page-container">
+  <view class="points-hero">
+    <view class="points-hero-left">
+      <text class="points-label">我的积分</text>
+      <text class="points-value">{{myPoints}}</text>
+      <text class="points-sub">本月获得 +{{monthlyPoints}} 分</text>
+    </view>
+    <view class="points-hero-right"><text class="points-icon">🏆</text></view>
+  </view>
+  <view class="tab-bar">
+    <view class="tab-item {{activeTab === 'mall' ? 'active' : ''}}" bindtap="switchTab" data-tab="mall"><text>积分商城</text></view>
+    <view class="tab-item {{activeTab === 'ledger' ? 'active' : ''}}" bindtap="switchTab" data-tab="ledger"><text>积分明细</text></view>
+    <view class="tab-item {{activeTab === 'exchange' ? 'active' : ''}}" bindtap="switchTab" data-tab="exchange"><text>兑换记录</text></view>
+  </view>
+  <view wx:if="{{activeTab === 'mall'}}" class="mall-grid">
+    <view wx:for="{{mallItems}}" wx:key="id" class="mall-card" bindtap="onItemTap" data-item="{{item}}">
+      <view class="mall-card-icon">{{item.icon}}</view>
+      <text class="mall-card-name">{{item.name}}</text>
+      <text class="mall-card-desc">{{item.description}}</text>
+      <view class="mall-card-footer">
+        <view class="mall-card-cost">
+          <text class="cost-icon">⭐</text>
+          <text class="cost-value">{{item.points_cost}}</text>
+          <text class="cost-unit">积分</text>
+        </view>
+        <view class="mall-card-stock {{item.stock <= 3 ? 'low' : ''}}"><text>剩余 {{item.stock}}</text></view>
+      </view>
+      <view wx:if="{{myPoints < item.points_cost}}" class="insufficient-mask">
+        <text class="insufficient-text">积分不足</text>
+      </view>
+    </view>
+  </view>
+  <view wx:if="{{activeTab === 'ledger'}}" class="ledger-list">
+    <view wx:if="{{ledgerRecords.length === 0}}" class="empty-state">
+      <text class="empty-icon">📋</text><text class="empty-text">暂无积分记录</text>
+    </view>
+    <view wx:for="{{ledgerRecords}}" wx:key="id" class="ledger-item">
+      <view class="ledger-left">
+        <text class="ledger-reason">{{item.reason}}</text>
+        <text class="ledger-time">{{item.timeStr}}</text>
+      </view>
+      <text class="ledger-delta {{item.delta > 0 ? 'positive' : 'negative'}}">{{item.delta > 0 ? '+' : ''}}{{item.delta}}</text>
+    </view>
+  </view>
+  <view wx:if="{{activeTab === 'exchange'}}" class="exchange-list">
+    <view wx:if="{{exchangeRecords.length === 0}}" class="empty-state">
+      <text class="empty-icon">🛒</text><text class="empty-text">暂无兑换记录</text>
+    </view>
+    <view wx:for="{{exchangeRecords}}" wx:key="id" class="exchange-item">
+      <text class="exchange-icon">{{item.icon}}</text>
+      <view class="exchange-info">
+        <text class="exchange-name">{{item.name}}</text>
+        <text class="exchange-time">{{item.timeStr}}</text>
+      </view>
+      <view class="exchange-right">
+        <text class="exchange-cost">-{{item.points_cost}}</text>
+        <view class="exchange-status {{item.status}}"><text>{{item.statusLabel}}</text></view>
+      </view>
+    </view>
+  </view>
+</view>
+<view wx:if="{{showItemModal}}" class="modal-overlay" bindtap="closeModal">
+  <view class="item-modal" catchtap="">
+    <view class="item-modal-header">
+      <text class="item-modal-icon">{{currentItem.icon}}</text>
+      <text class="item-modal-title">{{currentItem.name}}</text>
+    </view>
+    <text class="item-modal-desc">{{currentItem.description}}</text>
+    <view class="item-modal-info">
+      <view class="info-row"><text class="info-label">所需积分</text><text class="info-value gold">{{currentItem.points_cost}} 积分</text></view>
+      <view class="info-row"><text class="info-label">剩余库存</text><text class="info-value">{{currentItem.stock}} 件</text></view>
+      <view class="info-row"><text class="info-label">我的积分</text><text class="info-value {{myPoints >= currentItem.points_cost ? 'green' : 'red'}}">{{myPoints}} 积分</text></view>
+    </view>
+    <view class="item-modal-actions">
+      <button class="btn-cancel" bindtap="closeModal">取消</button>
+      <button class="btn-exchange {{myPoints < currentItem.points_cost || currentItem.stock <= 0 ? 'disabled' : ''}}" bindtap="confirmExchange" disabled="{{myPoints < currentItem.points_cost || currentItem.stock <= 0 || exchanging}}">
+        {{exchanging ? '兑换中...' : myPoints < currentItem.points_cost ? '积分不足' : '确认兑换'}}
+      </button>
+    </view>
+  </view>
+</view>

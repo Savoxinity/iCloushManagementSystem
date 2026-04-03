@@ -1,0 +1,187 @@
+/* 物流仪表盘 — Phase 4 机动物流中台 */
+
+.page-container {
+  min-height: 100vh;
+  background: #f5f6fa;
+  padding-bottom: 40rpx;
+}
+
+/* ── 顶部 ── */
+.dashboard-header {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  padding: 60rpx 32rpx 40rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.header-title {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #fff;
+}
+
+.header-date {
+  font-size: 24rpx;
+  color: rgba(255,255,255,0.6);
+}
+
+/* ── 通用区块 ── */
+.section {
+  margin: 20rpx 24rpx;
+}
+
+.section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 16rpx;
+}
+
+/* ── 车辆状态概览 ── */
+.fleet-overview {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16rpx;
+}
+
+.fleet-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx 0;
+  text-align: center;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+
+.fleet-num {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #333;
+}
+
+.fleet-label {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+.fleet-card.idle .fleet-num { color: #16a34a; }
+.fleet-card.delivering .fleet-num { color: #2563eb; }
+.fleet-card.maintenance .fleet-num { color: #dc2626; }
+
+/* ── KPI 卡片 ── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+}
+
+.kpi-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 28rpx;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+
+.kpi-num {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #1a73e8;
+}
+
+.alert-num {
+  color: #dc2626;
+}
+
+.kpi-label {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+.kpi-icon {
+  position: absolute;
+  right: 20rpx;
+  top: 20rpx;
+  font-size: 40rpx;
+  opacity: 0.3;
+}
+
+/* ── 趋势图 ── */
+.trend-chart {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  min-height: 300rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+
+.no-data {
+  text-align: center;
+  color: #999;
+  font-size: 26rpx;
+  padding: 80rpx 0;
+}
+
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  height: 240rpx;
+  padding-top: 20rpx;
+}
+
+.bar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.bar-value {
+  font-size: 22rpx;
+  color: #666;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+
+.bar {
+  width: 40rpx;
+  background: linear-gradient(180deg, #1a73e8, #4a90d9);
+  border-radius: 8rpx 8rpx 0 0;
+  min-height: 8rpx;
+  transition: height 0.3s;
+}
+
+.bar-label {
+  font-size: 20rpx;
+  color: #999;
+  margin-top: 8rpx;
+}
+
+/* ── 快捷入口 ── */
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16rpx;
+}
+
+.quick-item {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 28rpx 0;
+  text-align: center;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+
+.quick-icon {
+  font-size: 40rpx;
+  margin-bottom: 8rpx;
+}
+
+.quick-item text {
+  font-size: 22rpx;
+  color: #666;
+}

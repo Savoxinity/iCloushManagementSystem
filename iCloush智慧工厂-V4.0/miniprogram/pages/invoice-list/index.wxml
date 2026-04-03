@@ -1,0 +1,35 @@
+<!-- 发票列表页 -->
+<view class="page-container">
+  <view class="header-bar">
+    <text class="page-title">我的发票</text>
+    <view class="btn-upload" bindtap="goUpload">+ 上传发票</view>
+  </view>
+
+  <view wx:if="{{loading && invoices.length === 0}}" class="empty-state">
+    <text class="empty-text">加载中...</text>
+  </view>
+
+  <view wx:elif="{{invoices.length === 0}}" class="empty-state">
+    <text class="empty-icon">🧾</text>
+    <text class="empty-text">暂无发票记录</text>
+    <view class="btn-action" bindtap="goUpload">去上传发票</view>
+  </view>
+
+  <view wx:else class="invoice-list">
+    <view class="invoice-card" wx:for="{{invoices}}" wx:key="id" bindtap="goDetail" data-id="{{item.id}}">
+      <view class="card-top">
+        <text class="inv-type">{{item.invoice_type || '发票'}}</text>
+        <text class="inv-status {{item.verify_status}}">{{item.verify_status_label}}</text>
+      </view>
+      <view class="card-body">
+        <text class="inv-amount">¥ {{item.total_amount || '--'}}</text>
+        <text class="inv-seller">{{item.seller_name || '未识别'}}</text>
+      </view>
+      <view class="card-bottom">
+        <text class="inv-number">{{item.invoice_number || ''}}</text>
+        <text class="inv-date">{{item.invoice_date || item.created_at}}</text>
+      </view>
+      <image wx:if="{{item.image_url}}" src="{{item.image_url}}" class="inv-thumb" mode="aspectFill" bindtap="previewImage" data-url="{{item.image_url}}" catchtap="previewImage" />
+    </view>
+  </view>
+</view>

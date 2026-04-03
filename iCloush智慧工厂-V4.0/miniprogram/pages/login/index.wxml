@@ -1,0 +1,104 @@
+<!-- ============================================
+  终端接入登录页 — Terminal Access V6
+  登录方式：账号 + 密码
+  ============================================ -->
+<view class="login-page">
+  <!-- 背景网格 -->
+  <view class="grid-bg"></view>
+
+  <!-- 扫描线动画 -->
+  <view class="scan-line {{scanActive ? 'active' : ''}}" wx:if="{{scanActive}}"></view>
+
+  <!-- 顶部品牌区 -->
+  <view class="brand-area">
+    <image class="brand-logo" src="/images/icons/logo.png" mode="aspectFit" />
+    <view class="brand-text">
+      <text class="brand-name">iCloush LAB.</text>
+      <text class="brand-sub">TERMINAL ACCESS // 终端授权接入</text>
+    </view>
+  </view>
+
+  <!-- 终端日志区 -->
+  <scroll-view class="terminal-box" scroll-y="true" scroll-into-view="line-{{terminalLines.length - 1}}">
+    <view
+      wx:for="{{terminalLines}}"
+      wx:key="index"
+      id="line-{{index}}"
+      class="terminal-line {{index === terminalLines.length - 1 ? 'latest' : ''}}"
+    >
+      <text>{{item}}</text>
+    </view>
+    <view class="cursor-blink" wx:if="{{!bootDone}}">_</view>
+  </scroll-view>
+
+  <!-- 验证表单 -->
+  <view class="form-area {{showForm ? 'visible' : ''}}">
+    <!-- 验证结果指示 -->
+    <view class="result-badge {{showResult ? 'visible' : ''}} {{resultSuccess ? 'success' : 'fail'}}" wx:if="{{showResult}}">
+      <text class="result-icon">{{resultSuccess ? '✓' : '✗'}}</text>
+      <text class="result-text">{{resultSuccess ? 'ACCESS GRANTED' : 'ACCESS DENIED'}}</text>
+    </view>
+
+    <view class="form-title">
+      <text class="form-title-icon">⬡</text>
+      <text class="form-title-text">OPERATOR VERIFICATION</text>
+    </view>
+
+    <view class="input-group">
+      <text class="input-label">ACCOUNT / 登录账号</text>
+      <view class="input-wrapper {{username ? 'has-value' : ''}}">
+        <input
+          class="input-field"
+          type="text"
+          maxlength="20"
+          placeholder="输入登录账号"
+          placeholder-class="input-placeholder"
+          value="{{username}}"
+          bindinput="onUsernameInput"
+        />
+      </view>
+    </view>
+
+    <view class="input-group">
+      <text class="input-label">PASSWORD / 登录密码</text>
+      <view class="input-wrapper {{password ? 'has-value' : ''}}">
+        <input
+          class="input-field"
+          type="text"
+          password="{{!showPassword}}"
+          maxlength="20"
+          placeholder="输入登录密码"
+          placeholder-class="input-placeholder"
+          value="{{password}}"
+          bindinput="onPasswordInput"
+        />
+        <view class="toggle-pwd" bindtap="toggleShowPassword">
+          <text>{{showPassword ? '🙈' : '👁'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 错误提示 -->
+    <view class="form-error" wx:if="{{formError}}">
+      <text class="error-icon">⚠</text>
+      <text>{{formError}}</text>
+    </view>
+
+    <!-- 提交按钮 -->
+    <button class="submit-btn" bindtap="onSubmit" disabled="{{showResult && resultSuccess}}">
+      <text class="btn-icon">◈</text>
+      <text class="btn-text">LOGIN / 登录系统</text>
+    </button>
+
+    <!-- 底部提示 -->
+    <view class="form-footer">
+      <text class="footer-text">账号密码由管理员在「员工管理」中创建</text>
+      <text class="footer-text">如忘记密码，请联系厂长或管理员重置</text>
+    </view>
+  </view>
+
+  <!-- 底部版本号 -->
+  <view class="version-bar">
+    <text class="version-text">iCloush FACTORY OS {{version}} // SECURE CONNECTION</text>
+  </view>
+</view>

@@ -1,0 +1,117 @@
+<!-- ============================================
+     工区详情页
+     ============================================ -->
+<view class="page-container">
+
+  <!-- 工区状态头部 -->
+  <view class="zone-hero" style="border-bottom-color:{{zoneColor}}40;">
+    <view class="zone-hero-dot" style="background:{{zoneColor}};box-shadow:0 0 16rpx {{zoneColor}};"></view>
+    <view class="zone-hero-info">
+      <text class="zone-hero-name">{{zoneName}}</text>
+      <view class="zone-hero-status tag-{{zoneStatus}}">
+        <text>{{zoneStatusLabel}}</text>
+      </view>
+    </view>
+    <view class="zone-hero-iot">
+      <text class="iot-summary">{{iotSummary}}</text>
+    </view>
+  </view>
+
+  <!-- Tab 切换 -->
+  <view class="tab-bar">
+    <view
+      wx:for="{{tabs}}"
+      wx:key="key"
+      class="tab-item {{activeTab === item.key ? 'active' : ''}}"
+      bindtap="switchTab"
+      data-key="{{item.key}}"
+    >
+      <text>{{item.label}}</text>
+    </view>
+  </view>
+
+  <!-- Tab 内容：设备/车辆 -->
+  <view wx:if="{{activeTab === 'devices'}}" class="tab-content">
+    <view
+      wx:for="{{devices}}"
+      wx:key="id"
+      class="device-card"
+    >
+      <view class="device-card-left">
+        <view class="device-icon-wrap" style="background:{{item.iconBg}};">
+          <text class="device-icon">{{item.icon}}</text>
+        </view>
+        <view class="device-info">
+          <text class="device-name">{{item.name}}</text>
+          <text class="device-sub">{{item.sub}}</text>
+        </view>
+      </view>
+      <view class="device-card-right">
+        <view class="device-status-tag tag-{{item.statusKey}}">
+          <text>{{item.statusLabel}}</text>
+        </view>
+        <text class="device-value">{{item.value}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Tab 内容：今日排班 -->
+  <view wx:if="{{activeTab === 'schedule'}}" class="tab-content">
+    <view class="schedule-date-header">
+      <text class="schedule-date">{{todayStr}} 排班</text>
+    </view>
+    <view
+      wx:for="{{todaySchedule}}"
+      wx:key="id"
+      class="schedule-row"
+    >
+      <view class="schedule-avatar" style="background:{{item.avatarColor}};">
+        <text class="schedule-initial">{{item.nameInitial}}</text>
+      </view>
+      <view class="schedule-info">
+        <text class="schedule-name">{{item.name}}</text>
+        <view class="schedule-tags">
+          <view wx:for="{{item.skill_tags}}" wx:key="*this" wx:for-item="tag" class="schedule-skill-tag">
+            <text>{{tag}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="schedule-shift">
+        <text class="shift-label">{{item.shift_type === 'morning' ? '早班' : item.shift_type === 'evening' ? '晚班' : '全天'}}</text>
+        <view class="checkin-status {{item.checked_in ? 'checked' : 'unchecked'}}">
+          <text>{{item.checked_in ? '✓ 已打卡' : '未打卡'}}</text>
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{todaySchedule.length === 0}}" class="empty-state">
+      <text>今日暂无排班</text>
+    </view>
+  </view>
+
+  <!-- Tab 内容：今日任务 -->
+  <view wx:if="{{activeTab === 'tasks'}}" class="tab-content">
+    <view
+      wx:for="{{zoneTasks}}"
+      wx:key="id"
+      class="zone-task-item"
+      bindtap="onTaskTap"
+      data-task="{{item}}"
+    >
+      <view class="zone-task-left">
+        <view class="task-priority-bar priority-{{item.priority}}" />
+        <view>
+          <text class="zone-task-title">{{item.title}}</text>
+          <text class="zone-task-sub">{{item.typeLabel}} · +{{item.points_reward}}分</text>
+        </view>
+      </view>
+      <view class="zone-task-status tag-status-{{item.status}}">
+        <text>{{item.statusLabel}}</text>
+      </view>
+    </view>
+    <view wx:if="{{zoneTasks.length === 0}}" class="empty-state">
+      <text>今日暂无任务</text>
+    </view>
+  </view>
+
+  <view class="safe-bottom" />
+</view>

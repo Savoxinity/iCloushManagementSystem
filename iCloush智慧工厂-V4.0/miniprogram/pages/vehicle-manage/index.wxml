@@ -1,0 +1,128 @@
+<!--
+  车队管理 — 车辆台账 + 四险一金预警
+  Phase 4 机动物流中台
+-->
+<view class="page-container">
+  <!-- 顶部标签栏 -->
+  <view class="tab-bar">
+    <view class="tab-item {{activeTab === 'list' ? 'active' : ''}}" bindtap="switchTab" data-tab="list">
+      <text>车辆列表</text>
+    </view>
+    <view class="tab-item {{activeTab === 'alerts' ? 'active' : ''}}" bindtap="switchTab" data-tab="alerts">
+      <text>预警中心</text>
+      <view wx:if="{{alertCount > 0}}" class="badge">{{alertCount}}</view>
+    </view>
+  </view>
+
+  <!-- 车辆列表 -->
+  <view wx:if="{{activeTab === 'list'}}" class="list-section">
+    <!-- 状态筛选 -->
+    <view class="filter-bar">
+      <view class="filter-item {{statusFilter === '' ? 'active' : ''}}" bindtap="setStatusFilter" data-status="">全部</view>
+      <view class="filter-item {{statusFilter === 'idle' ? 'active' : ''}}" bindtap="setStatusFilter" data-status="idle">待命</view>
+      <view class="filter-item {{statusFilter === 'delivering' ? 'active' : ''}}" bindtap="setStatusFilter" data-status="delivering">运送中</view>
+      <view class="filter-item {{statusFilter === 'maintenance' ? 'active' : ''}}" bindtap="setStatusFilter" data-status="maintenance">维修中</view>
+    </view>
+
+    <!-- 车辆卡片列表 -->
+    <view wx:if="{{loading}}" class="loading-box">
+      <view class="loading-spinner"></view>
+      <text>加载中...</text>
+    </view>
+
+    <view wx:elif="{{vehicleList.length === 0}}" class="empty-box">
+      <image src="/images/empty.png" mode="aspectFit" class="empty-icon"></image>
+      <text>暂无车辆数据</text>
+    </view>
+
+    <view wx:else class="vehicle-list">
+      <view wx:for="{{vehicleList}}" wx:key="id" class="vehicle-card" bindtap="goDetail" data-id="{{item.id}}">
+        <!-- 车辆头部 -->
+        <view class="card-header">
+          <view class="plate-number">
+            <text class="plate-text">{{item.plate_number}}</text>
+            <text class="vehicle-type type-{{item.vehicle_type}}">{{item.vehicle_type === 'large' ? '大型' : item.vehicle_type === 'medium' ? '中型' : '小型'}}</text>
+          </view>
+          <view class="status-tag status-{{item.status}}">
+            {{item.status === 'idle' ? '待命' : item.status === 'delivering' ? '运送中' : '维修中'}}
+          </view>
+        </view>
+
+        <!-- 车辆信息 -->
+        <view class="card-body">
+          <view class="info-row">
+            <text class="info-label">品牌</text>
+            <text class="info-value">{{item.brand || '-'}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">里程</text>
+            <text class="info-value">{{item.mileage}} km</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">载重</text>
+            <text class="info-value">{{item.load_capacity}} {{item.load_unit}}</text>
+          </view>
+        </view>
+
+        <!-- 到期预警条 -->
+        <view wx:if="{{item._alerts && item._alerts.length > 0}}" class="alert-strip">
+          <view wx:for="{{item._alerts}}" wx:for-item="alert" wx:key="type" class="alert-tag alert-{{alert.level}}">
+            {{alert.label}} {{alert.remaining_days < 0 ? '已过期' + (-alert.remaining_days) + '天' : alert.remaining_days + '天后到期'}}
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 预警中心 -->
+  <view wx:if="{{activeTab === 'alerts'}}" class="alerts-section">
+    <view class="alert-header">
+      <text class="alert-title">四险一金预警</text>
+      <picker mode="selector" range="{{alertDaysOptions}}" range-key="label" value="{{alertDaysIndex}}" bindchange="changeAlertDays">
+        <view class="days-picker">{{alertDaysOptions[alertDaysIndex].label}} ▼</view>
+      </picker>
+    </view>
+
+    <view wx:if="{{alertLoading}}" class="loading-box">
+      <view class="loading-spinner"></view>
+      <text>加载预警数据...</text>
+    </view>
+
+    <view wx:elif="{{alertList.length === 0}}" class="empty-box">
+      <image src="/images/safe.png" mode="aspectFit" class="empty-icon"></image>
+      <text>太棒了！暂无预警</text>
+    </view>
+
+    <view wx:else class="alert-list">
+      <view wx:for="{{alertList}}" wx:key="index" class="alert-card">
+        <view class="alert-card-header">
+          <text class="alert-plate">{{item.vehicle.plate_number}}</text>
+          <text class="alert-brand">{{item.vehicle.brand || ''}}</text>
+        </view>
+        <view class="alert-items">
+          <view wx:for="{{item.alerts}}" wx:for-item="a" wx:key="type" class="alert-item alert-item-{{a.level}}">
+            <view class="alert-icon">
+              <text wx:if="{{a.level === 'expired'}}">🔴</text>
+              <text wx:elif="{{a.level === 'urgent'}}">🟡</text>
+              <text wx:else>🟢</text>
+            </view>
+            <view class="alert-info">
+              <text class="alert-name">{{a.label}}</text>
+              <text class="alert-date">到期日: {{a.due_date}}</text>
+            </view>
+            <view class="alert-days {{a.level}}">
+              <text wx:if="{{a.remaining_days < 0}}">已过期 {{-a.remaining_days}} 天</text>
+              <text wx:elif="{{a.remaining_days === 0}}">今天到期</text>
+              <text wx:else>剩余 {{a.remaining_days}} 天</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部操作栏（管理员可见） -->
+  <view wx:if="{{isAdmin}}" class="bottom-bar">
+    <button class="btn-add" bindtap="goAddVehicle">+ 新增车辆</button>
+  </view>
+</view>

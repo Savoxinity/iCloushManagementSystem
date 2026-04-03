@@ -1,0 +1,321 @@
+<!-- ============================================
+     iCloush 智慧工厂 — 总览页
+     ============================================ -->
+<view class="page-container">
+
+  <!-- ===== 顶部导航栏 ===== -->
+  <view class="top-bar">
+    <view class="top-bar-left">
+      <image class="logo" src="/images/icons/logo.png" mode="aspectFit" />
+      <view>
+        <text class="brand-name">iCloush 智慧工厂</text>
+        <text class="date-text">{{todayStr}}</text>
+      </view>
+    </view>
+    <view class="top-bar-right">
+      <view class="alert-badge {{alertCount > 0 ? 'has-alert' : ''}}" bindtap="onAlertTap">
+        <text class="alert-icon">⚠</text>
+        <text wx:if="{{alertCount > 0}}" class="alert-num">{{alertCount}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ===== 今日数据大盘 ===== -->
+  <view class="stats-row">
+    <view class="stat-item" wx:for="{{todayStats}}" wx:key="key">
+      <text class="stat-value {{item.color}}">{{item.value}}</text>
+      <text class="stat-label">{{item.label}}</text>
+    </view>
+  </view>
+
+  <!-- ===== 2.5D 工厂可视化区域 ===== -->
+  <view class="factory-section">
+    <view class="section-header">
+      <text class="section-title">工厂实时沙盘</text>
+      <view class="floor-tabs">
+        <view class="floor-tab {{activeFloor === 1 ? 'active' : ''}}" bindtap="switchFloor" data-floor="{{1}}">
+          <text>F1 重工区</text>
+        </view>
+        <view class="floor-tab {{activeFloor === 2 ? 'active' : ''}}" bindtap="switchFloor" data-floor="{{2}}">
+          <text>F2 精洗区</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 工厂等轴测底图容器 -->
+    <view class="factory-map">
+      <!-- 网格地面 -->
+      <view class="factory-floor-grid" />
+
+      <!-- 楼层标签 -->
+      <view class="floor-label">
+        <text class="floor-label-text">{{activeFloor === 1 ? '一楼 · 重工业区' : '二楼 · 精洗区'}}</text>
+      </view>
+
+      <!-- 工区热区（动态渲染） -->
+      <view
+        wx:for="{{currentFloorZones}}"
+        wx:key="id"
+        class="zone-hotspot {{item.status === 'alert' ? 'zone-alert' : ''}} {{item.status === 'idle' ? 'zone-idle' : ''}}"
+        style="left:{{item.pos.left}};top:{{item.pos.top}};width:{{item.pos.width}};height:{{item.pos.height}};border-color:{{item.color}};"
+        bindtap="onZoneTap"
+        data-zone="{{item}}"
+      >
+        <!-- 区域顶部标题栏 -->
+        <view class="zone-title-bar" style="background:{{item.color}}20;border-bottom-color:{{item.color}}40;">
+          <view class="zone-status-dot" style="background:{{item.color}};box-shadow:0 0 6rpx {{item.color}};"></view>
+          <text class="zone-name">{{item.name}}</text>
+        </view>
+
+        <!-- 区域数据 -->
+        <view class="zone-body">
+          <text class="zone-iot-text">{{item.iot_summary_text}}</text>
+          <view class="zone-staff-row">
+            <text class="zone-staff-icon">👷</text>
+            <text class="zone-staff-count">{{item.staff_count}}/{{item.capacity}}</text>
+          </view>
+        </view>
+
+        <!-- 报警闪烁遮罩 -->
+        <view wx:if="{{item.status === 'alert'}}" class="alert-overlay alert-pulse" />
+      </view>
+
+      <!-- Pipeline 管线连接线 -->
+      <block wx:for="{{pipelineLines}}" wx:key="id">
+        <view class="pipeline-line pipeline-{{item.direction}}" style="left:{{item.x1}};top:{{item.y1}};">
+          <text wx:if="{{item.label}}" class="pipeline-label">{{item.label}}</text>
+        </view>
+      </block>
+
+      <!-- 空状态提示 -->
+      <view wx:if="{{currentFloorZones.length === 0}}" class="factory-empty">
+        <text>暂无工区数据</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ===== 排班沙盘区域 ===== -->
+  <view class="schedule-section">
+    <view class="section-header">
+      <text class="section-title">今日排班沙盘</text>
+      <view class="section-action" bindtap="goSchedule">
+        <text class="action-text">管理排班 ›</text>
+      </view>
+    </view>
+
+    <!-- 未分配员工池 -->
+    <view class="unassigned-pool">
+      <text class="pool-label">待分配 ({{unassignedStaff.length}})</text>
+      <scroll-view class="pool-scroll" scroll-x>
+        <view class="pool-inner">
+          <view
+            wx:for="{{unassignedStaff}}"
+            wx:key="id"
+            class="staff-card-mini"
+            bindtap="onStaffTap"
+            data-staff="{{item}}"
+          >
+            <!-- 头像色块（第一阶段：用颜色+首字母代替图片） -->
+            <view class="avatar-circle" style="background:{{item.avatarColor}};">
+              <text class="avatar-initial">{{item.nameInitial}}</text>
+            </view>
+            <text class="staff-name-mini">{{item.name}}</text>
+            <view class="skill-dots">
+              <view wx:for="{{item.skill_tags}}" wx:key="*this" wx:for-item="tag" class="skill-dot" />
+            </view>
+          </view>
+          <view wx:if="{{unassignedStaff.length === 0}}" class="pool-empty">
+            <text>全员已分配</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 工区排班格 -->
+    <view class="zone-slots">
+      <view
+        wx:for="{{scheduleSlots}}"
+        wx:key="zone_id"
+        class="zone-slot-card"
+      >
+        <view class="slot-header">
+          <view class="slot-dot" style="background:{{item.color}};"></view>
+          <text class="slot-zone-name">{{item.zone_name}}</text>
+          <text class="slot-count">{{item.assigned.length}}/{{item.capacity}}</text>
+        </view>
+        <view class="slot-staff-list">
+          <view
+            wx:for="{{item.assigned}}"
+            wx:key="id"
+            wx:for-item="staff"
+            class="slot-staff-chip"
+            bindtap="onStaffTap"
+            data-staff="{{staff}}"
+          >
+            <view class="chip-avatar" style="background:{{staff.avatarColor}};">
+              <text class="chip-initial">{{staff.nameInitial}}</text>
+            </view>
+            <text class="chip-name">{{staff.name}}</text>
+          </view>
+          <view wx:if="{{item.assigned.length === 0}}" class="slot-empty-hint">
+            <text>点击员工卡片分配</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ===== 今日任务快览 ===== -->
+  <view class="task-section">
+    <view class="section-header">
+      <text class="section-title">今日任务</text>
+      <view class="section-action" bindtap="goTaskList">
+        <text class="action-text">全部 ›</text>
+      </view>
+    </view>
+
+    <view class="task-progress-bar-wrap">
+      <view class="task-progress-labels">
+        <text class="progress-label">完成进度</text>
+        <text class="progress-value">{{taskStats.done}}/{{taskStats.total}}</text>
+      </view>
+      <view class="task-progress-track">
+        <view class="task-progress-fill" style="width:{{taskProgressPct}}%;"></view>
+      </view>
+    </view>
+
+    <view class="task-status-row">
+      <view class="task-status-chip chip-pending">
+        <text class="chip-num">{{taskStats.pending}}</text>
+        <text class="chip-txt">待接单</text>
+      </view>
+      <view class="task-status-chip chip-running">
+        <text class="chip-num">{{taskStats.running}}</text>
+        <text class="chip-txt">进行中</text>
+      </view>
+      <view class="task-status-chip chip-reviewing">
+        <text class="chip-num">{{taskStats.reviewing}}</text>
+        <text class="chip-txt">待审核</text>
+      </view>
+      <view class="task-status-chip chip-done">
+        <text class="chip-num">{{taskStats.done}}</text>
+        <text class="chip-txt">已完成</text>
+      </view>
+    </view>
+
+    <!-- 紧急任务列表 -->
+    <view
+      wx:for="{{urgentTasks}}"
+      wx:key="id"
+      class="task-item"
+      bindtap="onTaskTap"
+      data-task="{{item}}"
+    >
+      <view class="task-item-left">
+        <view class="task-priority-bar priority-{{item.priority}}"></view>
+        <view class="task-info">
+          <text class="task-title">{{item.title}}</text>
+          <view class="task-meta">
+            <text class="task-zone">{{item.zone_name}}</text>
+            <text wx:if="{{item.deadline}}" class="task-deadline">{{item.deadlineText}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="task-item-right">
+        <view class="task-status-tag status-{{item.status}}">
+          <text>{{item.statusLabel}}</text>
+        </view>
+        <text class="task-points">+{{item.points_reward}}分</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ===== 底部安全区 ===== -->
+  <view class="safe-bottom" />
+
+</view>
+
+<!-- ===== 工区半屏浮窗 ===== -->
+<view wx:if="{{showZoneSheet}}" class="sheet-mask" bindtap="closeZoneSheet" />
+<view class="zone-sheet {{showZoneSheet ? 'sheet-show' : 'sheet-hide'}}">
+  <!-- 拖拽把手 -->
+  <view class="sheet-handle" />
+
+  <!-- 浮窗头部 -->
+  <view class="sheet-header">
+    <view class="sheet-zone-dot" style="background:{{selectedZone.color}};box-shadow:0 0 10rpx {{selectedZone.color}};"></view>
+    <view class="sheet-title-group">
+      <text class="sheet-zone-name">{{selectedZone.name}}</text>
+      <view class="sheet-status-tag tag-{{selectedZone.status}}">
+        <text>{{selectedZone.statusLabel}}</text>
+      </view>
+    </view>
+    <view class="sheet-close" bindtap="closeZoneSheet">✕</view>
+  </view>
+
+  <!-- 三项统计 -->
+  <view class="sheet-stats">
+    <view class="sheet-stat" wx:for="{{selectedZone.sheetStats}}" wx:key="label">
+      <text class="sheet-stat-value" style="color:{{item.color}};">{{item.value}}</text>
+      <text class="sheet-stat-label">{{item.label}}</text>
+    </view>
+  </view>
+
+  <view class="sheet-divider" />
+
+  <!-- 设备/车辆/人员列表 -->
+  <scroll-view class="sheet-list" scroll-y>
+    <view
+      wx:for="{{selectedZone.items}}"
+      wx:key="id"
+      class="sheet-item-card"
+    >
+      <view class="sheet-item-left">
+        <view class="sheet-item-icon-wrap" style="background:{{item.iconBg}};">
+          <text class="sheet-item-icon">{{item.icon}}</text>
+        </view>
+        <view class="sheet-item-info">
+          <text class="sheet-item-name">{{item.name}}</text>
+          <text class="sheet-item-sub">{{item.sub}}</text>
+        </view>
+      </view>
+      <view class="sheet-item-right">
+        <view class="sheet-item-status tag-{{item.statusKey}}">
+          <text>{{item.statusLabel}}</text>
+        </view>
+        <text wx:if="{{item.value}}" class="sheet-item-value">{{item.value}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{selectedZone.items.length === 0}}" class="sheet-empty">
+      <text>暂无数据</text>
+    </view>
+  </scroll-view>
+
+  <!-- 进入详情按钮 -->
+  <view class="sheet-footer">
+    <button class="btn btn-primary sheet-detail-btn" bindtap="goZoneDetail">
+      进入详情 →
+    </button>
+  </view>
+</view>
+
+<!-- ===== 员工分配弹窗 ===== -->
+<view wx:if="{{showAssignModal}}" class="modal-mask" bindtap="closeAssignModal" />
+<view wx:if="{{showAssignModal}}" class="assign-modal">
+  <text class="modal-title">分配 {{selectedStaff.name}} 到工区</text>
+  <view class="modal-zone-list">
+    <view
+      wx:for="{{assignableZones}}"
+      wx:key="id"
+      class="modal-zone-item"
+      bindtap="onAssignZone"
+      data-zone-id="{{item.id}}"
+    >
+      <view class="modal-zone-dot" style="background:{{item.color}};"></view>
+      <text class="modal-zone-name">{{item.name}}</text>
+      <text class="modal-zone-count">{{item.assigned.length}}/{{item.capacity}}</text>
+    </view>
+  </view>
+  <button class="btn btn-ghost modal-cancel" bindtap="closeAssignModal">取消</button>
+</view>

@@ -1,0 +1,42 @@
+.page-container { background: var(--color-bg); min-height: 100vh; padding-bottom: 120rpx; }
+.section { margin: 24rpx; background: var(--color-surface); border-radius: 20rpx; padding: 28rpx; margin-bottom: 16rpx; }
+.section-header { display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 20rpx; }
+.section-title { font-size: 28rpx; font-weight: 600; color: var(--color-text); }
+.btn-add { background: var(--color-gold); color: #000; padding: 10rpx 24rpx; border-radius: 20rpx; font-size: 24rpx; font-weight: 600; }
+.matrix-header { display: flex; flex-direction: row; align-items: center; padding-bottom: 16rpx; border-bottom: 1rpx solid var(--color-border); margin-bottom: 8rpx; }
+.matrix-feature-col { flex: 2; }
+.matrix-role-col { flex: 1; text-align: center; }
+.matrix-th { font-size: 22rpx; color: var(--color-text-muted); }
+.role-badge { display: inline-block; padding: 6rpx 12rpx; border-radius: 12rpx; border: 1rpx solid; font-size: 18rpx; }
+.matrix-row { display: flex; flex-direction: row; align-items: center; padding: 14rpx 0; border-bottom: 1rpx solid var(--color-border); }
+.matrix-row:last-child { border-bottom: none; }
+.feature-icon { font-size: 28rpx; margin-right: 8rpx; }
+.feature-name { font-size: 24rpx; color: var(--color-text); }
+.perm-icon { font-size: 22rpx; text-align: center; display: block; }
+.role-filter { display: flex; flex-direction: row; gap: 12rpx; flex-wrap: wrap; margin-bottom: 20rpx; }
+.role-filter-item { padding: 10rpx 20rpx; border-radius: 20rpx; background: var(--color-bg); font-size: 22rpx; color: var(--color-text-muted); }
+.role-filter-item.active { background: var(--color-gold); color: #000; font-weight: 600; }
+.staff-item { display: flex; flex-direction: row; align-items: center; gap: 16rpx; padding: 16rpx 0; border-bottom: 1rpx solid var(--color-border); }
+.staff-item:last-child { border-bottom: none; }
+.staff-avatar { width: 72rpx; height: 72rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.staff-initial { font-size: 28rpx; font-weight: 700; color: #fff; }
+.staff-info { flex: 1; }
+.staff-name { display: block; font-size: 28rpx; color: var(--color-text); margin-bottom: 4rpx; }
+.staff-zone { display: block; font-size: 22rpx; color: var(--color-text-muted); }
+.role-badge-sm { padding: 6rpx 14rpx; border-radius: 12rpx; border: 1rpx solid; font-size: 20rpx; }
+.action-btn { padding: 10rpx 20rpx; background: var(--color-bg); border-radius: 12rpx; font-size: 22rpx; color: var(--color-gold); border: 1rpx solid var(--color-gold); }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: flex-end; z-index: 100; }
+.edit-modal { background: var(--color-surface); border-radius: 32rpx 32rpx 0 0; padding: 40rpx 32rpx 60rpx; width: 100%; }
+.modal-title { display: block; font-size: 32rpx; font-weight: 700; color: var(--color-text); margin-bottom: 24rpx; }
+.modal-staff-info { display: flex; flex-direction: row; align-items: center; gap: 16rpx; background: var(--color-bg); border-radius: 16rpx; padding: 20rpx; margin-bottom: 24rpx; }
+.modal-staff-name { display: block; font-size: 28rpx; color: var(--color-text); }
+.modal-staff-zone { display: block; font-size: 22rpx; color: var(--color-text-muted); }
+.modal-label { display: block; font-size: 24rpx; color: var(--color-text-muted); margin-bottom: 16rpx; }
+.role-options { display: flex; flex-direction: column; gap: 12rpx; margin-bottom: 28rpx; }
+.role-option { background: var(--color-bg); border-radius: 16rpx; padding: 20rpx; border: 2rpx solid transparent; }
+.role-option.selected { background: rgba(201,168,76,0.08); }
+.role-option-label { display: block; font-size: 28rpx; font-weight: 600; margin-bottom: 6rpx; }
+.role-option-desc { display: block; font-size: 22rpx; color: var(--color-text-muted); }
+.modal-actions { display: flex; flex-direction: row; gap: 16rpx; }
+.btn-cancel { flex: 1; background: var(--color-bg); color: var(--color-text-muted); border: 1rpx solid var(--color-border); border-radius: 16rpx; height: 88rpx; font-size: 28rpx; }
+.btn-confirm { flex: 2; background: var(--color-gold); color: #000; border: none; border-radius: 16rpx; height: 88rpx; font-size: 28rpx; font-weight: 600; }

@@ -1,0 +1,47 @@
+<!-- 成本直录台 -->
+<view class="page-container">
+  <view class="page-title">成本直录</view>
+
+  <view class="form-section">
+    <view class="form-item">
+      <text class="label">成本分类</text>
+      <picker mode="selector" range="{{categoryNames}}" value="{{categoryIndex}}" bindchange="onCategoryChange">
+        <view class="picker-value">{{categoryNames[categoryIndex] || '请选择'}} ▾</view>
+      </picker>
+    </view>
+    <view class="form-item">
+      <text class="label">金额(元)</text>
+      <input class="input" type="digit" placeholder="0.00" value="{{amount}}" bindinput="onAmountInput" />
+    </view>
+    <view class="form-item">
+      <text class="label">发生日期</text>
+      <picker mode="date" value="{{occurDate}}" bindchange="onDateChange">
+        <view class="picker-value">{{occurDate || '选择日期'}} ▾</view>
+      </picker>
+    </view>
+    <view class="form-item">
+      <text class="label">备注</text>
+      <input class="input" placeholder="可选" value="{{description}}" bindinput="onDescInput" />
+    </view>
+  </view>
+
+  <view class="btn-area">
+    <button class="btn-submit {{!canSubmit || submitting ? 'btn-disabled' : ''}}"
+            disabled="{{!canSubmit || submitting}}"
+            bindtap="submitEntry">
+      {{submitting ? '录入中...' : '确认录入'}}
+    </button>
+  </view>
+
+  <!-- 最近录入 -->
+  <view wx:if="{{recentEntries.length > 0}}" class="recent-section">
+    <view class="section-title">最近录入</view>
+    <view class="recent-item" wx:for="{{recentEntries}}" wx:key="id">
+      <view class="recent-left">
+        <text class="recent-cat">{{item.category_name || item.category_code}}</text>
+        <text class="recent-desc">{{item.description || '--'}}</text>
+      </view>
+      <text class="recent-amount">¥ {{item.amount}}</text>
+    </view>
+  </view>
+</view>

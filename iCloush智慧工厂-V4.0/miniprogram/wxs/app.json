@@ -1,0 +1,52 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/features/index",
+    "pages/profile/index",
+    "pages/task-list/index",
+    "pages/task-detail/index",
+    "pages/schedule/index",
+    "pages/staff-manage/index",
+    "pages/iot-dashboard/index",
+    "pages/reports/index",
+    "pages/mall/index",
+    "pages/permission/index",
+    "pages/zone-detail/index"
+  ],
+  "tabBar": {
+    "color": "#666666",
+    "selectedColor": "#C9A84C",
+    "backgroundColor": "#0F0F0F",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "总览",
+        "iconPath": "images/icons/tab_overview.png",
+        "selectedIconPath": "images/icons/tab_overview_active.png"
+      },
+      {
+        "pagePath": "pages/features/index",
+        "text": "功能",
+        "iconPath": "images/icons/tab_features.png",
+        "selectedIconPath": "images/icons/tab_features_active.png"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的",
+        "iconPath": "images/icons/tab_profile.png",
+        "selectedIconPath": "images/icons/tab_profile_active.png"
+      }
+    ]
+  },
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#0A0A0A",
+    "navigationBarTitleText": "iCloush 智慧工厂",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#0A0A0A"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

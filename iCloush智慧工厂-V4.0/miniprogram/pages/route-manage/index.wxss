@@ -1,0 +1,222 @@
+/* 排线管理 — Phase 4 机动物流中台 */
+
+.page-container {
+  min-height: 100vh;
+  background: #f5f6fa;
+  padding-bottom: 120rpx;
+}
+
+.page-header {
+  padding: 32rpx 28rpx 20rpx;
+  background: #fff;
+  border-bottom: 1rpx solid #eee;
+}
+
+.page-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #1a1a2e;
+  display: block;
+}
+
+.page-subtitle {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+/* ── 加载与空状态 ── */
+.loading-box, .empty-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 0;
+  color: #999;
+  font-size: 28rpx;
+}
+
+.loading-spinner {
+  width: 48rpx;
+  height: 48rpx;
+  border: 4rpx solid #e0e0e0;
+  border-top-color: #1a73e8;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 20rpx;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-hint {
+  font-size: 24rpx;
+  color: #bbb;
+  margin-top: 8rpx;
+}
+
+/* ── 排线卡片 ── */
+.route-list {
+  padding: 16rpx 24rpx;
+}
+
+.route-card {
+  background: #fff;
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.05);
+}
+
+.route-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 24rpx 28rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.route-info {
+  flex: 1;
+}
+
+.route-name {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1a1a2e;
+  display: block;
+}
+
+.route-desc {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 4rpx;
+  display: block;
+}
+
+.stop-count {
+  font-size: 24rpx;
+  color: #1a73e8;
+  background: #e6f0ff;
+  padding: 6rpx 16rpx;
+  border-radius: 16rpx;
+  font-weight: 500;
+}
+
+/* ── 站点时间线 ── */
+.stops-preview {
+  padding: 16rpx 28rpx;
+}
+
+.stop-timeline {
+  position: relative;
+  padding-left: 24rpx;
+}
+
+.stop-node {
+  display: flex;
+  align-items: center;
+  padding: 12rpx 0;
+  position: relative;
+}
+
+.stop-node::before {
+  content: '';
+  position: absolute;
+  left: 7rpx;
+  top: 0;
+  bottom: 0;
+  width: 2rpx;
+  background: #e0e0e0;
+}
+
+.stop-node:first-child::before {
+  top: 50%;
+}
+
+.stop-node:last-child::before {
+  bottom: 50%;
+}
+
+.stop-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background: #e0e0e0;
+  position: relative;
+  z-index: 1;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.stop-dot.first {
+  background: #16a34a;
+  width: 20rpx;
+  height: 20rpx;
+}
+
+.stop-dot.last {
+  background: #dc2626;
+  width: 20rpx;
+  height: 20rpx;
+}
+
+.stop-info {
+  display: flex;
+  justify-content: space-between;
+  flex: 1;
+}
+
+.stop-name {
+  font-size: 26rpx;
+  color: #333;
+}
+
+.stop-eta {
+  font-size: 22rpx;
+  color: #999;
+}
+
+/* ── 底部信息 ── */
+.route-footer {
+  display: flex;
+  gap: 32rpx;
+  padding: 12rpx 28rpx 20rpx;
+}
+
+.footer-item {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 24rpx;
+  color: #666;
+}
+
+.footer-icon {
+  font-size: 24rpx;
+}
+
+/* ── 底部操作栏 ── */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20rpx 32rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: 0 -2rpx 12rpx rgba(0,0,0,0.06);
+}
+
+.btn-add {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  background: linear-gradient(135deg, #1a73e8, #4a90d9);
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 600;
+  border-radius: 16rpx;
+  border: none;
+}

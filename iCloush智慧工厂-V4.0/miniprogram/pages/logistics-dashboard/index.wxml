@@ -1,0 +1,88 @@
+<!--
+  物流仪表盘 — 一屏总览
+  Phase 4 机动物流中台
+-->
+<view class="page-container">
+  <!-- 顶部标题 -->
+  <view class="dashboard-header">
+    <text class="header-title">物流中台</text>
+    <text class="header-date">{{today}}</text>
+  </view>
+
+  <!-- 车辆状态概览 -->
+  <view class="section">
+    <view class="section-title">车辆状态</view>
+    <view class="fleet-overview">
+      <view class="fleet-card" bindtap="goVehicleManage">
+        <view class="fleet-num">{{dashboard.fleet.total}}</view>
+        <view class="fleet-label">总车辆</view>
+      </view>
+      <view class="fleet-card idle" bindtap="goVehicleManage" data-status="idle">
+        <view class="fleet-num">{{dashboard.fleet.idle}}</view>
+        <view class="fleet-label">待命</view>
+      </view>
+      <view class="fleet-card delivering" bindtap="goVehicleManage" data-status="delivering">
+        <view class="fleet-num">{{dashboard.fleet.delivering}}</view>
+        <view class="fleet-label">运送中</view>
+      </view>
+      <view class="fleet-card maintenance" bindtap="goVehicleManage" data-status="maintenance">
+        <view class="fleet-num">{{dashboard.fleet.maintenance}}</view>
+        <view class="fleet-label">维修中</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 今日出车 & 预警 -->
+  <view class="section">
+    <view class="kpi-row">
+      <view class="kpi-card" bindtap="goDispatchManage">
+        <view class="kpi-num">{{dashboard.today_dispatches}}</view>
+        <view class="kpi-label">今日出车</view>
+        <view class="kpi-icon">🚛</view>
+      </view>
+      <view class="kpi-card alert-kpi" bindtap="goAlerts">
+        <view class="kpi-num {{dashboard.alert_count > 0 ? 'alert-num' : ''}}">{{dashboard.alert_count}}</view>
+        <view class="kpi-label">预警项目</view>
+        <view class="kpi-icon">⚠️</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 近7天出车趋势 -->
+  <view class="section">
+    <view class="section-title">近7天出车趋势</view>
+    <view class="trend-chart">
+      <view wx:if="{{dashboard.trend_7d.length === 0}}" class="no-data">暂无数据</view>
+      <view wx:else class="bar-chart">
+        <view wx:for="{{dashboard.trend_7d}}" wx:key="date" class="bar-item">
+          <view class="bar-value">{{item.count}}</view>
+          <view class="bar" style="height: {{item._height}}rpx"></view>
+          <view class="bar-label">{{item._label}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 快捷入口 -->
+  <view class="section">
+    <view class="section-title">快捷操作</view>
+    <view class="quick-grid">
+      <view class="quick-item" bindtap="goVehicleManage">
+        <view class="quick-icon">🚗</view>
+        <text>车队管理</text>
+      </view>
+      <view class="quick-item" bindtap="goRouteManage">
+        <view class="quick-icon">🗺️</view>
+        <text>排线管理</text>
+      </view>
+      <view class="quick-item" bindtap="goDispatchManage">
+        <view class="quick-icon">📋</view>
+        <text>出车调度</text>
+      </view>
+      <view class="quick-item" bindtap="goAlerts">
+        <view class="quick-icon">🔔</view>
+        <text>预警中心</text>
+      </view>
+    </view>
+  </view>
+</view>

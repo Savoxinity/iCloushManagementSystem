@@ -1,0 +1,139 @@
+/* ============================================
+   Phase 4 补丁：物流派车弹窗样式
+   追加到 pages/index/index.wxss 末尾
+   ============================================ */
+
+/* ★ 物流区特殊标记（工区选择弹窗中） */
+.dispatch-badge {
+  background: rgba(201, 168, 76, 0.15);
+  color: #C9A84C;
+  font-weight: 600;
+}
+
+/* ★★★ 物流派车弹窗 ★★★ */
+.dispatch-modal-box {
+  width: 100%;
+  background: #141414;
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 32rpx 24rpx;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
+}
+
+.dispatch-modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
+  margin-bottom: 32rpx;
+}
+
+.dispatch-header-icon {
+  font-size: 48rpx;
+  width: 72rpx;
+  height: 72rpx;
+  background: rgba(201, 168, 76, 0.12);
+  border-radius: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dispatch-header-text {
+  flex: 1;
+}
+
+.dispatch-modal-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #F0F0F0;
+  display: block;
+  margin-bottom: 6rpx;
+}
+
+.dispatch-modal-subtitle {
+  font-size: 22rpx;
+  color: #888888;
+  display: block;
+}
+
+/* 表单字段 */
+.dispatch-field {
+  margin-bottom: 24rpx;
+}
+
+.dispatch-field-label {
+  display: block;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #AAAAAA;
+  margin-bottom: 12rpx;
+}
+
+.dispatch-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1A1A1A;
+  border: 1rpx solid #2A2A2A;
+  border-radius: 14rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  color: #F0F0F0;
+}
+
+.dispatch-picker.selected {
+  border-color: rgba(201, 168, 76, 0.4);
+  background: rgba(201, 168, 76, 0.06);
+}
+
+.dispatch-placeholder {
+  color: #555555;
+}
+
+.picker-arrow {
+  font-size: 20rpx;
+  color: #666666;
+}
+
+/* 操作按钮 */
+.dispatch-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 32rpx;
+}
+
+.dispatch-cancel-btn {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #888888;
+  background: #1A1A1A;
+  border: 1rpx solid #2A2A2A;
+  border-radius: 14rpx;
+}
+
+.dispatch-confirm-btn {
+  flex: 2;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #000000;
+  background: linear-gradient(135deg, #C9A84C, #E0C068);
+  border-radius: 14rpx;
+  border: none;
+}
+
+.dispatch-confirm-btn:active {
+  opacity: 0.85;
+}
+
+.dispatch-confirm-btn.submitting {
+  opacity: 0.5;
+}

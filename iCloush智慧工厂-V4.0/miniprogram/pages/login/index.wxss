@@ -1,0 +1,335 @@
+/* ============================================
+   终端接入登录页 — Terminal Access
+   ============================================ */
+
+.login-page {
+  min-height: 100vh;
+  background: #050508;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 40rpx;
+}
+
+/* 背景网格 */
+.grid-bg {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image:
+    linear-gradient(rgba(201, 168, 76, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201, 168, 76, 0.03) 1px, transparent 1px);
+  background-size: 60rpx 60rpx;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 扫描线 */
+.scan-line {
+  position: fixed;
+  left: 0; right: 0;
+  height: 4rpx;
+  background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.6), transparent);
+  z-index: 1;
+  opacity: 0;
+}
+.scan-line.active {
+  animation: scanDown 2.5s ease-in-out infinite;
+}
+@keyframes scanDown {
+  0% { top: 0; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* 品牌区 */
+.brand-area {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-top: 120rpx;
+  margin-bottom: 40rpx;
+}
+
+.brand-logo {
+  width: 80rpx;
+  height: 80rpx;
+  opacity: 0.9;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-name {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #F0F0F0;
+  letter-spacing: 2rpx;
+}
+
+.brand-sub {
+  font-size: 20rpx;
+  color: var(--color-gold);
+  font-family: var(--font-mono);
+  letter-spacing: 4rpx;
+  margin-top: 4rpx;
+}
+
+/* 终端日志区 */
+.terminal-box {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-height: 320rpx;
+  background: rgba(10, 10, 10, 0.8);
+  border: 1rpx solid rgba(201, 168, 76, 0.15);
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 40rpx;
+}
+
+.terminal-line {
+  font-family: var(--font-mono);
+  font-size: 20rpx;
+  color: rgba(0, 255, 136, 0.7);
+  line-height: 1.8;
+  transition: color 0.3s;
+}
+
+.terminal-line.latest {
+  color: #00FF88;
+}
+
+.cursor-blink {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 22rpx;
+  color: var(--color-gold);
+  animation: blink 0.8s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* 验证表单区 */
+.form-area {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  opacity: 0;
+  transform: translateY(40rpx);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+  pointer-events: none;
+}
+
+.form-area.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* 验证结果指示 */
+.result-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  padding: 20rpx;
+  border-radius: 12rpx;
+  margin-bottom: 24rpx;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: all 0.4s ease;
+}
+
+.result-badge.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.result-badge.success {
+  background: rgba(0, 255, 136, 0.1);
+  border: 1rpx solid rgba(0, 255, 136, 0.3);
+}
+
+.result-badge.fail {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1rpx solid rgba(239, 68, 68, 0.3);
+}
+
+.result-icon {
+  font-size: 36rpx;
+  font-weight: 700;
+}
+
+.result-badge.success .result-icon { color: #00FF88; }
+.result-badge.fail .result-icon { color: #EF4444; }
+
+.result-text {
+  font-family: var(--font-mono);
+  font-size: 24rpx;
+  letter-spacing: 4rpx;
+}
+
+.result-badge.success .result-text { color: #00FF88; }
+.result-badge.fail .result-text { color: #EF4444; }
+
+/* 表单标题 */
+.form-title {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 32rpx;
+}
+
+.form-title-icon {
+  font-size: 28rpx;
+  color: var(--color-gold);
+}
+
+.form-title-text {
+  font-family: var(--font-mono);
+  font-size: 22rpx;
+  color: var(--color-text-secondary);
+  letter-spacing: 4rpx;
+}
+
+/* 输入组 */
+.input-group {
+  margin-bottom: 28rpx;
+}
+
+.input-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 20rpx;
+  color: var(--color-text-muted);
+  letter-spacing: 2rpx;
+  margin-bottom: 12rpx;
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  border-bottom: 2rpx solid var(--color-border-light);
+  transition: border-color 0.3s;
+  padding-bottom: 12rpx;
+}
+
+.toggle-pwd {
+  flex-shrink: 0;
+  padding: 8rpx;
+  font-size: 28rpx;
+  opacity: 0.6;
+}
+
+.input-wrapper.has-value {
+  border-bottom-color: var(--color-gold);
+}
+
+.input-field {
+  font-size: 32rpx;
+  color: var(--color-text-primary);
+  background: transparent;
+  width: 100%;
+  padding: 8rpx 0;
+}
+
+.input-placeholder {
+  color: var(--color-text-muted);
+  font-size: 28rpx;
+}
+
+/* 错误提示 */
+.form-error {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 16rpx 20rpx;
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: 8rpx;
+  margin-bottom: 24rpx;
+  color: #EF4444;
+  font-size: 24rpx;
+}
+
+.error-icon {
+  font-size: 24rpx;
+}
+
+/* 提交按钮 */
+.submit-btn {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  width: 100%;
+  height: 96rpx;
+  background: var(--color-gold) !important;
+  color: #000000 !important;
+  border: none;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  letter-spacing: 4rpx;
+  margin-top: 16rpx;
+  padding: 0;
+  line-height: 96rpx;
+}
+
+.submit-btn::after {
+  border: none;
+}
+
+.submit-btn[disabled] {
+  opacity: 0.5;
+}
+
+.btn-icon {
+  font-size: 28rpx;
+}
+
+.btn-text {
+  font-family: var(--font-mono);
+}
+
+/* 底部提示 */
+.form-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 32rpx;
+  gap: 8rpx;
+}
+
+.footer-text {
+  font-size: 22rpx;
+  color: var(--color-text-muted);
+}
+
+/* 版本号 */
+.version-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  text-align: center;
+  z-index: 2;
+}
+
+.version-text {
+  font-family: var(--font-mono);
+  font-size: 18rpx;
+  color: var(--color-text-muted);
+  letter-spacing: 2rpx;
+}

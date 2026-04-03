@@ -1,0 +1,117 @@
+<!-- IoT 设备仪表盘 -->
+<view class="page-container">
+  <!-- 顶部状态栏 -->
+  <view class="iot-header">
+    <view class="iot-header-left">
+      <text class="iot-title">设备物联中心</text>
+      <text class="iot-subtitle">最后更新：{{lastUpdateTime}}</text>
+    </view>
+    <view class="ws-status {{wsConnected ? 'online' : 'offline'}}">
+      <view class="ws-dot"></view>
+      <text>{{wsConnected ? '实时' : '离线'}}</text>
+    </view>
+  </view>
+
+  <!-- 汇总统计 -->
+  <view class="summary-row">
+    <view class="summary-card">
+      <text class="summary-value green">{{deviceStats.online}}</text>
+      <text class="summary-label">在线</text>
+    </view>
+    <view class="summary-card">
+      <text class="summary-value yellow">{{deviceStats.warning}}</text>
+      <text class="summary-label">告警</text>
+    </view>
+    <view class="summary-card">
+      <text class="summary-value red">{{deviceStats.offline}}</text>
+      <text class="summary-label">离线</text>
+    </view>
+    <view class="summary-card">
+      <text class="summary-value">{{deviceStats.total}}</text>
+      <text class="summary-label">总计</text>
+    </view>
+  </view>
+
+  <!-- 工区筛选 -->
+  <scroll-view class="zone-filter" scroll-x>
+    <view
+      wx:for="{{zoneFilters}}"
+      wx:key="id"
+      class="zone-filter-item {{activeZone === item.id ? 'active' : ''}}"
+      bindtap="filterByZone"
+      data-zone="{{item.id}}"
+    >
+      <text>{{item.name}}</text>
+    </view>
+  </scroll-view>
+
+  <!-- 设备列表 -->
+  <view class="device-list">
+    <view
+      wx:for="{{filteredDevices}}"
+      wx:key="device_id"
+      class="device-card {{item.status}}"
+      bindtap="onDeviceTap"
+      data-device="{{item}}"
+    >
+      <view class="device-card-top">
+        <view class="device-icon-wrap">
+          <text class="device-icon">{{item.icon}}</text>
+          <view class="device-status-dot {{item.status}}"></view>
+        </view>
+        <view class="device-info">
+          <text class="device-name">{{item.name}}</text>
+          <text class="device-zone">{{item.zone_name}}</text>
+        </view>
+        <view class="device-status-badge {{item.status}}">
+          <text>{{item.statusLabel}}</text>
+        </view>
+      </view>
+      <!-- 传感器数据 -->
+      <view class="sensor-row" wx:if="{{item.sensors && item.sensors.length > 0}}">
+        <view wx:for="{{item.sensors}}" wx:key="key" wx:for-item="sensor" class="sensor-item">
+          <text class="sensor-value {{sensor.alert ? 'alert' : ''}}">{{sensor.value}}{{sensor.unit}}</text>
+          <text class="sensor-label">{{sensor.label}}</text>
+        </view>
+      </view>
+      <!-- 告警信息 -->
+      <view wx:if="{{item.alert_msg}}" class="alert-banner">
+        <text class="alert-icon">⚠️</text>
+        <text class="alert-msg">{{item.alert_msg}}</text>
+      </view>
+    </view>
+  </view>
+</view>
+
+<!-- 设备详情弹窗 -->
+<view wx:if="{{showDeviceModal}}" class="modal-overlay" bindtap="closeModal">
+  <view class="device-modal" catchtap="">
+    <view class="device-modal-header">
+      <text class="device-modal-icon">{{currentDevice.icon}}</text>
+      <view>
+        <text class="device-modal-name">{{currentDevice.name}}</text>
+        <text class="device-modal-zone">{{currentDevice.zone_name}}</text>
+      </view>
+      <view class="device-status-badge {{currentDevice.status}}">
+        <text>{{currentDevice.statusLabel}}</text>
+      </view>
+    </view>
+    <view class="device-modal-sensors">
+      <view wx:for="{{currentDevice.sensors}}" wx:key="key" wx:for-item="sensor" class="modal-sensor-item">
+        <text class="modal-sensor-label">{{sensor.label}}</text>
+        <text class="modal-sensor-value {{sensor.alert ? 'alert' : ''}}">{{sensor.value}} {{sensor.unit}}</text>
+      </view>
+    </view>
+    <view class="device-modal-history">
+      <text class="history-title">最近告警记录</text>
+      <view wx:for="{{currentDevice.history}}" wx:key="id" wx:for-item="h" class="history-item">
+        <text class="history-time">{{h.timeStr}}</text>
+        <text class="history-msg">{{h.msg}}</text>
+      </view>
+      <view wx:if="{{!currentDevice.history || currentDevice.history.length === 0}}" class="empty-history">
+        <text>暂无告警记录</text>
+      </view>
+    </view>
+    <button class="btn-close" bindtap="closeModal">关闭</button>
+  </view>
+</view>

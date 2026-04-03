@@ -1,0 +1,76 @@
+<!-- 报销审核页 — 管理员/财务 -->
+<view class="page-container">
+  <view class="header-bar">
+    <text class="page-title">报销审核</text>
+    <text class="pending-count">{{expenses.length}} 待审核</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="empty-state">
+    <text class="empty-text">加载中...</text>
+  </view>
+
+  <view wx:elif="{{expenses.length === 0}}" class="empty-state">
+    <text class="empty-icon">✅</text>
+    <text class="empty-text">暂无待审核报销单</text>
+  </view>
+
+  <!-- 报销单列表 -->
+  <view wx:else class="expense-list">
+    <view class="expense-card" wx:for="{{expenses}}" wx:key="id">
+      <view class="card-header">
+        <text class="emp-name">{{item.employee_name || '员工#' + item.employee_id}}</text>
+        <text class="voucher-badge {{item.voucher_type}}">{{item.voucher_type === 'invoice' ? '有票' : '无票'}}</text>
+      </view>
+      <view class="card-body">
+        <view class="info-row">
+          <text class="info-label">事由</text>
+          <text class="info-value">{{item.purpose}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">金额</text>
+          <text class="info-value amount">¥ {{item.claimed_amount}}</text>
+        </view>
+        <view class="info-row" wx:if="{{item.invoice_amount}}">
+          <text class="info-label">票面金额</text>
+          <text class="info-value">¥ {{item.invoice_amount}}</text>
+        </view>
+      </view>
+      <view class="card-actions">
+        <view class="btn-review" data-id="{{item.id}}" bindtap="openReview">审核</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 审核弹窗 -->
+  <view wx:if="{{showReviewPanel}}" class="review-mask" bindtap="closeReview">
+    <view class="review-panel" catchtap="">
+      <view class="panel-title">审核报销单</view>
+      <view class="panel-info">
+        <text class="panel-purpose">{{currentExpense.purpose}}</text>
+        <text class="panel-amount">¥ {{currentExpense.claimed_amount}}</text>
+      </view>
+
+      <!-- 成本分类选择器 — 仅管理员可见 -->
+      <view class="form-item">
+        <text class="label">成本分类</text>
+        <picker mode="selector" range="{{categoryNames}}" value="{{categoryIndex}}" bindchange="onCategoryChange">
+          <view class="picker-value">
+            {{categoryNames[categoryIndex] || '请选择分类'}} ▾
+          </view>
+        </picker>
+      </view>
+
+      <!-- 审核备注 -->
+      <view class="form-item">
+        <text class="label">审核备注</text>
+        <input class="input" placeholder="可选" value="{{reviewNote}}" bindinput="onNoteInput" />
+      </view>
+
+      <!-- 操作按钮 -->
+      <view class="panel-actions">
+        <view class="btn-reject" bindtap="rejectExpense">驳回</view>
+        <view class="btn-approve" bindtap="approveExpense">通过</view>
+      </view>
+    </view>
+  </view>
+</view>

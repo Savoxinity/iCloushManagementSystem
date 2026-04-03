@@ -1,0 +1,208 @@
+<!-- ============================================
+  BI 报表引擎 — Reports & KPI Dashboard
+  V5 修复：度量衡统一为"套"，KPI 改为"套/人·时"
+  ============================================ -->
+<view class="page-container">
+  <!-- 维度切换 -->
+  <view class="dim-bar">
+    <view class="dim-item {{activeDim === 'day' ? 'active' : ''}}" bindtap="switchDim" data-dim="day"><text>今日</text></view>
+    <view class="dim-item {{activeDim === 'week' ? 'active' : ''}}" bindtap="switchDim" data-dim="week"><text>本周</text></view>
+    <view class="dim-item {{activeDim === 'month' ? 'active' : ''}}" bindtap="switchDim" data-dim="month"><text>本月</text></view>
+  </view>
+
+  <!-- 核心指标卡片 -->
+  <view class="kpi-grid">
+    <view wx:for="{{kpiCards}}" wx:key="id" class="kpi-card">
+      <text class="kpi-icon">{{item.icon}}</text>
+      <text class="kpi-value" style="color:{{item.color}}">{{item.value}}</text>
+      <text class="kpi-label">{{item.label}}</text>
+      <view class="kpi-trend {{item.trend > 0 ? 'up' : item.trend < 0 ? 'down' : 'flat'}}">
+        <text>{{item.trend > 0 ? '↑' : item.trend < 0 ? '↓' : '—'}} {{item.trendText}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- 7天洗涤量趋势 (CSS 柱状图) -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <view class="section" wx:if="{{trendChartData.labels.length > 0}}">
+    <view class="section-header">
+      <text class="section-title">7天洗涤量趋势</text>
+      <text class="section-unit">单位: 套</text>
+    </view>
+    <view class="chart-container">
+      <view class="chart-bars">
+        <view wx:for="{{trendChartData.labels}}" wx:key="index" class="chart-col">
+          <text class="bar-value">{{trendChartData.sets[index]}}</text>
+          <view class="bar-track">
+            <view class="bar-fill weight-bar" style="height:{{trendChartData.setPcts[index]}}%"></view>
+          </view>
+          <text class="bar-label">{{item}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- 7天人效 KPI 趋势 (CSS 柱状图 + 达标线) -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <view class="section" wx:if="{{trendChartData.labels.length > 0}}">
+    <view class="section-header">
+      <text class="section-title">7天人效 KPI 趋势</text>
+      <text class="section-unit">单位: 套/人·时 · 达标线 {{kpiBenchmark}}</text>
+    </view>
+    <view class="chart-container">
+      <!-- ★ KPI 达标线 -->
+      <view class="benchmark-line" style="bottom:{{trendChartData.benchmarkPct}}%;">
+        <text class="benchmark-label">达标 {{kpiBenchmark}}</text>
+      </view>
+      <view class="chart-bars">
+        <view wx:for="{{trendChartData.labels}}" wx:key="index" class="chart-col">
+          <text class="bar-value kpi-text">{{trendChartData.kpis[index]}}</text>
+          <view class="bar-track">
+            <view class="bar-fill kpi-bar {{trendChartData.kpis[index] >= kpiBenchmark ? 'kpi-pass' : 'kpi-fail'}}" style="height:{{trendChartData.kpiPcts[index]}}%"></view>
+          </view>
+          <text class="bar-label">{{item}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 工区产量排行 -->
+  <view class="section">
+    <text class="section-title">工区产量排行</text>
+    <view wx:for="{{zoneRanking}}" wx:key="zone_id" class="rank-item">
+      <view class="rank-num {{index < 3 ? 'top' : ''}}"><text>{{index + 1}}</text></view>
+      <view class="rank-info">
+        <text class="rank-name">{{item.zone_name}}</text>
+        <view class="rank-bar-bg">
+          <view class="rank-bar-fill" style="width:{{item.percent}}%;background:{{item.color}};"></view>
+        </view>
+      </view>
+      <text class="rank-value">{{item.count}} 套</text>
+    </view>
+  </view>
+
+  <!-- 员工绩效榜 -->
+  <view class="section">
+    <text class="section-title">员工绩效榜 Top 5</text>
+    <view wx:for="{{staffRanking}}" wx:key="staff_id" class="staff-rank-item">
+      <view class="staff-avatar-wrap">
+        <view class="staff-avatar" style="background:{{item.avatarColor}}">
+          <text class="staff-initial">{{item.initial}}</text>
+        </view>
+        <view wx:if="{{index < 3}}" class="medal">{{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}}</view>
+      </view>
+      <view class="staff-info">
+        <text class="staff-name">{{item.name}}</text>
+        <text class="staff-zone">{{item.zone_name}}</text>
+      </view>
+      <view class="staff-stats">
+        <text class="staff-tasks">{{item.done_count}} 任务</text>
+        <text class="staff-points">+{{item.points_earned}} 积分</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 任务完成率 -->
+  <view class="section">
+    <text class="section-title">任务完成率</text>
+    <view class="completion-ring-wrap">
+      <view class="completion-ring">
+        <text class="completion-pct">{{completionRate}}%</text>
+        <text class="completion-label">完成率</text>
+      </view>
+      <view class="completion-legend">
+        <view class="legend-item"><view class="legend-dot green"></view><text>已完成 {{taskStats.done}}</text></view>
+        <view class="legend-item"><view class="legend-dot yellow"></view><text>进行中 {{taskStats.running}}</text></view>
+        <view class="legend-item"><view class="legend-dot red"></view><text>已驳回 {{taskStats.rejected}}</text></view>
+        <view class="legend-item"><view class="legend-dot gray"></view><text>待接单 {{taskStats.pending}}</text></view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部间距 -->
+  <view style="height: 160rpx"></view>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- 产能录入 FAB 按钮（仅管理员可见） -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <view class="fab-btn" wx:if="{{isAdmin}}" bindtap="openProductionModal">
+    <text class="fab-icon">+</text>
+    <text class="fab-text">录入产能</text>
+  </view>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- 产能录入弹窗 -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <view class="modal-mask {{showProductionModal ? 'visible' : ''}}" bindtap="closeProductionModal"></view>
+  <view class="modal-panel {{showProductionModal ? 'visible' : ''}}">
+    <view class="modal-header">
+      <text class="modal-title">今日产能录入</text>
+      <text class="modal-close" bindtap="closeProductionModal">✕</text>
+    </view>
+
+    <view class="modal-body">
+      <!-- 洗涤套数 -->
+      <view class="modal-field">
+        <text class="field-label">今日洗涤量</text>
+        <view class="field-input-row">
+          <input
+            class="field-input"
+            type="digit"
+            placeholder="输入洗涤套数"
+            placeholder-class="input-placeholder"
+            value="{{productionForm.total_sets}}"
+            bindinput="onSetsInput"
+          />
+          <text class="field-unit">套</text>
+        </view>
+      </view>
+
+      <!-- 出勤人数 -->
+      <view class="modal-field">
+        <text class="field-label">出勤总人数</text>
+        <view class="field-input-row">
+          <input
+            class="field-input"
+            type="number"
+            placeholder="输入人数"
+            placeholder-class="input-placeholder"
+            value="{{productionForm.worker_count}}"
+            bindinput="onWorkerInput"
+          />
+          <text class="field-unit">人</text>
+        </view>
+      </view>
+
+      <!-- 平均工时 -->
+      <view class="modal-field">
+        <text class="field-label">平均工时</text>
+        <view class="field-input-row">
+          <input
+            class="field-input"
+            type="digit"
+            placeholder="输入工时"
+            placeholder-class="input-placeholder"
+            value="{{productionForm.work_hours}}"
+            bindinput="onHoursInput"
+          />
+          <text class="field-unit">小时</text>
+        </view>
+      </view>
+
+      <!-- KPI 实时计算 + 达标线 -->
+      <view class="kpi-calc-box">
+        <text class="kpi-calc-label">人效 KPI = 洗涤套数 ÷ (人数 × 工时)</text>
+        <text class="kpi-calc-value">{{calculatedKPI}}</text>
+        <text class="kpi-calc-benchmark">达标基准: {{kpiBenchmark}} 套/人·时</text>
+      </view>
+    </view>
+
+    <view class="modal-footer">
+      <button class="modal-submit-btn" bindtap="submitProduction" disabled="{{submittingProduction}}">
+        {{submittingProduction ? '提交中...' : '确认录入'}}
+      </button>
+    </view>
+  </view>
+</view>

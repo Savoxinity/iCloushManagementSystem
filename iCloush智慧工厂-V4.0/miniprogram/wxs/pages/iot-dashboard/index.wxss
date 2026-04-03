@@ -1,0 +1,67 @@
+.page-container { background: var(--color-bg); min-height: 100vh; padding-bottom: 120rpx; }
+.iot-header { display: flex; flex-direction: row; justify-content: space-between; align-items: center; padding: 24rpx 24rpx 16rpx; }
+.iot-title { display: block; font-size: 36rpx; font-weight: 700; color: var(--color-text); }
+.iot-subtitle { display: block; font-size: 22rpx; color: var(--color-text-muted); margin-top: 4rpx; }
+.ws-status { display: flex; flex-direction: row; align-items: center; gap: 8rpx; padding: 8rpx 20rpx; border-radius: 20rpx; font-size: 22rpx; }
+.ws-status.online { background: rgba(0,255,136,0.15); color: var(--color-success); }
+.ws-status.offline { background: rgba(107,114,128,0.15); color: var(--color-text-muted); }
+.ws-dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: currentColor; }
+.ws-status.online .ws-dot { animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.summary-row { display: flex; flex-direction: row; gap: 16rpx; padding: 0 24rpx 24rpx; }
+.summary-card { flex: 1; background: var(--color-surface); border-radius: 16rpx; padding: 20rpx 0; display: flex; flex-direction: column; align-items: center; }
+.summary-value { font-size: 40rpx; font-weight: 700; color: var(--color-text); }
+.summary-value.green { color: var(--color-success); }
+.summary-value.yellow { color: #F59E0B; }
+.summary-value.red { color: var(--color-alert); }
+.summary-label { font-size: 20rpx; color: var(--color-text-muted); margin-top: 4rpx; }
+.zone-filter { white-space: nowrap; padding: 0 24rpx 20rpx; }
+.zone-filter-item { display: inline-block; padding: 12rpx 24rpx; margin-right: 12rpx; background: var(--color-surface); border-radius: 20rpx; font-size: 24rpx; color: var(--color-text-muted); }
+.zone-filter-item.active { background: var(--color-gold); color: #000; font-weight: 600; }
+.device-list { padding: 0 24rpx; }
+.device-card { background: var(--color-surface); border: 1rpx solid var(--color-border); border-radius: 20rpx; padding: 24rpx; margin-bottom: 16rpx; }
+.device-card.warning { border-color: rgba(245,158,11,0.5); }
+.device-card.offline { border-color: rgba(107,114,128,0.3); opacity: 0.7; }
+.device-card-top { display: flex; flex-direction: row; align-items: center; gap: 16rpx; margin-bottom: 16rpx; }
+.device-icon-wrap { position: relative; }
+.device-icon { font-size: 48rpx; }
+.device-status-dot { position: absolute; bottom: 0; right: 0; width: 16rpx; height: 16rpx; border-radius: 50%; border: 2rpx solid var(--color-surface); }
+.device-status-dot.running { background: var(--color-success); }
+.device-status-dot.warning { background: #F59E0B; }
+.device-status-dot.offline { background: var(--color-text-muted); }
+.device-status-dot.idle { background: #888; }
+.device-info { flex: 1; }
+.device-name { display: block; font-size: 28rpx; font-weight: 600; color: var(--color-text); margin-bottom: 4rpx; }
+.device-zone { display: block; font-size: 22rpx; color: var(--color-text-muted); }
+.device-status-badge { padding: 6rpx 16rpx; border-radius: 20rpx; font-size: 20rpx; }
+.device-status-badge.running { background: rgba(0,255,136,0.15); color: var(--color-success); }
+.device-status-badge.warning { background: rgba(245,158,11,0.2); color: #F59E0B; }
+.device-status-badge.offline { background: rgba(107,114,128,0.2); color: var(--color-text-muted); }
+.device-status-badge.idle { background: rgba(107,114,128,0.15); color: var(--color-text-muted); }
+.sensor-row { display: flex; flex-direction: row; gap: 0; border-top: 1rpx solid var(--color-border); padding-top: 16rpx; }
+.sensor-item { flex: 1; text-align: center; border-right: 1rpx solid var(--color-border); }
+.sensor-item:last-child { border-right: none; }
+.sensor-value { display: block; font-size: 28rpx; font-weight: 700; color: var(--color-text); }
+.sensor-value.alert { color: var(--color-alert); }
+.sensor-label { display: block; font-size: 20rpx; color: var(--color-text-muted); margin-top: 4rpx; }
+.alert-banner { display: flex; flex-direction: row; align-items: center; gap: 10rpx; background: rgba(239,68,68,0.1); border-radius: 12rpx; padding: 12rpx 16rpx; margin-top: 12rpx; }
+.alert-icon { font-size: 24rpx; }
+.alert-msg { font-size: 22rpx; color: var(--color-alert); flex: 1; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: flex-end; z-index: 100; }
+.device-modal { background: var(--color-surface); border-radius: 32rpx 32rpx 0 0; padding: 40rpx 32rpx 60rpx; width: 100%; max-height: 80vh; overflow-y: auto; }
+.device-modal-header { display: flex; flex-direction: row; align-items: center; gap: 20rpx; margin-bottom: 28rpx; }
+.device-modal-icon { font-size: 56rpx; }
+.device-modal-name { display: block; font-size: 32rpx; font-weight: 700; color: var(--color-text); }
+.device-modal-zone { display: block; font-size: 22rpx; color: var(--color-text-muted); }
+.device-modal-sensors { background: var(--color-bg); border-radius: 16rpx; padding: 24rpx; margin-bottom: 24rpx; }
+.modal-sensor-item { display: flex; flex-direction: row; justify-content: space-between; padding: 12rpx 0; border-bottom: 1rpx solid var(--color-border); }
+.modal-sensor-item:last-child { border-bottom: none; }
+.modal-sensor-label { font-size: 26rpx; color: var(--color-text-muted); }
+.modal-sensor-value { font-size: 26rpx; font-weight: 600; color: var(--color-text); }
+.modal-sensor-value.alert { color: var(--color-alert); }
+.history-title { display: block; font-size: 26rpx; font-weight: 600; color: var(--color-text); margin-bottom: 16rpx; }
+.history-item { display: flex; flex-direction: row; gap: 16rpx; padding: 10rpx 0; border-bottom: 1rpx solid var(--color-border); }
+.history-time { font-size: 22rpx; color: var(--color-text-muted); white-space: nowrap; }
+.history-msg { font-size: 22rpx; color: var(--color-text); flex: 1; }
+.empty-history { font-size: 24rpx; color: var(--color-text-muted); text-align: center; padding: 20rpx 0; }
+.btn-close { margin-top: 24rpx; background: var(--color-bg); color: var(--color-text-muted); border: 1rpx solid var(--color-border); border-radius: 16rpx; height: 88rpx; font-size: 28rpx; width: 100%; }

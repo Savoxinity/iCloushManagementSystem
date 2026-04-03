@@ -1,0 +1,11 @@
+<!-- 管理会计入口页 -->
+<view class="page-container">
+  <view class="page-title">管理会计</view>
+  <view class="menu-grid">
+    <view class="menu-card" wx:for="{{menuItems}}" wx:key="id" data-url="{{item.url}}" bindtap="goPage">
+      <text class="menu-icon">{{item.icon}}</text>
+      <text class="menu-title">{{item.title}}</text>
+      <text class="menu-desc">{{item.desc}}</text>
+    </view>
+  </view>
+</view>

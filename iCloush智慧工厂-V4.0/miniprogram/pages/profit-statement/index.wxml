@@ -1,0 +1,76 @@
+<!-- 管理利润表 -->
+<view class="page-container">
+  <view class="header-bar">
+    <text class="page-title">管理利润表</text>
+    <picker mode="date" fields="month" value="{{period}}" bindchange="onDateChange">
+      <view class="period-picker">{{period}} ▾</view>
+    </picker>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading-state">
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <view wx:elif="{{!statement}}" class="empty-state">
+    <text class="empty-text">暂无数据</text>
+  </view>
+
+  <view wx:else class="statement-body">
+    <!-- 核心指标 -->
+    <view class="metric-row highlight">
+      <text class="metric-label">营业收入</text>
+      <text class="metric-value">¥ {{statement.revenue_display}}</text>
+    </view>
+
+    <view class="divider"></view>
+
+    <view class="metric-row">
+      <text class="metric-label">变动成本</text>
+      <text class="metric-value negative">- ¥ {{statement.variable_cost_display}}</text>
+    </view>
+
+    <view class="metric-row highlight">
+      <text class="metric-label">边际贡献</text>
+      <text class="metric-value accent">¥ {{statement.contribution_margin_display}}</text>
+    </view>
+
+    <view class="metric-row sub">
+      <text class="metric-label">边际贡献率</text>
+      <text class="metric-value">{{statement.cm_ratio_display}}</text>
+    </view>
+
+    <view class="divider"></view>
+
+    <view class="metric-row">
+      <text class="metric-label">固定成本</text>
+      <text class="metric-value negative">- ¥ {{statement.fixed_cost_display}}</text>
+    </view>
+
+    <view class="metric-row highlight {{statement.isProfit ? 'profit' : 'loss'}}">
+      <text class="metric-label">净利润</text>
+      <text class="metric-value {{statement.isProfit ? 'positive' : 'negative'}}">
+        {{statement.isProfit ? '' : '-'}} ¥ {{statement.net_profit_display}}
+      </text>
+    </view>
+
+    <view class="divider"></view>
+
+    <!-- 盈亏平衡 -->
+    <view class="breakeven-card">
+      <text class="breakeven-title">盈亏平衡点</text>
+      <text class="breakeven-value">¥ {{statement.breakeven_display}}</text>
+      <text class="breakeven-hint">
+        {{statement.isProfit ? '已超过盈亏平衡点' : '尚未达到盈亏平衡点'}}
+      </text>
+    </view>
+
+    <!-- 成本明细 -->
+    <view wx:if="{{statement.cost_breakdown && statement.cost_breakdown.length > 0}}" class="breakdown-section">
+      <view class="section-title">成本明细</view>
+      <view class="breakdown-item" wx:for="{{statement.cost_breakdown}}" wx:key="category_code">
+        <text class="bd-name">{{item.category_name || item.category_code}}</text>
+        <text class="bd-amount">¥ {{item.total}}</text>
+      </view>
+    </view>
+  </view>
+</view>

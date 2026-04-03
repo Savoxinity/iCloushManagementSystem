@@ -1,0 +1,78 @@
+/* 工区详情页样式 */
+.page-container { background: #0A0A0A; min-height: 100vh; padding-bottom: 120rpx; }
+
+.zone-hero {
+  display: flex; align-items: center; gap: 16rpx;
+  padding: 24rpx 32rpx; background: #111111;
+  border-bottom: 2rpx solid;
+}
+.zone-hero-dot { width: 16rpx; height: 16rpx; border-radius: 50%; flex-shrink: 0; }
+.zone-hero-info { flex: 1; }
+.zone-hero-name { display: block; font-size: 32rpx; font-weight: 700; color: #F0F0F0; }
+.zone-hero-status { display: inline-flex; padding: 4rpx 14rpx; border-radius: 20rpx; font-size: 20rpx; margin-top: 6rpx; }
+.tag-running { background: rgba(0,255,136,0.15); color: #00FF88; }
+.tag-idle    { background: rgba(107,114,128,0.15); color: #9CA3AF; }
+.tag-alert   { background: rgba(239,68,68,0.15); color: #EF4444; }
+.zone-hero-iot { flex-shrink: 0; }
+.iot-summary { font-size: 22rpx; color: #888888; font-family: 'Courier New', monospace; }
+
+.tab-bar { display: flex; background: #0F0F0F; border-bottom: 1rpx solid #1A1A1A; }
+.tab-item { flex: 1; text-align: center; padding: 20rpx 0; font-size: 26rpx; color: #666666; border-bottom: 3rpx solid transparent; }
+.tab-item.active { color: #C9A84C; border-bottom-color: #C9A84C; font-weight: 600; }
+
+.tab-content { padding: 20rpx 24rpx; }
+
+.device-card {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #141414; border-radius: 12rpx; border: 1rpx solid #1E1E1E;
+  padding: 16rpx; margin-bottom: 10rpx;
+}
+.device-card-left { display: flex; align-items: center; gap: 14rpx; flex: 1; min-width: 0; }
+.device-icon-wrap { width: 56rpx; height: 56rpx; border-radius: 12rpx; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.device-icon { font-size: 28rpx; }
+.device-info { flex: 1; min-width: 0; }
+.device-name { display: block; font-size: 26rpx; color: #F0F0F0; font-weight: 500; }
+.device-sub { display: block; font-size: 20rpx; color: #888888; margin-top: 4rpx; }
+.device-card-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6rpx; flex-shrink: 0; }
+.device-status-tag { padding: 4rpx 12rpx; border-radius: 20rpx; font-size: 18rpx; }
+.device-value { font-size: 22rpx; color: #C9A84C; font-family: 'Courier New', monospace; }
+
+.schedule-date-header { padding: 8rpx 0 16rpx; }
+.schedule-date { font-size: 22rpx; color: #888888; font-family: 'Courier New', monospace; }
+.schedule-row {
+  display: flex; align-items: center; gap: 16rpx;
+  background: #141414; border-radius: 12rpx; border: 1rpx solid #1E1E1E;
+  padding: 16rpx; margin-bottom: 10rpx;
+}
+.schedule-avatar { width: 64rpx; height: 64rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.schedule-initial { font-size: 28rpx; font-weight: 700; color: #000; }
+.schedule-info { flex: 1; min-width: 0; }
+.schedule-name { display: block; font-size: 26rpx; color: #F0F0F0; font-weight: 500; }
+.schedule-tags { display: flex; flex-wrap: wrap; gap: 6rpx; margin-top: 6rpx; }
+.schedule-skill-tag { background: #1E1E1E; border-radius: 20rpx; padding: 2rpx 12rpx; }
+.schedule-skill-tag text { font-size: 18rpx; color: #888888; }
+.schedule-shift { display: flex; flex-direction: column; align-items: flex-end; gap: 6rpx; flex-shrink: 0; }
+.shift-label { font-size: 22rpx; color: #C9A84C; }
+.checkin-status { padding: 4rpx 12rpx; border-radius: 20rpx; font-size: 18rpx; }
+.checked { background: rgba(0,255,136,0.15); color: #00FF88; }
+.unchecked { background: rgba(107,114,128,0.15); color: #9CA3AF; }
+
+.zone-task-item {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #141414; border-radius: 12rpx; border: 1rpx solid #1E1E1E;
+  padding: 16rpx; margin-bottom: 10rpx;
+}
+.zone-task-left { display: flex; align-items: center; gap: 12rpx; flex: 1; min-width: 0; }
+.task-priority-bar { width: 6rpx; height: 48rpx; border-radius: 3rpx; flex-shrink: 0; }
+.priority-1 { background: #6B7280; } .priority-2 { background: #3B82F6; }
+.priority-3 { background: #F59E0B; } .priority-4 { background: #EF4444; }
+.zone-task-title { display: block; font-size: 26rpx; color: #F0F0F0; font-weight: 500; }
+.zone-task-sub { display: block; font-size: 20rpx; color: #888888; margin-top: 4rpx; }
+.zone-task-status { padding: 6rpx 14rpx; border-radius: 20rpx; font-size: 18rpx; flex-shrink: 0; }
+.tag-status-0 { background: rgba(107,114,128,0.15); color: #9CA3AF; }
+.tag-status-2 { background: rgba(59,130,246,0.15); color: #3B82F6; }
+.tag-status-3 { background: rgba(245,158,11,0.15); color: #F59E0B; }
+.tag-status-4 { background: rgba(0,255,136,0.15); color: #00FF88; }
+
+.empty-state { display: flex; align-items: center; justify-content: center; padding: 80rpx; color: #444444; font-size: 26rpx; }
+.safe-bottom { height: env(safe-area-inset-bottom); }

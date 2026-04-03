@@ -1,0 +1,160 @@
+// ============================================
+// 排班拖拽 WXS 模块 V3
+// 策略：不再使用 selectAllComponents / getDataset
+// 改为：逻辑层预先计算工区 rect 列表，通过 callMethod 传入
+// WXS 只负责移动 ghost 和碰撞检测
+// ============================================
+
+// 拖拽开始
+function onDragStart(event, ownerInstance) {
+  if (!event || !event.touches || event.touches.length === 0) return false;
+  var touch = event.touches[0];
+
+  // 从 event.currentTarget.dataset 获取（WXS事件中可用）
+  var staffId = '';
+  var zoneId = '';
+  if (event.currentTarget && event.currentTarget.dataset) {
+    staffId = event.currentTarget.dataset.staffId || '';
+    zoneId = event.currentTarget.dataset.zoneId || '';
+  }
+  if (!staffId) return false;
+
+  // 用 ownerInstance.getState() 存储拖拽状态
+  var state = ownerInstance.getState();
+  state.dragging = true;
+  state.staffId = staffId;
+  state.sourceZoneId = zoneId || '';
+  state.lastX = touch.clientX;
+  state.lastY = touch.clientY;
+
+  // 通知逻辑层：拖拽开始（逻辑层会回传工区 rect 列表）
+  ownerInstance.callMethod('onWxsDragStart', {
+    staffId: staffId,
+    sourceZoneId: zoneId
+  });
+
+  // 显示 ghost 卡片
+  var ghost = ownerInstance.selectComponent('#drag-ghost');
+  if (ghost) {
+    ghost.setStyle({
+      display: 'flex',
+      position: 'fixed',
+      left: (touch.clientX - 50) + 'px',
+      top: (touch.clientY - 25) + 'px',
+      'z-index': '9999',
+      opacity: '0.92',
+      'pointer-events': 'none'
+    });
+  }
+
+  return false;
+}
+
+// 拖拽移动
+function onDragMove(event, ownerInstance) {
+  var state = ownerInstance.getState();
+  if (!state || !state.dragging) return false;
+  if (!event || !event.touches || event.touches.length === 0) return false;
+
+  var touch = event.touches[0];
+  state.lastX = touch.clientX;
+  state.lastY = touch.clientY;
+
+  // 更新 ghost 位置
+  var ghost = ownerInstance.selectComponent('#drag-ghost');
+  if (ghost) {
+    ghost.setStyle({
+      display: 'flex',
+      position: 'fixed',
+      left: (touch.clientX - 50) + 'px',
+      top: (touch.clientY - 25) + 'px',
+      'z-index': '9999',
+      opacity: '0.92',
+      'pointer-events': 'none'
+    });
+  }
+
+  // 碰撞检测：使用逻辑层预传的 zoneRects
+  var rects = state.zoneRects;
+  if (rects && rects.length > 0) {
+    ownerInstance.callMethod('onWxsDragHover', {
+      x: touch.clientX,
+      y: touch.clientY
+    });
+  }
+
+  return false;
+}
+
+// 拖拽结束
+function onDragEnd(event, ownerInstance) {
+  var state = ownerInstance.getState();
+  if (!state || !state.dragging) return false;
+
+  state.dragging = false;
+
+  // 隐藏 ghost
+  var ghost = ownerInstance.selectComponent('#drag-ghost');
+  if (ghost) {
+    ghost.setStyle({
+      display: 'none',
+      position: 'fixed',
+      left: '-999px',
+      top: '-999px'
+    });
+  }
+
+  // 获取最终触摸点
+  var finalX = state.lastX || 0;
+  var finalY = state.lastY || 0;
+  if (event && event.changedTouches && event.changedTouches.length > 0) {
+    finalX = event.changedTouches[0].clientX;
+    finalY = event.changedTouches[0].clientY;
+  }
+
+  // 碰撞检测：在逻辑层预传的 zoneRects 中查找命中
+  var targetZoneId = null;
+  var rects = state.zoneRects;
+  if (rects && rects.length > 0) {
+    for (var i = 0; i < rects.length; i++) {
+      var r = rects[i];
+      if (
+        finalX >= r.left &&
+        finalX <= r.right &&
+        finalY >= r.top &&
+        finalY <= r.bottom
+      ) {
+        targetZoneId = r.zoneId;
+        break;
+      }
+    }
+  }
+
+  // 通知逻辑层
+  ownerInstance.callMethod('onWxsDragEnd', {
+    staffId: state.staffId,
+    sourceZoneId: state.sourceZoneId,
+    targetZoneId: targetZoneId
+  });
+
+  return false;
+}
+
+// 逻辑层调用此函数传入工区 rect 列表
+function setZoneRects(newVal, oldVal, ownerInstance) {
+  if (!ownerInstance) return;
+  var state = ownerInstance.getState();
+  if (!state) return;
+  try {
+    state.zoneRects = JSON.parse(newVal);
+  } catch (e) {
+    state.zoneRects = [];
+  }
+}
+
+module.exports = {
+  onDragStart: onDragStart,
+  onDragMove: onDragMove,
+  onDragEnd: onDragEnd,
+  setZoneRects: setZoneRects
+};

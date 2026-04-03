@@ -1,0 +1,223 @@
+<!-- ============================================
+     排班管理页
+     WXS 拖拽：onDragStart/Move/End 全在渲染层执行
+     ============================================ -->
+<wxs src="./drag.wxs" module="drag" />
+
+<view class="page-container">
+
+  <!-- 日期选择栏 -->
+  <view class="date-bar">
+    <view class="date-nav-btn" bindtap="prevDay">
+      <text class="date-nav-icon">‹</text>
+    </view>
+    <view class="date-center" bindtap="showDatePicker">
+      <text class="date-main">{{selectedDateStr}}</text>
+      <text class="date-sub">{{selectedWeekday}} · 点击切换日期</text>
+    </view>
+    <view class="date-nav-btn" bindtap="nextDay">
+      <text class="date-nav-icon">›</text>
+    </view>
+    <view class="today-btn" bindtap="goToday">
+      <text>今天</text>
+    </view>
+  </view>
+
+  <!-- 统计摘要 -->
+  <view class="summary-row">
+    <view class="summary-item">
+      <text class="summary-value">{{summary.total}}</text>
+      <text class="summary-label">总人数</text>
+    </view>
+    <view class="summary-item">
+      <text class="summary-value green">{{summary.assigned}}</text>
+      <text class="summary-label">已排班</text>
+    </view>
+    <view class="summary-item">
+      <text class="summary-value gold">{{summary.unassigned}}</text>
+      <text class="summary-label">待分配</text>
+    </view>
+    <view class="summary-item">
+      <text class="summary-value red">{{summary.leave}}</text>
+      <text class="summary-label">请假</text>
+    </view>
+  </view>
+
+  <!-- 主体：左侧待分配员工池 + 右侧工区格 -->
+  <view class="board-container">
+
+    <!-- 左侧：待分配员工池 -->
+    <view class="staff-pool">
+      <text class="pool-title">待分配</text>
+      <scroll-view class="pool-scroll" scroll-y>
+        <view
+          wx:for="{{unassignedStaff}}"
+          wx:key="id"
+          class="staff-chip {{draggingStaffId === item.id ? 'dragging' : ''}}"
+          id="staff-{{item.id}}"
+          data-staff-id="{{item.id}}"
+          data-zone-id=""
+          catchtouchstart="{{drag.onDragStart}}"
+          catchtouchmove="{{drag.onDragMove}}"
+          catchtouchend="{{drag.onDragEnd}}"
+        >
+          <view class="chip-avatar" style="background:{{item.avatarColor}};">
+            <text class="chip-initial">{{item.nameInitial}}</text>
+          </view>
+          <view class="chip-info">
+            <text class="chip-name">{{item.name}}</text>
+            <text class="chip-role">{{item.roleLabel}}</text>
+          </view>
+          <view wx:if="{{item.is_multi_post}}" class="multi-badge">
+            <text>多</text>
+          </view>
+        </view>
+
+        <!-- 请假员工（置灰，不可拖拽） -->
+        <view
+          wx:for="{{leaveStaff}}"
+          wx:key="id"
+          class="staff-chip leave"
+        >
+          <view class="chip-avatar leave-avatar">
+            <text class="chip-initial">{{item.nameInitial}}</text>
+          </view>
+          <view class="chip-info">
+            <text class="chip-name">{{item.name}}</text>
+            <text class="chip-role leave-label">请假</text>
+          </view>
+        </view>
+
+        <view wx:if="{{unassignedStaff.length === 0 && leaveStaff.length === 0}}" class="pool-empty">
+          <text>✓ 全部已排班</text>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 右侧：工区排班格 -->
+    <scroll-view class="slots-scroll" scroll-y>
+      <view class="slots-container">
+        <view
+          wx:for="{{scheduleSlots}}"
+          wx:key="zone_id"
+          class="schedule-slot"
+          id="slot-{{item.zone_id}}"
+          data-zone-id="{{item.zone_id}}"
+        >
+          <!-- 工区标题 -->
+          <view class="slot-header" style="border-left-color:{{item.color}};">
+            <view>
+              <text class="slot-name">{{item.zone_name}}</text>
+              <text class="slot-capacity">{{item.assigned.length}}/{{item.capacity}}人</text>
+            </view>
+            <view class="slot-shift-tags">
+              <view class="shift-tag morning">早</view>
+              <view class="shift-tag evening">晚</view>
+            </view>
+          </view>
+
+          <!-- 已分配员工 -->
+          <view class="slot-staff-row">
+            <view
+              wx:for="{{item.assigned}}"
+              wx:key="id"
+              wx:for-item="staff"
+              class="slot-staff-chip {{draggingStaffId === staff.id ? 'dragging' : ''}}"
+              data-staff-id="{{staff.id}}"
+              data-zone-id="{{item.zone_id}}"
+              catchtouchstart="{{drag.onDragStart}}"
+              catchtouchmove="{{drag.onDragMove}}"
+              catchtouchend="{{drag.onDragEnd}}"
+            >
+              <view class="slot-chip-avatar" style="background:{{staff.avatarColor}};">
+                <text class="slot-chip-initial">{{staff.nameInitial}}</text>
+              </view>
+              <text class="slot-chip-name">{{staff.name}}</text>
+              <!-- 移除按钮 -->
+              <view class="slot-chip-remove" catchtap="onRemoveStaff" data-staff-id="{{staff.id}}" data-zone-id="{{item.zone_id}}">
+                <text>×</text>
+              </view>
+            </view>
+
+            <!-- 空位提示 -->
+            <view wx:if="{{item.assigned.length === 0}}" class="slot-empty-hint">
+              <text>拖拽员工至此</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 拖拽 Ghost 卡片（渲染层控制，初始隐藏） -->
+  <view id="drag-ghost" class="drag-ghost" style="display:none;">
+    <view class="ghost-avatar" style="background:{{ghostAvatarColor}};">
+      <text class="ghost-initial">{{ghostNameInitial}}</text>
+    </view>
+    <text class="ghost-name">{{ghostName}}</text>
+  </view>
+
+  <!-- 底部操作栏 -->
+  <view class="bottom-bar">
+    <button class="btn-leave" bindtap="showLeaveModal">请假申请</button>
+    <button class="btn-save" bindtap="saveSchedule">保存排班</button>
+    <button class="btn-copy" bindtap="copyYesterday">复制昨日</button>
+  </view>
+
+  <!-- 请假申请弹窗 -->
+  <view wx:if="{{showLeaveModal}}" class="modal-overlay" catchtap="closeLeaveModal">
+    <view class="modal-box" catchtap="stopPropagation">
+      <text class="modal-title">请假申请</text>
+
+      <!-- 选择员工 -->
+      <text class="form-label">选择员工</text>
+      <scroll-view class="leave-staff-list" scroll-y>
+        <view
+          wx:for="{{allStaff}}"
+          wx:key="id"
+          class="leave-staff-item {{selectedLeaveStaffId === item.id ? 'selected' : ''}}"
+          bindtap="selectLeaveStaff"
+          data-id="{{item.id}}"
+        >
+          <view class="leave-avatar" style="background:{{item.avatarColor}};">
+            <text>{{item.nameInitial}}</text>
+          </view>
+          <text class="leave-name">{{item.name}}</text>
+          <view wx:if="{{selectedLeaveStaffId === item.id}}" class="leave-check">✓</view>
+        </view>
+      </scroll-view>
+
+      <!-- 请假类型 -->
+      <text class="form-label">请假类型</text>
+      <view class="leave-type-row">
+        <view
+          wx:for="{{leaveTypes}}"
+          wx:key="value"
+          class="leave-type-chip {{selectedLeaveType === item.value ? 'active' : ''}}"
+          bindtap="selectLeaveType"
+          data-value="{{item.value}}"
+        >
+          <text>{{item.label}}</text>
+        </view>
+      </view>
+
+      <!-- 备注 -->
+      <text class="form-label">备注（可选）</text>
+      <textarea
+        class="leave-remark"
+        placeholder="请输入请假原因..."
+        placeholder-class="placeholder-style"
+        bindinput="onLeaveRemarkInput"
+        value="{{leaveRemark}}"
+        maxlength="100"
+      />
+
+      <view class="modal-btns">
+        <button class="modal-btn-cancel" bindtap="closeLeaveModal">取消</button>
+        <button class="modal-btn-confirm" bindtap="submitLeave">提交申请</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="safe-bottom" />
+</view>

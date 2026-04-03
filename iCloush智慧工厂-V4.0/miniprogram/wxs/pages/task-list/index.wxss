@@ -1,0 +1,85 @@
+/* 任务列表页样式 */
+.page-container { background: #0A0A0A; min-height: 100vh; padding-bottom: 160rpx; }
+
+.filter-bar { background: #0F0F0F; border-bottom: 1rpx solid #1A1A1A; }
+.filter-scroll { white-space: nowrap; }
+.filter-inner { display: flex; gap: 12rpx; padding: 16rpx 24rpx; }
+
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 6rpx;
+  padding: 10rpx 20rpx; border-radius: 30rpx;
+  background: #141414; border: 1rpx solid #1E1E1E;
+  font-size: 24rpx; color: #888888;
+}
+.filter-chip.active { background: rgba(201,168,76,0.15); border-color: rgba(201,168,76,0.4); color: #C9A84C; }
+.filter-count { font-size: 18rpx; background: #EF4444; color: #fff; border-radius: 20rpx; padding: 0 8rpx; }
+
+.type-filter-row { display: flex; gap: 10rpx; padding: 12rpx 24rpx; background: #0A0A0A; }
+.type-chip { padding: 8rpx 20rpx; border-radius: 20rpx; background: #141414; border: 1rpx solid #1E1E1E; font-size: 22rpx; color: #666666; }
+.type-chip.active { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.3); color: #3B82F6; }
+
+.task-list { padding: 16rpx 24rpx; }
+
+.task-card {
+  display: flex; background: #141414; border-radius: 16rpx;
+  border: 1rpx solid #1E1E1E; margin-bottom: 12rpx; overflow: hidden;
+}
+
+.priority-bar { width: 6rpx; flex-shrink: 0; }
+.priority-1 { background: #6B7280; }
+.priority-2 { background: #3B82F6; }
+.priority-3 { background: #F59E0B; }
+.priority-4 { background: #EF4444; }
+
+.task-card-body { flex: 1; padding: 16rpx 20rpx; min-width: 0; }
+
+.task-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10rpx; }
+
+.task-type-tag { padding: 4rpx 12rpx; border-radius: 20rpx; font-size: 18rpx; }
+.type-routine  { background: rgba(59,130,246,0.15); color: #3B82F6; }
+.type-periodic { background: rgba(139,92,246,0.15); color: #8B5CF6; }
+.type-specific { background: rgba(245,158,11,0.15); color: #F59E0B; }
+
+.task-status-tag { padding: 4rpx 12rpx; border-radius: 20rpx; font-size: 18rpx; }
+.status-0 { background: rgba(107,114,128,0.15); color: #9CA3AF; }
+.status-1 { background: rgba(59,130,246,0.15);  color: #3B82F6; }
+.status-2 { background: rgba(59,130,246,0.15);  color: #3B82F6; }
+.status-3 { background: rgba(245,158,11,0.15);  color: #F59E0B; }
+.status-4 { background: rgba(0,255,136,0.15);   color: #00FF88; }
+.status-5 { background: rgba(239,68,68,0.15);   color: #EF4444; }
+
+.task-card-title { display: block; font-size: 28rpx; color: #F0F0F0; font-weight: 600; margin-bottom: 10rpx; }
+
+.task-card-meta { display: flex; gap: 20rpx; margin-bottom: 10rpx; }
+.meta-item { display: flex; align-items: center; gap: 6rpx; }
+.meta-icon { font-size: 20rpx; }
+.meta-text { font-size: 22rpx; color: #888888; }
+.deadline-text { color: #F59E0B; }
+
+.task-progress { margin-bottom: 10rpx; }
+.task-progress-track { height: 6rpx; background: #1E1E1E; border-radius: 3rpx; margin-bottom: 6rpx; }
+.task-progress-fill { height: 100%; background: linear-gradient(90deg, #C9A84C, #F0C060); border-radius: 3rpx; }
+.task-progress-text { font-size: 18rpx; color: #888888; font-family: 'Courier New', monospace; }
+
+.task-card-footer { display: flex; align-items: center; justify-content: space-between; }
+.task-assignee { display: flex; align-items: center; gap: 8rpx; }
+.assignee-dot { width: 10rpx; height: 10rpx; border-radius: 50%; }
+.assignee-name { font-size: 20rpx; color: #888888; }
+.task-points-wrap { display: flex; align-items: baseline; gap: 4rpx; }
+.task-points { font-size: 28rpx; font-weight: 700; color: #C9A84C; font-family: 'Courier New', monospace; }
+.task-points-unit { font-size: 18rpx; color: #888888; }
+
+.empty-state { display: flex; flex-direction: column; align-items: center; padding: 100rpx 40rpx; }
+.empty-icon { font-size: 80rpx; margin-bottom: 20rpx; }
+.empty-text { font-size: 28rpx; color: #444444; }
+
+.fab {
+  position: fixed; right: 40rpx; bottom: 160rpx;
+  width: 96rpx; height: 96rpx; border-radius: 50%;
+  background: #C9A84C; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(201,168,76,0.4);
+  z-index: 50;
+}
+.fab-icon { font-size: 48rpx; color: #000000; font-weight: 300; line-height: 1; }
+
+.safe-bottom { height: env(safe-area-inset-bottom); }

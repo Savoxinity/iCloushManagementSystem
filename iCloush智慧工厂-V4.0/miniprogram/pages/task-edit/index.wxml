@@ -1,0 +1,191 @@
+<!-- ============================================
+  任务编辑控制台 — Task Edit Console
+  ============================================ -->
+<view class="page-container">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view>
+      <text class="page-title">编辑任务</text>
+      <text class="page-subtitle">TASK EDIT // 修改已发布任务</text>
+    </view>
+    <view class="edit-status-badge status-{{taskStatus}}">
+      <text>当前状态: {{taskStatus === 0 ? '待认领' : taskStatus === 1 ? '已接单' : taskStatus === 2 ? '进行中' : taskStatus === 3 ? '待审核' : '已完成'}}</text>
+    </view>
+  </view>
+
+  <scroll-view scroll-y class="form-scroll">
+    <!-- 任务标题 -->
+    <view class="form-section">
+      <view class="section-label">
+        <text class="label-icon">◈</text>
+        <text class="label-text">TASK TITLE / 任务标题</text>
+        <text class="label-required">*</text>
+      </view>
+      <view class="input-box">
+        <input class="text-input" placeholder="输入任务标题" placeholder-class="input-placeholder" maxlength="40" value="{{title}}" bindinput="onTitleInput" />
+      </view>
+      <text class="char-count">{{title.length}}/40</text>
+    </view>
+
+    <!-- 任务类型 -->
+    <view class="form-section">
+      <view class="section-label">
+        <text class="label-icon">◈</text>
+        <text class="label-text">TASK TYPE / 任务类型</text>
+      </view>
+      <view class="type-grid">
+        <view wx:for="{{taskTypes}}" wx:key="value" class="type-card {{taskType === item.value ? 'active' : ''}}" bindtap="onTypeSelect" data-value="{{item.value}}">
+          <text class="type-label">{{item.label}}</text>
+          <text class="type-desc">{{item.desc}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 优先级 -->
+    <view class="form-section">
+      <view class="section-label">
+        <text class="label-icon">◈</text>
+        <text class="label-text">PRIORITY / 优先级</text>
+      </view>
+      <view class="priority-row">
+        <view wx:for="{{priorities}}" wx:key="value" class="priority-chip {{priority === item.value ? 'active' : ''}}" style="{{priority === item.value ? 'border-color:' + item.color + '; color:' + item.color : ''}}" bindtap="onPrioritySelect" data-value="{{item.value}}">
+          <view class="priority-dot" style="background:{{item.color}}"></view>
+          <text>{{item.label}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 工区选择 -->
+    <view class="form-section">
+      <view class="section-label">
+        <text class="label-icon">◈</text>
+        <text class="label-text">ZONE / 指定工区</text>
+        <text class="label-required">*</text>
+      </view>
+      <picker mode="selector" range="{{zones}}" range-key="name" bindchange="onZoneSelect">
+        <view class="picker-box">
+          <text class="picker-value {{zoneName ? '' : 'placeholder'}}">{{zoneName || '选择工区'}}</text>
+          <text class="picker-arrow">▾</text>
+        </view>
+      </picker>
+    </view>
+
+    <!-- 截止时间 -->
+    <view class="form-section">
+      <view class="section-label">
+        <text class="label-icon">◈</text>
+        <text class="label-text">DEADLINE / 截止时间</text>
+        <text class="label-required">*</text>
+      </view>
+      <picker mode="date" start="{{minDate}}" value="{{deadline}}" bindchange="onDeadlineChange">
+        <view class="picker-box">
+          <text class="picker-value">{{deadline}}</text>
+          <text class="picker-arrow">▾</text>
+        </view>
+      </picker>
+    </view>
+
+    <!-- 目标量 & 单位 -->
+    <view class="form-section">
+      <view class="section-label">
+        <text class="label-icon">◈</text>
+        <text class="label-text">TARGET / 目标量</text>
+      </view>
+      <view class="row-group">
+        <view class="input-box flex-1">
+          <input class="text-input" type="number" placeholder="目标数量" placeholder-class="input-placeholder" value="{{target}}" bindinput="onTargetInput" />
+        </view>
+        <picker mode="selector" range="{{units}}" bindchange="onUnitSelect">
+          <view class="unit-picker">
+            <text>{{unit}}</text>
+            <text class="picker-arrow">▾</text>
+          </view>
+        </picker>
+      </view>
+    </view>
+
+    <!-- 积分奖励 -->
+    <view class="form-section">
+      <view class="section-label">
+        <text class="label-icon">◈</text>
+        <text class="label-text">REWARD / 积分奖励</text>
+      </view>
+      <view class="input-box">
+        <input class="text-input" type="number" placeholder="完成任务奖励积分" placeholder-class="input-placeholder" value="{{pointsReward}}" bindinput="onPointsInput" />
+        <text class="input-suffix">PTS</text>
+      </view>
+    </view>
+
+    <!-- 任务描述 -->
+    <view class="form-section">
+      <view class="section-label">
+        <text class="label-icon">◈</text>
+        <text class="label-text">DESCRIPTION / 任务描述</text>
+      </view>
+      <view class="textarea-box">
+        <textarea class="text-area" placeholder="输入任务详细描述和要求..." placeholder-class="input-placeholder" maxlength="200" value="{{description}}" bindinput="onDescInput" auto-height />
+      </view>
+      <text class="char-count">{{description.length}}/200</text>
+    </view>
+
+    <!-- 指派员工 -->
+    <view class="form-section">
+      <view class="section-label">
+        <text class="label-icon">◈</text>
+        <text class="label-text">ASSIGN / 指派员工</text>
+        <text class="label-hint">（修改指派将重置任务状态）</text>
+      </view>
+      <view class="selected-staff" wx:if="{{selectedStaff.length > 0}}">
+        <view wx:for="{{selectedStaff}}" wx:key="id" class="staff-chip">
+          <view class="chip-avatar" style="background:{{item.avatarColor}}"><text>{{item.initial}}</text></view>
+          <text class="chip-name">{{item.name}}</text>
+          <text class="chip-remove" bindtap="removeStaff" data-id="{{item.id}}">✕</text>
+        </view>
+      </view>
+      <view class="add-staff-btn" bindtap="openStaffPicker">
+        <text class="add-icon">+</text>
+        <text>{{selectedStaff.length > 0 ? '修改指派' : '选择员工'}}</text>
+      </view>
+    </view>
+
+    <view style="height: 200rpx"></view>
+  </scroll-view>
+
+  <!-- 底部提交栏 -->
+  <view class="submit-bar">
+    <button class="submit-btn edit-btn" bindtap="onSubmit" disabled="{{submitting}}">
+      <text class="btn-icon">✎</text>
+      <text>{{submitting ? '保存中...' : 'SAVE / 保存修改'}}</text>
+    </button>
+  </view>
+
+  <!-- 员工选择弹窗 -->
+  <view class="staff-picker-mask {{showStaffPicker ? 'visible' : ''}}" bindtap="closeStaffPicker"></view>
+  <view class="staff-picker-panel {{showStaffPicker ? 'visible' : ''}}">
+    <view class="picker-header">
+      <text class="picker-title">选择员工</text>
+      <text class="picker-close" bindtap="closeStaffPicker">完成</text>
+    </view>
+    <view class="picker-search">
+      <input class="search-input" placeholder="搜索员工姓名" placeholder-class="input-placeholder" value="{{staffSearchKey}}" bindinput="onStaffSearch" />
+    </view>
+    <scroll-view scroll-y class="picker-list">
+      <view wx:for="{{filteredStaff}}" wx:key="id" class="staff-item {{item.selected ? 'selected' : ''}}" bindtap="toggleStaff" data-id="{{item.id}}">
+        <view class="staff-avatar" style="background:{{item.avatarColor}}"><text>{{item.initial}}</text></view>
+        <view class="staff-info">
+          <text class="staff-name">{{item.name}}</text>
+          <text class="staff-role">{{item.roleLabel}}</text>
+        </view>
+        <view class="staff-skills">
+          <text wx:for="{{item.skills}}" wx:for-item="skill" wx:key="*this" class="skill-tag">{{skill}}</text>
+        </view>
+        <view class="check-box {{item.selected ? 'checked' : ''}}">
+          <text wx:if="{{item.selected}}">✓</text>
+        </view>
+      </view>
+      <view class="empty-state" wx:if="{{filteredStaff.length === 0}}">
+        <text>未找到匹配的员工</text>
+      </view>
+    </scroll-view>
+  </view>
+</view>

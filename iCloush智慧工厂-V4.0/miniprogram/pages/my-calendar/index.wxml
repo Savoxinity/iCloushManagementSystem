@@ -1,0 +1,110 @@
+<!-- ============================================
+     个人排班日历页面
+     ============================================ -->
+<view class="page-container">
+
+  <!-- 页面头部 -->
+  <view class="page-header">
+    <text class="page-title">{{userName}} 的排班日历</text>
+  </view>
+
+  <!-- 月份切换 -->
+  <view class="month-nav">
+    <view class="month-btn" bindtap="prevMonth">
+      <text class="month-arrow">‹</text>
+    </view>
+    <view class="month-center" bindtap="goToday">
+      <text class="month-label">{{monthLabel}}</text>
+      <text class="today-hint">点击回今天</text>
+    </view>
+    <view class="month-btn" bindtap="nextMonth">
+      <text class="month-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- 月度统计 -->
+  <view class="month-stats-row">
+    <view class="month-stat">
+      <text class="stat-num green">{{monthStats.totalDays}}</text>
+      <text class="stat-txt">出勤天数</text>
+    </view>
+    <view class="month-stat">
+      <text class="stat-num gold">{{monthStats.restDays}}</text>
+      <text class="stat-txt">休息天数</text>
+    </view>
+    <view class="month-stat">
+      <text class="stat-num blue">{{monthStats.mostZone}}</text>
+      <text class="stat-txt">常驻工区</text>
+    </view>
+  </view>
+
+  <!-- 日历网格 -->
+  <view class="calendar-wrap">
+    <!-- 星期头 -->
+    <view class="week-header">
+      <view class="week-cell" wx:for="{{weekDays}}" wx:key="*this">
+        <text class="week-text {{index === 0 || index === 6 ? 'weekend' : ''}}">{{item}}</text>
+      </view>
+    </view>
+
+    <!-- 日期格子 -->
+    <view class="days-grid">
+      <view
+        wx:for="{{calendarDays}}"
+        wx:key="dateStr"
+        class="day-cell {{item.isEmpty ? 'empty' : ''}} {{item.isToday ? 'today' : ''}} {{item.isSelected ? 'selected' : ''}}"
+        bindtap="{{item.isEmpty ? '' : 'onDayTap'}}"
+        data-date="{{item.dateStr}}"
+      >
+        <text class="day-num">{{item.day}}</text>
+        <!-- 排班标记点 -->
+        <view wx:if="{{item.hasSchedule}}" class="schedule-dot" style="background:{{item.zoneColor}};"></view>
+        <!-- 今天标记 -->
+        <text wx:if="{{item.isToday}}" class="today-tag">今</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 选中日期详情 -->
+  <view class="detail-section">
+    <view class="detail-header">
+      <text class="detail-date">{{selectedDateLabel}}</text>
+    </view>
+
+    <view wx:if="{{selectedSchedule}}" class="detail-card">
+      <view class="detail-zone-bar" style="background:{{selectedSchedule.zone_color}};"></view>
+      <view class="detail-info">
+        <text class="detail-zone-name">{{selectedSchedule.zone_name}}</text>
+        <view class="detail-meta">
+          <view class="shift-tag" style="background:{{selectedSchedule.shift === '加班' ? 'rgba(245,158,11,0.15)' : 'rgba(0,255,136,0.15)'}};border-color:{{selectedSchedule.shift === '加班' ? 'rgba(245,158,11,0.3)' : 'rgba(0,255,136,0.3)'}};">
+            <text style="color:{{selectedSchedule.shift === '加班' ? '#F59E0B' : '#00FF88'}};">{{selectedSchedule.shift}}</text>
+          </view>
+          <text class="detail-time">08:00 - 17:30</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{!selectedSchedule}}" class="detail-empty">
+      <text class="empty-icon">🏖</text>
+      <text class="empty-text">当天无排班 · 休息日</text>
+    </view>
+  </view>
+
+  <!-- 图例 -->
+  <view class="legend-row">
+    <view class="legend-item">
+      <view class="legend-dot" style="background:#00FF88;"></view>
+      <text class="legend-text">白班</text>
+    </view>
+    <view class="legend-item">
+      <view class="legend-dot" style="background:#F59E0B;"></view>
+      <text class="legend-text">加班</text>
+    </view>
+    <view class="legend-item">
+      <view class="legend-dot empty-dot"></view>
+      <text class="legend-text">休息</text>
+    </view>
+  </view>
+
+  <view class="safe-bottom" />
+</view>
