@@ -30,7 +30,9 @@ router = APIRouter()
 logger = logging.getLogger("icloush.upload")
 
 # ── 本地存储目录（COS 不可用时的降级方案）──
-UPLOAD_DIR = Path("/app/uploads")
+# 与 main.py 中 StaticFiles("/uploads") 挂载的目录保持一致
+# Docker 内 app 目录为 /app，所以 uploads 目录在 /app/uploads
+UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 

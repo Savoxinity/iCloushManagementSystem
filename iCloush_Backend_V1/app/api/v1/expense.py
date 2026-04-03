@@ -9,9 +9,12 @@
 
 接口清单：
   POST /create          员工创建报销单（极简三项）
-  GET  /list            报销单列表（我的 / 待审核）
+  GET  /pending         待审核报销单（前端 expense-review 调用）
+  GET  /my              我的报销单（前端 expense-list 调用）
+  GET  /list            报销单列表（通用，支持 tab 参数）
   GET  /{id}            报销单详情
-  PUT  /review/{id}     审核报销单（管理员，含 category_code）
+  POST /review/{id}     审核报销单（管理员，含 category_code）
+  PUT  /review/{id}     审核报销单（兼容）
   GET  /stats           报销统计
 """
 from datetime import datetime, date, timezone
@@ -138,7 +141,89 @@ async def create_expense(
 
 
 # ═══════════════════════════════════════════════════
-# 报销单列表
+# 待审核报销单（前端 expense-review 调用 /pending）
+# ═══════════════════════════════════════════════════
+
+@router.get("/pending")
+async def list_pending_expenses(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=100),
+    current_user: User = Depends(require_role(5)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    待审核报销单列表（/pending 路由别名）
+    等价于 /list?tab=pending，为前端兼容而设
+    """
+    query = select(ExpenseReport).where(
+        ExpenseReport.status.in_(["pending", "manual_review"])
+    ).order_by(ExpenseReport.created_at.desc())
+
+    total_result = await db.execute(
+        select(func.count()).select_from(query.subquery())
+    )
+    total = total_result.scalar() or 0
+
+    query = query.offset((page - 1) * page_size).limit(page_size)
+    result = await db.execute(query)
+    expenses = result.scalars().all()
+
+    user_ids = list(set(e.user_id for e in expenses))
+    if user_ids:
+        users_result = await db.execute(select(User).where(User.id.in_(user_ids)))
+        user_map = {u.id: u.name for u in users_result.scalars().all()}
+    else:
+        user_map = {}
+
+    data = []
+    for e in expenses:
+        d = _serialize_expense(e)
+        d["user_name"] = user_map.get(e.user_id, "未知")
+        data.append(d)
+
+    return {"code": 200, "data": data, "total": total, "page": page, "page_size": page_size}
+
+
+# ═══════════════════════════════════════════════════
+# 我的报销单（前端 expense-list 调用 /my）
+# ═══════════════════════════════════════════════════
+
+@router.get("/my")
+async def list_my_expenses(
+    status: Optional[str] = Query(default=None, description="状态筛选"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    当前用户的报销单列表（/my 路由别名）
+    等价于 /list?tab=my，为前端兼容而设
+    """
+    query = select(ExpenseReport).where(
+        ExpenseReport.user_id == current_user.id
+    )
+    if status and status != 'all':
+        query = query.where(ExpenseReport.status == status)
+
+    query = query.order_by(ExpenseReport.created_at.desc())
+
+    total_result = await db.execute(
+        select(func.count()).select_from(query.subquery())
+    )
+    total = total_result.scalar() or 0
+
+    query = query.offset((page - 1) * page_size).limit(page_size)
+    result = await db.execute(query)
+    expenses = result.scalars().all()
+
+    data = [_serialize_expense(e) for e in expenses]
+
+    return {"code": 200, "data": data, "total": total, "page": page, "page_size": page_size}
+
+
+# ═══════════════════════════════════════════════════
+# 报销单列表（通用）
 # ═══════════════════════════════════════════════════
 
 @router.get("/list")
@@ -258,15 +343,47 @@ async def get_expense(
 # 审核报销单（Phase 3B 核心：管理员填写 category_code）
 # ═══════════════════════════════════════════════════
 
-@router.put("/review/{expense_id}")
-async def review_expense(
+@router.post("/{expense_id}/review")
+async def review_expense_post_alt(
     expense_id: int,
     req: ExpenseReviewRequest,
     current_user: User = Depends(require_role(5)),
     db: AsyncSession = Depends(get_db),
 ):
+    """审核报销单（POST /expenses/{id}/review 前端实际调用路径）"""
+    return await _do_review(expense_id, req, current_user, db)
+
+
+@router.post("/review/{expense_id}")
+async def review_expense_post(
+    expense_id: int,
+    req: ExpenseReviewRequest,
+    current_user: User = Depends(require_role(5)),
+    db: AsyncSession = Depends(get_db),
+):
+    """审核报销单（POST /review/{id} 兼容路径）"""
+    return await _do_review(expense_id, req, current_user, db)
+
+
+@router.put("/review/{expense_id}")
+async def review_expense_put(
+    expense_id: int,
+    req: ExpenseReviewRequest,
+    current_user: User = Depends(require_role(5)),
+    db: AsyncSession = Depends(get_db),
+):
+    """审核报销单（PUT /review/{id} 兼容路径）"""
+    return await _do_review(expense_id, req, current_user, db)
+
+
+async def _do_review(
+    expense_id: int,
+    req: ExpenseReviewRequest,
+    current_user: User,
+    db: AsyncSession,
+):
     """
-    审核报销单
+    审核报销单 — 内部实现
     Phase 3B 核心变更：
       - 审核通过时管理员必须选择 category_code
       - 审核通过自动生成 ManagementCostLedger 流水

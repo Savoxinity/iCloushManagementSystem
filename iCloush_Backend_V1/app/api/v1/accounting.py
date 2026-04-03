@@ -295,8 +295,9 @@ async def delete_cost_entry(
 
 @router.get("/profit-statement")
 async def profit_statement(
-    year: int = Query(..., description="年份"),
-    month: int = Query(..., ge=1, le=12, description="月份"),
+    year: Optional[int] = Query(default=None, description="年份"),
+    month: Optional[int] = Query(default=None, ge=1, le=12, description="月份"),
+    period: Optional[str] = Query(default=None, description="年月（YYYY-MM），与 year/month 二选一"),
     current_user: User = Depends(require_role(5)),
     db: AsyncSession = Depends(get_db),
 ):
@@ -307,6 +308,19 @@ async def profit_statement(
       - 变动成本 = 边际贡献
       - 固定成本 = 经营净利润
     """
+    # 兼容前端 period=YYYY-MM 参数
+    if period and not year:
+        try:
+            parts = period.split("-")
+            year = int(parts[0])
+            month = int(parts[1])
+        except (ValueError, IndexError):
+            raise HTTPException(status_code=422, detail="period 格式错误，请使用 YYYY-MM")
+    if not year or not month:
+        now = datetime.now()
+        year = year or now.year
+        month = month or now.month
+
     # 1. 查询该月所有成本流水
     result = await db.execute(
         select(ManagementCostLedger).where(
@@ -361,11 +375,15 @@ async def profit_statement(
     contribution_margin = revenue - variable_costs
     net_operating_profit = contribution_margin - fixed_costs
 
-    # 7. 税务漏洞
+    # 7. 边际贡献率 & 盈亏平衡点
+    cm_ratio = contribution_margin / revenue if revenue > 0 else 0
+    breakeven_revenue = fixed_costs / cm_ratio if cm_ratio > 0 else 0
+
+    # 8. 税务漏洞
     no_invoice_total = sum(
         float(c.post_tax_amount) for c in costs if c.invoice_status == "none"
     )
-    estimated_tax_loss = no_invoice_total * 0.25  # 企业所得税25%
+    estimated_tax_loss = no_invoice_total * 0.25  # 企业所得稥25%
 
     return {
         "code": 200,
@@ -373,11 +391,19 @@ async def profit_statement(
             "period": f"{year}-{month:02d}",
             "revenue": round(revenue, 2),
             "total_sets": total_sets,
+            # 后端原始字段
             "variable_costs": round(variable_costs, 2),
             "fixed_costs": round(fixed_costs, 2),
             "total_costs": round(total_costs, 2),
             "contribution_margin": round(contribution_margin, 2),
             "net_operating_profit": round(net_operating_profit, 2),
+            # 前端期望的别名字段
+            "variable_cost": round(variable_costs, 2),
+            "fixed_cost": round(fixed_costs, 2),
+            "net_profit": round(net_operating_profit, 2),
+            "cm_ratio": round(cm_ratio, 4),
+            "breakeven_revenue": round(breakeven_revenue, 2),
+            # 细分
             "by_category": {k: round(v, 2) for k, v in sorted(by_category.items(), key=lambda x: -x[1])},
             "by_center": {k: round(v, 2) for k, v in sorted(by_center.items(), key=lambda x: -x[1])},
             "tax_leakage": {

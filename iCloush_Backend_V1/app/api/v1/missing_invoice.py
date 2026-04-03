@@ -62,6 +62,71 @@ class AutoResolveRequest(BaseModel):
 
 
 # ═══════════════════════════════════════════════════
+# 欠票看板（前端 missing-invoice 调用 /dashboard）
+# ═══════════════════════════════════════════════════
+
+@router.get("/dashboard")
+async def missing_invoice_dashboard(
+    current_user: User = Depends(require_role(5)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    欠票看板总览（/dashboard 路由别名）
+    返回 summary + ranking，为前端兼容而设
+    """
+    result = await db.execute(select(MissingInvoiceLedger))
+    all_records = result.scalars().all()
+
+    # 汇总统计
+    pending_count = sum(1 for r in all_records if r.status in ("pending", "reminded"))
+    pending_amount = sum(float(r.amount) for r in all_records if r.status in ("pending", "reminded"))
+    overdue_count = 0
+    now_date = date.today()
+    for r in all_records:
+        if r.status in ("pending", "reminded"):
+            if r.deadline and r.deadline < now_date:
+                overdue_count += 1
+            elif r.trade_date and (now_date - r.trade_date).days > 30:
+                overdue_count += 1
+
+    # 按责任人排名
+    by_user = defaultdict(lambda: {"count": 0, "amount": 0.0})
+    for r in all_records:
+        if r.status in ("pending", "reminded"):
+            by_user[r.responsible_user_id]["count"] += 1
+            by_user[r.responsible_user_id]["amount"] += float(r.amount)
+
+    user_ids = list(by_user.keys())
+    if user_ids:
+        users_result = await db.execute(select(User).where(User.id.in_(user_ids)))
+        user_map = {u.id: u.name for u in users_result.scalars().all()}
+    else:
+        user_map = {}
+
+    ranking = [
+        {
+            "user_id": uid,
+            "user_name": user_map.get(uid, "未知"),
+            "count": data["count"],
+            "amount": round(data["amount"], 2),
+        }
+        for uid, data in sorted(by_user.items(), key=lambda x: -x[1]["amount"])
+    ][:10]
+
+    return {
+        "code": 200,
+        "data": {
+            "summary": {
+                "total_missing": pending_count,
+                "total_amount": round(pending_amount, 2),
+                "overdue_count": overdue_count,
+            },
+            "ranking": ranking,
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════
 # 欠票列表
 # ═══════════════════════════════════════════════════
 
@@ -78,7 +143,11 @@ async def list_missing_invoices(
     query = select(MissingInvoiceLedger)
 
     if status:
-        query = query.where(MissingInvoiceLedger.status == status)
+        # 兼容前端传 status=open（映射为 pending + reminded）
+        if status == "open":
+            query = query.where(MissingInvoiceLedger.status.in_(["pending", "reminded"]))
+        else:
+            query = query.where(MissingInvoiceLedger.status == status)
     if responsible_user_id:
         query = query.where(MissingInvoiceLedger.responsible_user_id == responsible_user_id)
 

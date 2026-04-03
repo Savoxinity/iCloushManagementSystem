@@ -30,3 +30,6 @@ redis==5.1.1
 
 # 工具
 orjson==3.10.7
+
+# 腾讯云 OCR 发票识别（Phase 3 Hotfix）
+tencentcloud-sdk-python>=3.0.1000
