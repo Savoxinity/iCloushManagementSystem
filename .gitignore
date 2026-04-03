@@ -1,0 +1,23 @@
+# IDE 配置
+.idea/
+.vscode/
+
+# 微信开发者工具私有配置
+project.private.config.json
+
+# Node.js 依赖及日志 (前端/JS后端)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Python 缓存及虚拟环境 (后端)
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.Python
+
+# 操作系统生成文件
+.DS_Store
+Thumbs.db
