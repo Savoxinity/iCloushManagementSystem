@@ -26,7 +26,11 @@
     "pages/management-accounting/index",
     "pages/missing-invoice/index",
     "pages/cost-entry/index",
-    "pages/profit-statement/index"
+    "pages/profit-statement/index",
+    "pages/vehicle-manage/index",
+    "pages/dispatch-manage/index",
+    "pages/route-manage/index",
+    "pages/logistics-dashboard/index"
   ],
   "tabBar": {
     "color": "#666666",
