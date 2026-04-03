@@ -18,7 +18,7 @@
   <view wx:else class="expense-list">
     <view class="expense-card" wx:for="{{expenses}}" wx:key="id">
       <view class="card-header">
-        <text class="emp-name">{{item.employee_name || '员工#' + item.employee_id}}</text>
+        <text class="emp-name">{{item.user_name || '员工#' + item.user_id}}</text>
         <text class="voucher-badge {{item.voucher_type}}">{{item.voucher_type === 'invoice' ? '有票' : '无票'}}</text>
       </view>
       <view class="card-body">
@@ -43,7 +43,7 @@
 
   <!-- 审核弹窗 -->
   <view wx:if="{{showReviewPanel}}" class="review-mask" bindtap="closeReview">
-    <view class="review-panel" catchtap="">
+    <view class="review-panel" catchtap="stopPropagation">
       <view class="panel-title">审核报销单</view>
       <view class="panel-info">
         <text class="panel-purpose">{{currentExpense.purpose}}</text>

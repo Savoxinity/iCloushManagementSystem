@@ -481,6 +481,21 @@ async def _do_review(
         expense.reviewed_at = now
         expense.review_note = req.review_note or "审核未通过"
 
+        # ── 新增：退还因无票扣除的积分 ──
+        if expense.points_delta and expense.points_delta < 0:
+            employee = await db.get(User, expense.user_id)
+            if employee:
+                refund_points = abs(expense.points_delta)
+                employee.total_points += refund_points
+                employee.monthly_points += refund_points
+                
+                ledger = PointLedger(
+                    user_id=employee.id,
+                    delta=refund_points,
+                    reason=f"报销单#{expense.id} 驳回，退还无票扣分"
+                )
+                db.add(ledger)
+
     else:
         raise HTTPException(status_code=400, detail="无效的审核动作，请使用 approve/reject")
 
