@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "成本分类明细账",
+  "navigationBarBackgroundColor": "#0a0a0a",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#0a0a0a",
+  "enablePullDownRefresh": true
+}

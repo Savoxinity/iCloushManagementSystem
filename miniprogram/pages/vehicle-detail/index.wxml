@@ -1,0 +1,76 @@
+<!--
+  车辆详情 — 查看 + 编辑 + 删除
+  Phase 4.1 PRD 1.2
+-->
+<view class="page-container">
+  <!-- 加载中 -->
+  <view wx:if="{{loading}}" class="loading-box">
+    <view class="loading-spinner"></view>
+    <text>加载中...</text>
+  </view>
+
+  <block wx:elif="{{vehicle}}">
+    <!-- 车辆头部卡片 -->
+    <view class="hero-card">
+      <view class="hero-top">
+        <view class="plate-big">{{vehicle.plate_number}}</view>
+        <view class="status-tag status-{{vehicle.status}}" bindtap="changeStatus">
+          {{vehicle.status === 'idle' ? '空闲' : vehicle.status === 'delivering' ? '运送中' : vehicle.status === 'maintenance' ? '维修中' : '已报废'}}
+          <text wx:if="{{isAdmin}}" class="change-hint"> ▼</text>
+        </view>
+      </view>
+      <view class="hero-sub">
+        <text class="type-badge type-{{vehicle.vehicle_type}}">
+          {{vehicle.vehicle_type === 'large' ? '大型' : vehicle.vehicle_type === 'medium' ? '中型' : '小型'}}
+        </text>
+        <text class="brand-text">{{vehicle.brand || '未知品牌'}}</text>
+      </view>
+    </view>
+
+    <!-- 基础信息 -->
+    <view class="info-section">
+      <view class="section-title">基础信息</view>
+      <view class="info-grid">
+        <view class="info-cell">
+          <text class="cell-label">载重</text>
+          <text class="cell-value">{{vehicle.load_capacity}} {{vehicle.load_unit}}</text>
+        </view>
+        <view class="info-cell">
+          <text class="cell-label">里程</text>
+          <text class="cell-value">{{vehicle.mileage}} km</text>
+        </view>
+        <view class="info-cell">
+          <text class="cell-label">创建时间</text>
+          <text class="cell-value">{{vehicle.created_at || '-'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 四险一金状态 -->
+    <view class="info-section">
+      <view class="section-title">四险一金</view>
+      <view wx:if="{{alerts.length === 0}}" class="empty-hint">暂无到期日数据</view>
+      <view wx:for="{{alerts}}" wx:key="type" class="insurance-row">
+        <view class="ins-left">
+          <view class="ins-dot ins-dot-{{item.level}}"></view>
+          <view class="ins-info">
+            <text class="ins-label">{{item.label}}</text>
+            <text class="ins-date">到期日: {{item.due_date}}</text>
+          </view>
+        </view>
+        <view class="ins-days ins-days-{{item.level}}">
+          <text wx:if="{{item.remaining_days < 0}}">已过期 {{-item.remaining_days}} 天</text>
+          <text wx:elif="{{item.remaining_days === 0}}">今天到期</text>
+          <text wx:elif="{{item.level === 'safe'}}">剩余 {{item.remaining_days}} 天</text>
+          <text wx:else>剩余 {{item.remaining_days}} 天</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 操作按钮（管理员可见）-->
+    <view wx:if="{{isAdmin}}" class="action-section">
+      <button class="btn-edit" bindtap="goEdit">编辑车辆</button>
+      <button class="btn-delete" bindtap="onDelete">删除车辆</button>
+    </view>
+  </block>
+</view>

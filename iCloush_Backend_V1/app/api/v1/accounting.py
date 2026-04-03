@@ -44,16 +44,38 @@ router = APIRouter()
 # ═══════════════════════════════════════════════════
 
 class CostCreateRequest(BaseModel):
-    """手动录入成本（纯财务直录台）"""
-    trade_date: str = Field(..., description="交易日期 YYYY-MM-DD")
-    item_name: str = Field(..., min_length=1, max_length=200, description="明细名称")
+    """手动录入成本（纯财务直录台）
+    兼容两套字段名：
+      后端原始: trade_date, item_name, pre_tax_amount
+      前端简化: occur_date, description, amount
+    """
+    # 后端原始字段（可选，与前端别名二选一）
+    trade_date: Optional[str] = Field(default=None, description="交易日期 YYYY-MM-DD")
+    item_name: Optional[str] = Field(default=None, max_length=200, description="明细名称")
+    pre_tax_amount: Optional[float] = Field(default=None, gt=0, description="不含税金额")
+    # 前端简化字段（别名）
+    occur_date: Optional[str] = Field(default=None, description="交易日期 YYYY-MM-DD（前端别名）")
+    description: Optional[str] = Field(default=None, max_length=200, description="明细名称（前端别名）")
+    amount: Optional[float] = Field(default=None, gt=0, description="金额（前端别名）")
+    # 通用字段
     supplier_name: Optional[str] = Field(default=None, description="供应商/收款方")
-    pre_tax_amount: float = Field(..., gt=0, description="不含税金额")
     tax_rate: float = Field(default=0, ge=0, le=100, description="税率（如 6 = 6%）")
     invoice_status: str = Field(default="none", description="发票状态: special_vat/general_vat/none")
     category_code: str = Field(..., description="成本分类代码: E-0~E-10")
     is_sunk_cost: bool = Field(default=False, description="是否为沉没成本")
     remark: Optional[str] = Field(default=None, description="备注")
+
+    def get_trade_date(self) -> str:
+        """优先使用 trade_date，回退到 occur_date"""
+        return self.trade_date or self.occur_date or ""
+
+    def get_item_name(self) -> str:
+        """优先使用 item_name，回退到 description"""
+        return self.item_name or self.description or "手动录入"
+
+    def get_amount(self) -> float:
+        """优先使用 pre_tax_amount，回退到 amount"""
+        return self.pre_tax_amount or self.amount or 0.0
 
 
 class CostUpdateRequest(BaseModel):
@@ -84,6 +106,14 @@ async def create_cost_entry(
     自动计算：tax_amount = pre_tax_amount × tax_rate / 100
               post_tax_amount = pre_tax_amount + tax_amount
     """
+    # 通过兼容方法获取实际值（支持前端简化字段名）
+    actual_amount = req.get_amount()
+    actual_item_name = req.get_item_name()
+    actual_trade_date_str = req.get_trade_date()
+
+    if not actual_amount or actual_amount <= 0:
+        raise HTTPException(status_code=422, detail="金额必须大于 0（使用 pre_tax_amount 或 amount 字段）")
+
     if req.category_code not in COST_CATEGORIES:
         raise HTTPException(status_code=422, detail=f"无效的成本分类代码: {req.category_code}")
 
@@ -93,19 +123,23 @@ async def create_cost_entry(
     cat_config = COST_CATEGORIES[req.category_code]
 
     # 自动计算税额
-    pre_tax = Decimal(str(req.pre_tax_amount))
+    pre_tax = Decimal(str(actual_amount))
     tax_rate = Decimal(str(req.tax_rate))
     tax_amount = (pre_tax * tax_rate / Decimal("100")).quantize(Decimal("0.01"))
     post_tax = pre_tax + tax_amount
 
-    try:
-        trade_date = date.fromisoformat(req.trade_date)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="日期格式错误，请使用 YYYY-MM-DD")
+    # 解析日期（允许为空，默认今天）
+    if actual_trade_date_str:
+        try:
+            trade_date = date.fromisoformat(actual_trade_date_str)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="日期格式错误，请使用 YYYY-MM-DD")
+    else:
+        trade_date = date.today()
 
     entry = ManagementCostLedger(
         trade_date=trade_date,
-        item_name=req.item_name,
+        item_name=actual_item_name,
         supplier_name=req.supplier_name,
         pre_tax_amount=pre_tax,
         tax_rate=tax_rate,
@@ -510,6 +544,99 @@ async def cost_summary(
             "total_amount": round(sum(d["amount"] for d in by_category.values()), 2),
             "total_entries": sum(d["count"] for d in by_category.values()),
             "categories": summary,
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════
+# 成本分类明细账（Phase 4.1 PRD 2.3）
+# ═══════════════════════════════════════════════════
+
+@router.get("/cost-ledger")
+async def cost_ledger_detail(
+    year: Optional[int] = Query(default=None, description="年份"),
+    month: Optional[int] = Query(default=None, ge=1, le=12, description="月份"),
+    period: Optional[str] = Query(default=None, description="年月 YYYY-MM"),
+    category_code: Optional[str] = Query(default=None, description="成本分类代码，不传则返回全部"),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    current_user: User = Depends(require_role(5)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    成本分类明细账 — Phase 4.1 PRD 2.3
+    前端 Tab 切换分类时调用，返回：
+      1. 该分类的汇总金额和笔数
+      2. 该分类下的明细列表（按时间倒序）
+    """
+    # 兼容 period 参数
+    if period and not year:
+        try:
+            parts = period.split("-")
+            year = int(parts[0])
+            month = int(parts[1])
+        except (ValueError, IndexError):
+            raise HTTPException(status_code=422, detail="period 格式错误，请使用 YYYY-MM")
+    if not year:
+        now = datetime.now()
+        year = now.year
+        month = month or now.month
+
+    # 基础查询条件
+    conditions = [extract("year", ManagementCostLedger.trade_date) == year]
+    if month:
+        conditions.append(extract("month", ManagementCostLedger.trade_date) == month)
+    if category_code:
+        conditions.append(ManagementCostLedger.category_code == category_code)
+
+    # 汇总
+    sum_query = select(
+        func.count(ManagementCostLedger.id).label("total_count"),
+        func.coalesce(func.sum(ManagementCostLedger.post_tax_amount), 0).label("total_amount"),
+    ).where(and_(*conditions))
+    sum_result = await db.execute(sum_query)
+    row = sum_result.one()
+    total_count = row.total_count
+    total_amount = float(row.total_amount)
+
+    # 明细列表
+    list_query = (
+        select(ManagementCostLedger)
+        .where(and_(*conditions))
+        .order_by(ManagementCostLedger.trade_date.desc(), ManagementCostLedger.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    list_result = await db.execute(list_query)
+    entries = list_result.scalars().all()
+
+    # 查询录入人姓名
+    creator_ids = list(set(e.created_by for e in entries if e.created_by))
+    creators_map = {}
+    if creator_ids:
+        users_result = await db.execute(select(User).where(User.id.in_(creator_ids)))
+        for u in users_result.scalars().all():
+            creators_map[u.id] = u.real_name or u.username
+
+    items = []
+    for e in entries:
+        d = _serialize_cost(e)
+        d["creator_name"] = creators_map.get(e.created_by, f"用户#{e.created_by}")
+        items.append(d)
+
+    return {
+        "code": 200,
+        "data": {
+            "period": f"{year}" + (f"-{month:02d}" if month else ""),
+            "category_code": category_code,
+            "category_name": COST_CATEGORIES.get(category_code, {}).get("name", "全部") if category_code else "全部",
+            "summary": {
+                "total_amount": round(total_amount, 2),
+                "total_count": total_count,
+            },
+            "items": items,
+            "page": page,
+            "page_size": page_size,
         },
     }
 

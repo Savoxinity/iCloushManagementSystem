@@ -1,0 +1,100 @@
+<!--
+  新增/编辑车辆 — 车辆台账全生命周期管理
+  Phase 4.1 PRD 1.2
+-->
+<view class="page-container">
+  <view class="page-title">{{isEdit ? '编辑车辆' : '新增车辆'}}</view>
+
+  <!-- 基础信息 -->
+  <view class="section">
+    <view class="section-title">基础信息</view>
+
+    <view class="form-row">
+      <text class="form-label">车牌号 <text class="required">*</text></text>
+      <input class="form-input" placeholder="如：沪A12345" value="{{plate_number}}" bindinput="onInputPlate" />
+    </view>
+
+    <view class="form-row">
+      <text class="form-label">品牌</text>
+      <input class="form-input" placeholder="如：五菱、福田" value="{{brand}}" bindinput="onInputBrand" />
+    </view>
+
+    <view class="form-row">
+      <text class="form-label">车型</text>
+      <picker mode="selector" range="{{typeOptions}}" value="{{typeIndex}}" bindchange="onTypeChange">
+        <view class="form-picker">{{typeOptions[typeIndex]}} ▼</view>
+      </picker>
+    </view>
+
+    <view class="form-row">
+      <text class="form-label">载重</text>
+      <view class="capacity-row">
+        <input class="form-input flex-input" type="digit" placeholder="0" value="{{load_capacity}}" bindinput="onInputCapacity" />
+        <picker mode="selector" range="{{unitOptions}}" value="{{unitIndex}}" bindchange="onUnitChange">
+          <view class="unit-picker">{{unitOptions[unitIndex]}} ▼</view>
+        </picker>
+      </view>
+    </view>
+
+    <view class="form-row">
+      <text class="form-label">当前里程 (km)</text>
+      <input class="form-input" type="digit" placeholder="0" value="{{mileage}}" bindinput="onInputMileage" />
+    </view>
+
+    <view class="form-row">
+      <text class="form-label">状态</text>
+      <picker mode="selector" range="{{statusOptions}}" value="{{statusIndex}}" bindchange="onStatusChange">
+        <view class="form-picker">{{statusOptions[statusIndex]}} ▼</view>
+      </picker>
+    </view>
+  </view>
+
+  <!-- 四险一金到期日 -->
+  <view class="section">
+    <view class="section-title">四险一金到期日</view>
+    <view class="section-hint">设置后系统将自动预警</view>
+
+    <view class="form-row">
+      <text class="form-label">年检到期</text>
+      <picker mode="date" value="{{inspection_due}}" bindchange="onInspectionDateChange">
+        <view class="form-picker {{inspection_due ? '' : 'placeholder'}}">
+          {{inspection_due || '选择日期'}} ▼
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-row">
+      <text class="form-label">交强险到期</text>
+      <picker mode="date" value="{{compulsory_ins_due}}" bindchange="onCompulsoryDateChange">
+        <view class="form-picker {{compulsory_ins_due ? '' : 'placeholder'}}">
+          {{compulsory_ins_due || '选择日期'}} ▼
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-row">
+      <text class="form-label">商业险到期</text>
+      <picker mode="date" value="{{commercial_ins_due}}" bindchange="onCommercialDateChange">
+        <view class="form-picker {{commercial_ins_due ? '' : 'placeholder'}}">
+          {{commercial_ins_due || '选择日期'}} ▼
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-row">
+      <text class="form-label">保养到期</text>
+      <picker mode="date" value="{{maintenance_due}}" bindchange="onMaintenanceDateChange">
+        <view class="form-picker {{maintenance_due ? '' : 'placeholder'}}">
+          {{maintenance_due || '选择日期'}} ▼
+        </view>
+      </picker>
+    </view>
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="submit-section">
+    <button class="btn-submit {{submitting ? 'disabled' : ''}}" bindtap="onSubmit" disabled="{{submitting}}">
+      {{submitting ? '提交中...' : (isEdit ? '保存修改' : '确认新增')}}
+    </button>
+  </view>
+</view>

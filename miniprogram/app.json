@@ -30,7 +30,10 @@
     "pages/vehicle-manage/index",
     "pages/dispatch-manage/index",
     "pages/route-manage/index",
-    "pages/logistics-dashboard/index"
+    "pages/logistics-dashboard/index",
+    "pages/vehicle-add/index",
+    "pages/vehicle-detail/index",
+    "pages/cost-ledger-detail/index"
   ],
   "tabBar": {
     "color": "#666666",
