@@ -1,9 +1,9 @@
 /**
  * 排线管理 — 送货排线 CRUD
  * Phase 4 机动物流中台
+ * 修复: 改用 app.request() 统一请求封装（自动附带 token + baseUrl）
  */
-const app = getApp()
-const API_BASE = app.globalData?.apiBase || 'http://192.168.1.4:8000'
+var app = getApp();
 
 Page({
   data: {
@@ -12,61 +12,48 @@ Page({
     isAdmin: false,
   },
 
-  onLoad() {
-    const userInfo = wx.getStorageSync('userInfo') || {}
-    this.setData({ isAdmin: (userInfo.role || 1) >= 5 })
-    this.loadRoutes()
+  onLoad: function () {
+    var userInfo = wx.getStorageSync('userInfo') || {};
+    this.setData({ isAdmin: (userInfo.role || 1) >= 5 });
+    this.loadRoutes();
   },
 
-  onShow() {
-    this.loadRoutes()
+  onShow: function () {
+    this.loadRoutes();
   },
 
-  onPullDownRefresh() {
-    this.loadRoutes().finally(() => wx.stopPullDownRefresh())
+  onPullDownRefresh: function () {
+    this.loadRoutes();
+    wx.stopPullDownRefresh();
   },
 
   // ── 加载排线列表 ──
-  async loadRoutes() {
-    this.setData({ loading: true })
-    try {
-      const res = await new Promise((resolve, reject) => {
-        wx.request({
-          url: `${API_BASE}/api/v1/vehicles/routes/list`,
-          method: 'GET',
-          header: this._getHeaders(),
-          success: resolve,
-          fail: reject,
-        })
-      })
-
-      if (res.data && res.data.code === 200) {
-        this.setData({ routeList: res.data.data || [] })
-      }
-    } catch (err) {
-      console.error('加载排线列表失败:', err)
-      wx.showToast({ title: '加载失败', icon: 'none' })
-    } finally {
-      this.setData({ loading: false })
-    }
+  loadRoutes: function () {
+    var self = this;
+    self.setData({ loading: true });
+    app.request({
+      url: '/api/v1/vehicles/routes/list',
+      success: function (res) {
+        self.setData({ loading: false });
+        if (res.code === 200) {
+          self.setData({ routeList: res.data || [] });
+        }
+      },
+      fail: function () {
+        self.setData({ loading: false });
+        wx.showToast({ title: '加载失败', icon: 'none' });
+      },
+    });
   },
 
   // ── 跳转详情 ──
-  goRouteDetail(e) {
-    const id = e.currentTarget.dataset.id
-    wx.navigateTo({ url: `/pages/route-detail/index?id=${id}` })
+  goRouteDetail: function (e) {
+    var id = e.currentTarget.dataset.id;
+    wx.navigateTo({ url: '/pages/route-detail/index?id=' + id });
   },
 
   // ── 新增排线 ──
-  goCreateRoute() {
-    wx.navigateTo({ url: '/pages/route-create/index' })
+  goCreateRoute: function () {
+    wx.navigateTo({ url: '/pages/route-create/index' });
   },
-
-  // ── 通用请求头 ──
-  _getHeaders() {
-    const token = wx.getStorageSync('token')
-    const headers = { 'Content-Type': 'application/json' }
-    if (token) headers['Authorization'] = `Bearer ${token}`
-    return headers
-  },
-})
+});

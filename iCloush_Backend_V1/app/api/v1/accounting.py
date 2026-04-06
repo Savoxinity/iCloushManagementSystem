@@ -699,4 +699,7 @@ def _serialize_cost(e: ManagementCostLedger) -> dict:
         "status": e.status,
         "created_by": e.created_by,
         "created_at": e.created_at.isoformat() if e.created_at else None,
+        # 前端别名字段（cost-entry 页面使用）
+        "amount": float(e.pre_tax_amount) if e.pre_tax_amount else 0,
+        "description": e.item_name,
     }

@@ -84,9 +84,8 @@ async def missing_invoice_dashboard(
     now_date = date.today()
     for r in all_records:
         if r.status in ("pending", "reminded"):
-            if r.deadline and r.deadline < now_date:
-                overdue_count += 1
-            elif r.trade_date and (now_date - r.trade_date).days > 30:
+            # MissingInvoiceLedger 无 deadline 字段，以 trade_date + 30天为逾期判断
+            if r.trade_date and (now_date - r.trade_date).days > 30:
                 overdue_count += 1
 
     # 按责任人排名

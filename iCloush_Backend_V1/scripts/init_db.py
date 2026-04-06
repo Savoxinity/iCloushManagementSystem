@@ -27,6 +27,14 @@ from app.models.models import (
     User, Zone, Task, IoTDevice, Vehicle,
     MallItem, DailyProduction,
 )
+# Phase 3: 业财一体化模型（确保建表时包含这些表）
+from app.models.finance import (
+    Invoice, ExpenseReport, ManagementCostLedger, MissingInvoiceLedger,
+)
+# Phase 4: 机动物流中台模型
+from app.models.logistics import (
+    VehicleFleet, DeliveryRoute, LogisticsDispatch,
+)
 
 
 async def init():
