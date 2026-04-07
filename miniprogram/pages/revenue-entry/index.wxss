@@ -1,4 +1,4 @@
-/* 营收直录 — 品牌黑橙配色 */
+/* 营收直录 — 品牌黑橙配色 + 编辑/删除 */
 .page-container {
   min-height: 100vh;
   background: #111111;
@@ -11,6 +11,26 @@
   font-weight: 700;
   color: #E8A945;
   margin-bottom: 32rpx;
+}
+
+/* 编辑模式提示条 */
+.edit-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(232, 169, 69, 0.15);
+  border: 1rpx solid rgba(232, 169, 69, 0.3);
+  border-radius: 12rpx;
+  padding: 16rpx 24rpx;
+  margin-bottom: 24rpx;
+}
+.edit-banner-text { font-size: 24rpx; color: #E8A945; }
+.edit-banner-cancel {
+  font-size: 24rpx;
+  color: #EF4444;
+  padding: 4rpx 16rpx;
+  border: 1rpx solid rgba(239, 68, 68, 0.3);
+  border-radius: 6rpx;
 }
 
 .form-section {
@@ -92,17 +112,27 @@
 .recent-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 24rpx;
   background: #1E1E1E;
   border-radius: 12rpx;
   margin-bottom: 12rpx;
   border: 1rpx solid rgba(232, 169, 69, 0.08);
+  overflow: hidden;
+}
+
+.recent-main {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx;
+  min-width: 0;
 }
 
 .recent-left {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
 .recent-cat {
@@ -122,6 +152,35 @@
   font-weight: 700;
   color: #4CAF50;
   font-family: 'DIN Alternate', monospace;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+/* 操作按钮 */
+.recent-actions {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100rpx;
+  height: 100%;
+  min-height: 100rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.action-edit {
+  background: rgba(232, 169, 69, 0.15);
+  color: #E8A945;
+}
+
+.action-delete {
+  background: rgba(239, 68, 68, 0.15);
+  color: #EF4444;
 }
 
 .empty-hint {

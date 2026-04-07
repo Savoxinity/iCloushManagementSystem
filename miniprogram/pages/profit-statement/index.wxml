@@ -1,4 +1,4 @@
-<!-- 管理利润表 — ECharts 可视化 -->
+<!-- 管理利润表 — 纯WXML可视化（无ECharts依赖） -->
 <view class="page-container">
   <!-- 顶部 -->
   <view class="header-bar">
@@ -57,11 +57,18 @@
       </view>
     </view>
 
-    <!-- 瀑布图 -->
+    <!-- 瀑布图（纯CSS实现） -->
     <view class="chart-section">
       <text class="chart-title">利润瀑布图</text>
-      <view class="chart-wrap">
-        <ec-canvas id="waterfallChart" canvas-id="waterfallCanvas" ec="{{ecWaterfall}}"></ec-canvas>
+      <view class="waterfall-chart">
+        <view class="wf-item" wx:for="{{waterfallBars}}" wx:key="label">
+          <view class="wf-bar-area">
+            <text class="wf-val">{{item.displayVal}}</text>
+            <view class="wf-bar-spacer" style="height: {{item.spacerPct}}%"></view>
+            <view class="wf-bar {{item.colorClass}}" style="height: {{item.barPct}}%"></view>
+          </view>
+          <text class="wf-label">{{item.label}}</text>
+        </view>
       </view>
     </view>
 
@@ -72,18 +79,29 @@
         <text class="be-value">¥{{statement.breakeven_display}}</text>
       </view>
       <view class="be-bar-track">
-        <view class="be-bar-fill" style="width: {{statement.breakeven_revenue > 0 ? (statement.revenue / statement.breakeven_revenue * 100 > 100 ? 100 : statement.revenue / statement.breakeven_revenue * 100) : 0}}%"></view>
+        <view class="be-bar-fill" style="width: {{statement.be_progress}}%"></view>
       </view>
       <text class="be-hint {{statement.isProfit ? 'hint-green' : 'hint-red'}}">
         {{statement.isProfit ? '✓ 已超过盈亏平衡点' : '✗ 尚未达到盈亏平衡点'}}
       </text>
     </view>
 
-    <!-- 成本分类环形图 -->
+    <!-- 成本分类占比（纯CSS环形图替代） -->
     <view wx:if="{{statement.cost_breakdown.length > 0}}" class="chart-section">
       <text class="chart-title">成本分类占比</text>
-      <view class="chart-wrap pie-wrap">
-        <ec-canvas id="pieChart" canvas-id="pieCanvas" ec="{{ecPie}}"></ec-canvas>
+      <view class="donut-chart-area">
+        <!-- 水平条形图替代环形图，更清晰 -->
+        <view class="hbar-item" wx:for="{{statement.cost_breakdown}}" wx:key="name">
+          <view class="hbar-header">
+            <view class="hbar-dot" style="background: {{item.color}}"></view>
+            <text class="hbar-name">{{item.name}}</text>
+            <text class="hbar-pct">{{item.pct}}%</text>
+            <text class="hbar-amt">¥{{item.display}}</text>
+          </view>
+          <view class="hbar-track">
+            <view class="hbar-fill" style="width: {{item.pct}}%; background: {{item.color}}"></view>
+          </view>
+        </view>
       </view>
     </view>
 

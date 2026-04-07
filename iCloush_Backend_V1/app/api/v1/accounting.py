@@ -79,7 +79,7 @@ class CostCreateRequest(BaseModel):
 
 
 class CostUpdateRequest(BaseModel):
-    """编辑成本流水"""
+    """编辑成本流水（兼容前端简化字段名）"""
     trade_date: Optional[str] = None
     item_name: Optional[str] = None
     supplier_name: Optional[str] = None
@@ -88,6 +88,20 @@ class CostUpdateRequest(BaseModel):
     invoice_status: Optional[str] = None
     category_code: Optional[str] = None
     is_sunk_cost: Optional[bool] = None
+    # 前端简化字段（别名）
+    occur_date: Optional[str] = None
+    description: Optional[str] = None
+    amount: Optional[float] = None
+    remark: Optional[str] = None
+
+    def get_trade_date(self) -> Optional[str]:
+        return self.trade_date or self.occur_date
+
+    def get_item_name(self) -> Optional[str]:
+        return self.item_name if self.item_name is not None else self.description
+
+    def get_amount(self) -> Optional[float]:
+        return self.pre_tax_amount if self.pre_tax_amount is not None else self.amount
 
 
 # ═══════════════════════════════════════════════════
@@ -275,19 +289,31 @@ async def update_cost_entry(
     if entry.source_type != "manual":
         raise HTTPException(status_code=400, detail="仅手动录入的成本可编辑")
 
-    if req.trade_date:
+    actual_trade_date = req.get_trade_date()
+    actual_item_name = req.get_item_name()
+    actual_amount = req.get_amount()
+
+    if actual_trade_date:
         try:
-            entry.trade_date = date.fromisoformat(req.trade_date)
+            entry.trade_date = date.fromisoformat(actual_trade_date)
         except ValueError:
             raise HTTPException(status_code=422, detail="日期格式错误")
-    if req.item_name is not None:
-        entry.item_name = req.item_name
+    # 如果前端传了 occur_date，也更新 occur_date 字段
+    if req.occur_date:
+        try:
+            entry.occur_date = date.fromisoformat(req.occur_date)
+        except ValueError:
+            pass
+    if actual_item_name is not None:
+        entry.item_name = actual_item_name
     if req.supplier_name is not None:
         entry.supplier_name = req.supplier_name
     if req.invoice_status is not None:
         entry.invoice_status = req.invoice_status
     if req.is_sunk_cost is not None:
         entry.is_sunk_cost = req.is_sunk_cost
+    if req.remark is not None:
+        entry.item_name = req.remark if not actual_item_name else actual_item_name
 
     # 如果分类变了，更新关联的 behavior 和 center
     if req.category_code is not None:
@@ -299,8 +325,8 @@ async def update_cost_entry(
         entry.cost_center = cat_config["center"]
 
     # 如果金额或税率变了，重新计算
-    if req.pre_tax_amount is not None or req.tax_rate is not None:
-        pre_tax = Decimal(str(req.pre_tax_amount)) if req.pre_tax_amount else entry.pre_tax_amount
+    if actual_amount is not None or req.tax_rate is not None:
+        pre_tax = Decimal(str(actual_amount)) if actual_amount else entry.pre_tax_amount
         tax_rate = Decimal(str(req.tax_rate)) if req.tax_rate is not None else entry.tax_rate
         tax_amount = (pre_tax * tax_rate / Decimal("100")).quantize(Decimal("0.01"))
         entry.pre_tax_amount = pre_tax
@@ -578,6 +604,24 @@ async def upsert_revenue(
         }
 
 
+@router.delete("/revenue/{revenue_id}")
+async def delete_revenue(
+    revenue_id: int,
+    current_user: User = Depends(require_role(5)),
+    db: AsyncSession = Depends(get_db),
+):
+    """删除营收记录"""
+    result = await db.execute(
+        select(MonthlyRevenue).where(MonthlyRevenue.id == revenue_id)
+    )
+    entry = result.scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="营收记录不存在")
+    await db.delete(entry)
+    await db.flush()
+    return {"code": 200, "message": "营收记录已删除"}
+
+
 @router.get("/revenue/list")
 async def list_revenue(
     year: Optional[int] = Query(default=None, description="年份"),
@@ -696,10 +740,10 @@ async def cost_ledger_detail(
         year = now.year
         month = month or now.month
 
-    # 基础查询条件
-    conditions = [extract("year", ManagementCostLedger.trade_date) == year]
+    # 基础查询条件 — 按 occur_date（发生日期）做月份聚类，回退到 trade_date
+    conditions = [extract("year", func.coalesce(ManagementCostLedger.occur_date, ManagementCostLedger.trade_date)) == year]
     if month:
-        conditions.append(extract("month", ManagementCostLedger.trade_date) == month)
+        conditions.append(extract("month", func.coalesce(ManagementCostLedger.occur_date, ManagementCostLedger.trade_date)) == month)
     if category_code:
         conditions.append(ManagementCostLedger.category_code == category_code)
 

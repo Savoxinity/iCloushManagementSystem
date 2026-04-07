@@ -9,6 +9,7 @@ Page({
       { id: 'missing-invoice', icon: '📋', title: '欠票看板', desc: '查看未补票记录、一键催票', url: '/pages/missing-invoice/index' },
       { id: 'cost-entry', icon: '💰', title: '成本直录', desc: '财务直接录入成本条目', url: '/pages/cost-entry/index' },
       { id: 'revenue-entry', icon: '💵', title: '营收直录', desc: '录入每月总营收数据', url: '/pages/revenue-entry/index' },
+      { id: 'cost-ledger', icon: '📒', title: '成本明细账', desc: '分类汇总、明细查询', url: '/pages/cost-ledger-detail/index' },
       { id: 'profit-statement', icon: '📊', title: '管理利润表', desc: '边际贡献、盈亏平衡分析', url: '/pages/profit-statement/index' },
     ],
   },

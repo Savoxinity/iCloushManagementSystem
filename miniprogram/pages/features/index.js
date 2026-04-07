@@ -101,13 +101,7 @@ var ALL_FEATURES = [
     iconBg: 'rgba(239, 68, 68, 0.15)', url: '/pages/management-accounting/index',
     minRole: 5, comingSoon: false, adminOnly: true,
   },
-  // ── Phase 4.1 新增 ──
-  // 成本分类明细账
-  {
-    id: 'cost_ledger', name: '成本明细账', sub: '分类汇总/明细', icon: '📒',
-    iconBg: 'rgba(245, 158, 11, 0.15)', url: '/pages/cost-ledger-detail/index',
-    minRole: 5, comingSoon: false, adminOnly: true,
-  },
+  // 成本明细账已移至管理会计模块内
 ];
 
 Page({

@@ -1,6 +1,12 @@
-<!-- 成本直录台 -->
+<!-- 成本直录台 + 编辑/删除 -->
 <view class="page-container">
   <view class="page-title">成本直录</view>
+
+  <!-- 编辑模式提示条 -->
+  <view wx:if="{{isEditing}}" class="edit-banner">
+    <text class="edit-banner-text">✏️ 编辑模式 — 修改后点击确认保存</text>
+    <text class="edit-banner-cancel" bindtap="cancelEdit">取消</text>
+  </view>
 
   <view class="form-section">
     <view class="form-item">
@@ -29,19 +35,25 @@
     <button class="btn-submit {{!canSubmit || submitting ? 'btn-disabled' : ''}}"
             disabled="{{!canSubmit || submitting}}"
             bindtap="submitEntry">
-      {{submitting ? '录入中...' : '确认录入'}}
+      {{submitting ? (isEditing ? '保存中...' : '录入中...') : (isEditing ? '确认修改' : '确认录入')}}
     </button>
   </view>
 
   <!-- 最近录入 -->
   <view wx:if="{{recentEntries.length > 0}}" class="recent-section">
-    <view class="section-title">最近录入</view>
+    <view class="section-title">最近录入（点击编辑，左滑删除）</view>
     <view class="recent-item" wx:for="{{recentEntries}}" wx:key="id">
-      <view class="recent-left">
-        <text class="recent-cat">{{item.category_name || item.category_code}}</text>
-        <text class="recent-desc">{{item.description || '--'}}</text>
+      <view class="recent-main" bindtap="onEditEntry" data-entry="{{item}}">
+        <view class="recent-left">
+          <text class="recent-cat">{{item.category_name || item.category_code}}</text>
+          <text class="recent-desc">{{item.description || item.item_name || '--'}} · {{item.occur_date || item.trade_date || ''}}</text>
+        </view>
+        <text class="recent-amount">¥ {{item.amount || item.pre_tax_amount}}</text>
       </view>
-      <text class="recent-amount">¥ {{item.amount}}</text>
+      <view class="recent-actions">
+        <view class="action-btn action-edit" bindtap="onEditEntry" data-entry="{{item}}">编辑</view>
+        <view class="action-btn action-delete" bindtap="onDeleteEntry" data-entry="{{item}}">删除</view>
+      </view>
     </view>
   </view>
 </view>

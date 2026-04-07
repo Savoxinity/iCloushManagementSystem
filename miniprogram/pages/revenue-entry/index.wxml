@@ -1,6 +1,12 @@
-<!-- 营收直录 -->
+<!-- 营收直录 + 编辑/删除 -->
 <view class="page-container">
   <view class="page-title">营收直录</view>
+
+  <!-- 编辑模式提示条 -->
+  <view wx:if="{{isEditing}}" class="edit-banner">
+    <text class="edit-banner-text">✏️ 编辑模式 — 修改后点击确认保存</text>
+    <text class="edit-banner-cancel" bindtap="cancelEdit">取消</text>
+  </view>
 
   <view class="form-section">
     <view class="form-item">
@@ -29,19 +35,25 @@
     <button class="btn-submit {{!canSubmit || submitting ? 'btn-disabled' : ''}}"
             disabled="{{!canSubmit || submitting}}"
             bindtap="submitRevenue">
-      {{submitting ? '录入中...' : '确认录入'}}
+      {{submitting ? '录入中...' : (isEditing ? '确认修改' : '确认录入')}}
     </button>
   </view>
 
   <!-- 已录入记录 -->
   <view wx:if="{{records.length > 0}}" class="recent-section">
-    <view class="section-title">已录入记录 ({{currentYear}}年)</view>
+    <view class="section-title">已录入记录 ({{currentYear}}年) — 点击编辑</view>
     <view class="recent-item" wx:for="{{records}}" wx:key="id">
-      <view class="recent-left">
-        <text class="recent-cat">{{item.period}}</text>
-        <text class="recent-desc">{{item.remark || '--'}}</text>
+      <view class="recent-main" bindtap="onEditRecord" data-record="{{item}}">
+        <view class="recent-left">
+          <text class="recent-cat">{{item.period}}</text>
+          <text class="recent-desc">{{item.remark || '--'}}</text>
+        </view>
+        <text class="recent-amount">¥ {{item.revenue}}</text>
       </view>
-      <text class="recent-amount">¥ {{item.revenue}}</text>
+      <view class="recent-actions">
+        <view class="action-btn action-edit" bindtap="onEditRecord" data-record="{{item}}">编辑</view>
+        <view class="action-btn action-delete" bindtap="onDeleteRecord" data-record="{{item}}">删除</view>
+      </view>
     </view>
   </view>
 

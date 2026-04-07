@@ -2,7 +2,5 @@
   "navigationBarTitleText": "管理利润表",
   "navigationBarBackgroundColor": "#1A1A1A",
   "navigationBarTextStyle": "white",
-  "usingComponents": {
-    "ec-canvas": "../../components/ec-canvas/ec-canvas"
-  }
+  "usingComponents": {}
 }

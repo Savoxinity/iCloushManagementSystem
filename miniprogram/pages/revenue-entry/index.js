@@ -1,5 +1,5 @@
 // ============================================
-// 营收直录 — 管理员手动录入每月总营收
+// 营收直录 — 管理员手动录入每月总营收 + 编辑/删除
 // ============================================
 var app = getApp();
 
@@ -15,6 +15,9 @@ Page({
     canSubmit: false,
     records: [],
     currentYear: 0,
+    // 编辑模式
+    isEditing: false,
+    editingId: null,
   },
 
   onLoad: function () {
@@ -91,6 +94,7 @@ Page({
       remark: self.data.remark || null,
     };
 
+    // 营收使用 upsert，同一年月自动覆盖
     app.request({
       url: '/api/v1/accounting/revenue/upsert',
       method: 'POST',
@@ -99,7 +103,7 @@ Page({
         self.setData({ submitting: false });
         if (res.code === 200) {
           wx.showToast({ title: res.message || '录入成功', icon: 'success' });
-          self.setData({ revenue: '', remark: '', canSubmit: false });
+          self._resetForm();
           self.loadRecords();
         } else {
           wx.showToast({ title: res.message || '录入失败', icon: 'none' });
@@ -109,6 +113,82 @@ Page({
         self.setData({ submitting: false });
         wx.showToast({ title: '网络错误', icon: 'none' });
       },
+    });
+  },
+
+  // 点击编辑 — 将记录填入表单
+  onEditRecord: function (e) {
+    var record = e.currentTarget.dataset.record;
+    if (!record) return;
+
+    // 找到年份索引
+    var yearIdx = 0;
+    for (var i = 0; i < this.data.yearOptions.length; i++) {
+      if (parseInt(this.data.yearOptions[i]) === record.year) {
+        yearIdx = i;
+        break;
+      }
+    }
+
+    this.setData({
+      isEditing: true,
+      editingId: record.id,
+      yearIndex: yearIdx,
+      monthIndex: record.month - 1,
+      revenue: String(record.revenue),
+      remark: record.remark || '',
+      canSubmit: true,
+    });
+
+    wx.pageScrollTo({ scrollTop: 0, duration: 300 });
+    wx.showToast({ title: '已进入编辑模式', icon: 'none', duration: 1500 });
+  },
+
+  // 取消编辑
+  cancelEdit: function () {
+    this._resetForm();
+    wx.showToast({ title: '已取消编辑', icon: 'none', duration: 1000 });
+  },
+
+  // 删除营收记录
+  onDeleteRecord: function (e) {
+    var record = e.currentTarget.dataset.record;
+    if (!record) return;
+    var self = this;
+
+    wx.showModal({
+      title: '确认删除',
+      content: '确定要删除 ' + record.period + ' 的营收记录吗？\n¥' + record.revenue,
+      confirmColor: '#EF4444',
+      success: function (res) {
+        if (res.confirm) {
+          app.request({
+            url: '/api/v1/accounting/revenue/' + record.id,
+            method: 'DELETE',
+            success: function (res) {
+              if (res.code === 200) {
+                wx.showToast({ title: '已删除', icon: 'success' });
+                self.loadRecords();
+              } else {
+                wx.showToast({ title: res.message || '删除失败', icon: 'none' });
+              }
+            },
+            fail: function () {
+              wx.showToast({ title: '网络错误', icon: 'none' });
+            },
+          });
+        }
+      },
+    });
+  },
+
+  _resetForm: function () {
+    this.setData({
+      revenue: '',
+      remark: '',
+      canSubmit: false,
+      isEditing: false,
+      editingId: null,
     });
   },
 });
