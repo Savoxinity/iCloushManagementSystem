@@ -176,7 +176,8 @@ class ManagementCostLedger(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     # 基础信息
-    trade_date: Mapped[date] = mapped_column(Date, nullable=False)
+    trade_date: Mapped[date] = mapped_column(Date, nullable=False)  # 记账日期
+    occur_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)  # 发生日期（利润表按此统计）
     item_name: Mapped[str] = mapped_column(String(200), nullable=False)
     supplier_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
 
@@ -217,6 +218,7 @@ class ManagementCostLedger(Base):
 
     __table_args__ = (
         Index("ix_cost_ledger_trade_date", "trade_date"),
+        Index("ix_cost_ledger_occur_date", "occur_date"),
         Index("ix_cost_ledger_category", "category_code"),
         Index("ix_cost_ledger_source", "source_type", "source_id"),
     )
@@ -279,21 +281,47 @@ class MissingInvoiceLedger(Base):
     )
 
 
-# ═══════════════════════════════════════════════════
+# ═# ═════════════════════════════════════════════════
+# 月度营收直录（Phase 4.2）
+# ═════════════════════════════════════════════════
+
+class MonthlyRevenue(Base):
+    """
+    月度营收直录
+    管理员手动录入每月总营收，用于利润表计算
+    """
+    __tablename__ = "monthly_revenue"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    year: Mapped[int] = mapped_column(Integer, nullable=False)
+    month: Mapped[int] = mapped_column(Integer, nullable=False)
+    revenue: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)  # 总营收
+    remark: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        Index("ix_monthly_revenue_period", "year", "month", unique=True),
+    )
+
+
+# ═════════════════════════════════════════════════
 # 成本分类配置（常量，不需要数据库表）
-# ═══════════════════════════════════════════════════
+# ══════════════════════════════════════════════════
 
 COST_CATEGORIES = {
     "E-0":   {"name": "折旧摊销", "behavior": "fixed",    "center": "manufacturing_overhead"},
-    "E-1-1": {"name": "员工工资", "behavior": "fixed",    "center": "direct_labor"},
+    "E-1-1": {"name": "员工工资", "behavior": "variable", "center": "direct_labor"},
     "E-1-2": {"name": "外包劳务", "behavior": "variable", "center": "direct_labor"},
-    "E-2":   {"name": "社保公积金", "behavior": "fixed",  "center": "manufacturing_overhead"},
+    "E-2":   {"name": "物流",     "behavior": "variable", "center": "manufacturing_overhead"},
     "E-3":   {"name": "水电能源", "behavior": "variable", "center": "manufacturing_overhead"},
     "E-4":   {"name": "洗涤化料", "behavior": "variable", "center": "direct_material"},
     "E-5":   {"name": "设备维修", "behavior": "variable", "center": "manufacturing_overhead"},
-    "E-6":   {"name": "物流运输", "behavior": "variable", "center": "manufacturing_overhead"},
-    "E-7":   {"name": "厂房租金", "behavior": "fixed",    "center": "manufacturing_overhead"},
-    "E-8":   {"name": "行政办公", "behavior": "fixed",    "center": "period_expense"},
-    "E-9":   {"name": "营销推广", "behavior": "variable", "center": "period_expense"},
-    "E-10":  {"name": "员工报销", "behavior": "variable", "center": "period_expense"},
+    "E-6":   {"name": "食堂",     "behavior": "variable", "center": "period_expense"},
+    "E-7":   {"name": "客户维护", "behavior": "variable", "center": "period_expense"},
+    "E-8":   {"name": "外包分包", "behavior": "variable", "center": "manufacturing_overhead"},
+    "E-9":   {"name": "代加工",   "behavior": "variable", "center": "manufacturing_overhead"},
+    "E-10":  {"name": "报销杂项", "behavior": "variable", "center": "period_expense"},
+    "RENT":  {"name": "厂房租金", "behavior": "fixed",    "center": "period_expense"},
 }

@@ -1,12 +1,12 @@
 <!--
-  车辆详情 — 查看 + 编辑 + 删除
-  Phase 4.1 PRD 1.2
+  车辆详情 — 查看 + 编辑 + 删除 + 历史日历
+  Phase 4.2
 -->
 <view class="page-container">
   <!-- 加载中 -->
   <view wx:if="{{loading}}" class="loading-box">
     <view class="loading-spinner"></view>
-    <text>加载中...</text>
+    <text class="loading-text">加载中...</text>
   </view>
 
   <block wx:elif="{{vehicle}}">
@@ -61,9 +61,72 @@
         <view class="ins-days ins-days-{{item.level}}">
           <text wx:if="{{item.remaining_days < 0}}">已过期 {{-item.remaining_days}} 天</text>
           <text wx:elif="{{item.remaining_days === 0}}">今天到期</text>
-          <text wx:elif="{{item.level === 'safe'}}">剩余 {{item.remaining_days}} 天</text>
           <text wx:else>剩余 {{item.remaining_days}} 天</text>
         </view>
+      </view>
+    </view>
+
+    <!-- 历史操作日历 -->
+    <view class="info-section">
+      <view class="section-title">调度历史</view>
+      <!-- 月份切换 -->
+      <view class="calendar-header">
+        <view class="cal-arrow" bindtap="prevMonth">◀</view>
+        <text class="cal-month">{{calendarYear}}年{{calendarMonth}}月</text>
+        <view class="cal-arrow" bindtap="nextMonth">▶</view>
+      </view>
+      <!-- 星期头 -->
+      <view class="cal-weekdays">
+        <text class="cal-wd">日</text>
+        <text class="cal-wd">一</text>
+        <text class="cal-wd">二</text>
+        <text class="cal-wd">三</text>
+        <text class="cal-wd">四</text>
+        <text class="cal-wd">五</text>
+        <text class="cal-wd">六</text>
+      </view>
+      <!-- 日期格子 -->
+      <view class="cal-grid">
+        <view wx:for="{{calendarDays}}" wx:key="dateStr"
+              class="cal-day {{item.empty ? 'empty' : ''}} {{item.dateStr === selectedDate ? 'selected' : ''}}"
+              bindtap="selectDay" data-date="{{item.dateStr}}">
+          <text>{{item.day}}</text>
+        </view>
+      </view>
+
+      <!-- 选中日期的调度详情 -->
+      <view wx:if="{{selectedDate}}" class="day-detail">
+        <view class="day-detail-title">{{selectedDate}} 调度记录</view>
+        <view wx:if="{{dayDetailLoading}}" class="day-detail-loading">
+          <text>查询中...</text>
+        </view>
+        <block wx:elif="{{dayDetail}}">
+          <view wx:if="{{!dayDetail.hasData}}" class="day-detail-empty">
+            <text>当日无调度记录</text>
+          </view>
+          <view wx:else class="dispatch-list">
+            <view wx:for="{{dayDetail.dispatches}}" wx:key="id" class="dispatch-item">
+              <view class="dispatch-row">
+                <text class="dispatch-label">调度单号</text>
+                <text class="dispatch-value">#{{item.id}}</text>
+              </view>
+              <view class="dispatch-row">
+                <text class="dispatch-label">司机</text>
+                <text class="dispatch-value">{{item.driver_name || '-'}}</text>
+              </view>
+              <view class="dispatch-row">
+                <text class="dispatch-label">路线</text>
+                <text class="dispatch-value">{{item.route_name || '-'}}</text>
+              </view>
+              <view class="dispatch-row">
+                <text class="dispatch-label">状态</text>
+                <text class="dispatch-value dispatch-status-{{item.status}}">
+                  {{item.status === 'pending' ? '待出发' : item.status === 'departed' ? '已出发' : item.status === 'completed' ? '已完成' : item.status === 'cancelled' ? '已取消' : item.status}}
+                </text>
+              </view>
+            </view>
+          </view>
+        </block>
       </view>
     </view>
 

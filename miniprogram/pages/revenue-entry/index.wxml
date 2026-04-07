@@ -1,0 +1,51 @@
+<!-- 营收直录 -->
+<view class="page-container">
+  <view class="page-title">营收直录</view>
+
+  <view class="form-section">
+    <view class="form-item">
+      <text class="label">年份</text>
+      <picker mode="selector" range="{{yearOptions}}" value="{{yearIndex}}" bindchange="onYearChange">
+        <view class="picker-value">{{yearOptions[yearIndex]}} ▾</view>
+      </picker>
+    </view>
+    <view class="form-item">
+      <text class="label">月份</text>
+      <picker mode="selector" range="{{monthOptions}}" value="{{monthIndex}}" bindchange="onMonthChange">
+        <view class="picker-value">{{monthOptions[monthIndex]}} ▾</view>
+      </picker>
+    </view>
+    <view class="form-item">
+      <text class="label">总营收(元) <text class="required">*</text></text>
+      <input class="input" type="digit" placeholder="0.00" value="{{revenue}}" bindinput="onRevenueInput" />
+    </view>
+    <view class="form-item">
+      <text class="label">备注</text>
+      <input class="input" placeholder="可选" value="{{remark}}" bindinput="onRemarkInput" />
+    </view>
+  </view>
+
+  <view class="btn-area">
+    <button class="btn-submit {{!canSubmit || submitting ? 'btn-disabled' : ''}}"
+            disabled="{{!canSubmit || submitting}}"
+            bindtap="submitRevenue">
+      {{submitting ? '录入中...' : '确认录入'}}
+    </button>
+  </view>
+
+  <!-- 已录入记录 -->
+  <view wx:if="{{records.length > 0}}" class="recent-section">
+    <view class="section-title">已录入记录 ({{currentYear}}年)</view>
+    <view class="recent-item" wx:for="{{records}}" wx:key="id">
+      <view class="recent-left">
+        <text class="recent-cat">{{item.period}}</text>
+        <text class="recent-desc">{{item.remark || '--'}}</text>
+      </view>
+      <text class="recent-amount">¥ {{item.revenue}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{records.length === 0}}" class="empty-hint">
+    暂无营收记录，请录入
+  </view>
+</view>

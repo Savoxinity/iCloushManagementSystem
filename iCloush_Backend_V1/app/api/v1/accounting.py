@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import require_role
 from app.models.models import User, DailyProduction
-from app.models.finance import ManagementCostLedger, COST_CATEGORIES
+from app.models.finance import ManagementCostLedger, MonthlyRevenue, COST_CATEGORIES
 
 router = APIRouter()
 
@@ -137,8 +137,22 @@ async def create_cost_entry(
     else:
         trade_date = date.today()
 
+    # 解析发生日期（occur_date 单独存储，默认=当月最后一天）
+    occur_date_val = None
+    if req.occur_date:
+        try:
+            occur_date_val = date.fromisoformat(req.occur_date)
+        except ValueError:
+            pass
+    if not occur_date_val:
+        # 默认当月最后一天
+        import calendar
+        last_day = calendar.monthrange(trade_date.year, trade_date.month)[1]
+        occur_date_val = date(trade_date.year, trade_date.month, last_day)
+
     entry = ManagementCostLedger(
         trade_date=trade_date,
+        occur_date=occur_date_val,
         item_name=actual_item_name,
         supplier_name=req.supplier_name,
         pre_tax_amount=pre_tax,
@@ -355,12 +369,12 @@ async def profit_statement(
         year = year or now.year
         month = month or now.month
 
-    # 1. 查询该月所有成本流水
+    # 1. 查询该月所有成本流水（按 occur_date 统计，回退到 trade_date）
     result = await db.execute(
         select(ManagementCostLedger).where(
             and_(
-                extract("year", ManagementCostLedger.trade_date) == year,
-                extract("month", ManagementCostLedger.trade_date) == month,
+                extract("year", func.coalesce(ManagementCostLedger.occur_date, ManagementCostLedger.trade_date)) == year,
+                extract("month", func.coalesce(ManagementCostLedger.occur_date, ManagementCostLedger.trade_date)) == month,
             )
         )
     )
@@ -389,21 +403,33 @@ async def profit_statement(
         center_label = CENTER_LABELS.get(c.cost_center, c.cost_center)
         by_center[center_label] += float(c.post_tax_amount)
 
-    # 5. 营收估算（从产能报表获取，按 200元/套 估算）
-    month_str_start = f"{year}-{month:02d}-01"
-    month_str_end = f"{year}-{month:02d}-31"
-    prod_result = await db.execute(
-        select(DailyProduction).where(
-            and_(
-                DailyProduction.date >= month_str_start,
-                DailyProduction.date <= month_str_end,
-            )
+    # 5. 营收：优先从 MonthlyRevenue 表读取手动录入的营收，回退到产能估算
+    rev_result = await db.execute(
+        select(MonthlyRevenue).where(
+            and_(MonthlyRevenue.year == year, MonthlyRevenue.month == month)
         )
     )
-    productions = prod_result.scalars().all()
-    total_sets = sum(p.total_sets for p in productions)
-    # 默认单价 200 元/套（可配置）
-    revenue = total_sets * 200.0
+    rev_entry = rev_result.scalar_one_or_none()
+    revenue_source = "manual"
+
+    if rev_entry:
+        revenue = float(rev_entry.revenue)
+    else:
+        # 回退到产能估算
+        revenue_source = "estimated"
+        month_str_start = f"{year}-{month:02d}-01"
+        month_str_end = f"{year}-{month:02d}-31"
+        prod_result = await db.execute(
+            select(DailyProduction).where(
+                and_(
+                    DailyProduction.date >= month_str_start,
+                    DailyProduction.date <= month_str_end,
+                )
+            )
+        )
+        productions = prod_result.scalars().all()
+        total_sets = sum(p.total_sets for p in productions)
+        revenue = total_sets * 200.0
 
     # 6. 计算利润
     contribution_margin = revenue - variable_costs
@@ -424,7 +450,7 @@ async def profit_statement(
         "data": {
             "period": f"{year}-{month:02d}",
             "revenue": round(revenue, 2),
-            "total_sets": total_sets,
+            "revenue_source": revenue_source,
             # 后端原始字段
             "variable_costs": round(variable_costs, 2),
             "fixed_costs": round(fixed_costs, 2),
@@ -498,9 +524,97 @@ async def tax_leakage(
     }
 
 
-# ═══════════════════════════════════════════════════
+# ═════════════════════════════════════════════════
+# 营收直录（Phase 4.2）
+# ═════════════════════════════════════════════════
+
+class RevenueCreateRequest(BaseModel):
+    year: int = Field(..., description="年份")
+    month: int = Field(..., ge=1, le=12, description="月份")
+    revenue: float = Field(..., gt=0, description="总营收")
+    remark: Optional[str] = Field(default=None, description="备注")
+
+
+@router.post("/revenue/upsert")
+async def upsert_revenue(
+    req: RevenueCreateRequest,
+    current_user: User = Depends(require_role(5)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    营收直录 — 同一年月只保留一条（upsert）
+    """
+    result = await db.execute(
+        select(MonthlyRevenue).where(
+            and_(MonthlyRevenue.year == req.year, MonthlyRevenue.month == req.month)
+        )
+    )
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        existing.revenue = Decimal(str(req.revenue))
+        existing.remark = req.remark
+        existing.created_by = current_user.id
+        await db.flush()
+        return {
+            "code": 200,
+            "message": f"{req.year}年{req.month}月营收已更新",
+            "data": _serialize_revenue(existing),
+        }
+    else:
+        entry = MonthlyRevenue(
+            year=req.year,
+            month=req.month,
+            revenue=Decimal(str(req.revenue)),
+            remark=req.remark,
+            created_by=current_user.id,
+        )
+        db.add(entry)
+        await db.flush()
+        return {
+            "code": 200,
+            "message": f"{req.year}年{req.month}月营收已录入",
+            "data": _serialize_revenue(entry),
+        }
+
+
+@router.get("/revenue/list")
+async def list_revenue(
+    year: Optional[int] = Query(default=None, description="年份"),
+    current_user: User = Depends(require_role(5)),
+    db: AsyncSession = Depends(get_db),
+):
+    """查询营收记录列表"""
+    if not year:
+        year = datetime.now().year
+    result = await db.execute(
+        select(MonthlyRevenue)
+        .where(MonthlyRevenue.year == year)
+        .order_by(MonthlyRevenue.month.desc())
+    )
+    entries = result.scalars().all()
+    return {
+        "code": 200,
+        "data": [_serialize_revenue(e) for e in entries],
+    }
+
+
+def _serialize_revenue(e: MonthlyRevenue) -> dict:
+    return {
+        "id": e.id,
+        "year": e.year,
+        "month": e.month,
+        "period": f"{e.year}-{e.month:02d}",
+        "revenue": float(e.revenue),
+        "remark": e.remark,
+        "created_by": e.created_by,
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+    }
+
+
+# ═════════════════════════════════════════════════
 # 成本分类汇总
-# ═══════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════
 
 @router.get("/cost-summary")
 async def cost_summary(
@@ -679,6 +793,7 @@ def _serialize_cost(e: ManagementCostLedger) -> dict:
     return {
         "id": e.id,
         "trade_date": e.trade_date.isoformat() if e.trade_date else None,
+        "occur_date": e.occur_date.isoformat() if e.occur_date else (e.trade_date.isoformat() if e.trade_date else None),
         "item_name": e.item_name,
         "supplier_name": e.supplier_name,
         "pre_tax_amount": float(e.pre_tax_amount) if e.pre_tax_amount else 0,

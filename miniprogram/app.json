@@ -35,7 +35,8 @@
     "pages/vehicle-detail/index",
     "pages/cost-ledger-detail/index",
     "pages/route-create/index",
-    "pages/dispatch-create/index"
+    "pages/dispatch-create/index",
+    "pages/revenue-entry/index"
   ],
   "tabBar": {
     "color": "#666666",

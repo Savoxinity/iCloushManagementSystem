@@ -1,27 +1,240 @@
-.page-container { padding: 32rpx; background: #0a0a0a; min-height: 100vh; }
-.header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40rpx; }
-.page-title { font-size: 36rpx; color: #fff; font-weight: bold; }
-.period-picker { font-size: 28rpx; color: #C9A84C; border: 1rpx solid rgba(201,168,76,0.3); padding: 10rpx 24rpx; border-radius: 8rpx; }
-.loading-state, .empty-state { text-align: center; padding: 120rpx 0; }
-.loading-text, .empty-text { font-size: 28rpx; color: #666; }
-.statement-body { background: rgba(255,255,255,0.03); border-radius: 16rpx; padding: 32rpx; }
-.metric-row { display: flex; justify-content: space-between; align-items: center; padding: 20rpx 0; }
-.metric-row.highlight { padding: 24rpx 0; }
-.metric-row.sub { padding: 8rpx 0 20rpx; }
-.metric-label { font-size: 28rpx; color: #aaa; }
-.metric-row.highlight .metric-label { font-size: 30rpx; color: #fff; font-weight: bold; }
-.metric-value { font-size: 30rpx; color: #ccc; }
-.metric-value.accent { color: #C9A84C; font-weight: bold; font-size: 34rpx; }
-.metric-value.positive { color: #10B981; font-weight: bold; font-size: 36rpx; }
-.metric-value.negative { color: #EF4444; }
-.divider { height: 1rpx; background: rgba(255,255,255,0.08); margin: 8rpx 0; }
-.breakeven-card { margin-top: 24rpx; background: rgba(201,168,76,0.08); border-radius: 12rpx; padding: 28rpx; text-align: center; border: 1rpx solid rgba(201,168,76,0.2); }
-.breakeven-title { display: block; font-size: 24rpx; color: #888; margin-bottom: 12rpx; }
-.breakeven-value { display: block; font-size: 44rpx; color: #C9A84C; font-weight: bold; margin-bottom: 8rpx; }
-.breakeven-hint { display: block; font-size: 22rpx; color: #888; }
-.breakdown-section { margin-top: 32rpx; }
-.section-title { font-size: 28rpx; color: #888; margin-bottom: 16rpx; }
-.breakdown-item { display: flex; justify-content: space-between; padding: 16rpx 0; border-bottom: 1rpx solid rgba(255,255,255,0.05); }
-.breakdown-item:last-child { border-bottom: none; }
-.bd-name { font-size: 26rpx; color: #ccc; }
-.bd-amount { font-size: 26rpx; color: #C9A84C; }
+/* 管理利润表 — 品牌黑橙配色 + ECharts */
+.page-container {
+  padding: 32rpx;
+  background: #111111;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32rpx;
+}
+
+.page-title {
+  font-size: 40rpx;
+  color: #E8A945;
+  font-weight: 700;
+}
+
+.period-picker {
+  font-size: 28rpx;
+  color: #E8A945;
+  border: 1rpx solid rgba(232, 169, 69, 0.3);
+  padding: 10rpx 24rpx;
+  border-radius: 8rpx;
+}
+
+.loading-state, .empty-state {
+  text-align: center;
+  padding: 120rpx 0;
+}
+
+.loading-spinner {
+  width: 48rpx;
+  height: 48rpx;
+  border: 4rpx solid rgba(232, 169, 69, 0.2);
+  border-top-color: #E8A945;
+  border-radius: 50%;
+  margin: 0 auto 16rpx;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text, .empty-text {
+  font-size: 28rpx;
+  color: #666;
+}
+
+/* 营收来源标签 */
+.source-tag {
+  margin-bottom: 20rpx;
+}
+
+.source-label {
+  font-size: 22rpx;
+  color: #888;
+  background: rgba(232, 169, 69, 0.08);
+  padding: 6rpx 16rpx;
+  border-radius: 6rpx;
+}
+
+/* 指标卡 */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.metric-card {
+  background: #1E1E1E;
+  border-radius: 12rpx;
+  padding: 24rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.06);
+}
+
+.mc-label {
+  display: block;
+  font-size: 22rpx;
+  color: #888;
+  margin-bottom: 8rpx;
+}
+
+.mc-value {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 700;
+  font-family: 'DIN Alternate', monospace;
+}
+
+.mc-value.green { color: #10B981; }
+.mc-value.red { color: #EF4444; }
+.mc-value.gold { color: #E8A945; }
+
+/* 边际贡献条 */
+.cm-bar {
+  display: flex;
+  justify-content: space-between;
+  background: rgba(232, 169, 69, 0.08);
+  border-radius: 12rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+  border: 1rpx solid rgba(232, 169, 69, 0.15);
+}
+
+.cm-left, .cm-right {
+  display: flex;
+  flex-direction: column;
+}
+
+.cm-label {
+  font-size: 22rpx;
+  color: #888;
+  margin-bottom: 6rpx;
+}
+
+.cm-value {
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.cm-value.gold { color: #E8A945; }
+
+/* 图表区域 */
+.chart-section {
+  margin-bottom: 24rpx;
+}
+
+.chart-title {
+  display: block;
+  font-size: 28rpx;
+  color: #CCCCCC;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.chart-wrap {
+  width: 100%;
+  height: 400rpx;
+  background: #1E1E1E;
+  border-radius: 12rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.pie-wrap {
+  height: 500rpx;
+}
+
+/* 盈亏平衡卡片 */
+.breakeven-card {
+  background: #1E1E1E;
+  border-radius: 12rpx;
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+  border: 1rpx solid rgba(232, 169, 69, 0.15);
+}
+
+.be-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.be-label {
+  font-size: 26rpx;
+  color: #888;
+}
+
+.be-value {
+  font-size: 34rpx;
+  color: #E8A945;
+  font-weight: 700;
+  font-family: 'DIN Alternate', monospace;
+}
+
+.be-bar-track {
+  width: 100%;
+  height: 12rpx;
+  background: #333;
+  border-radius: 6rpx;
+  overflow: hidden;
+  margin-bottom: 12rpx;
+}
+
+.be-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #E8A945, #10B981);
+  border-radius: 6rpx;
+  transition: width 0.5s ease;
+}
+
+.be-hint {
+  font-size: 22rpx;
+  display: block;
+  text-align: center;
+}
+
+.hint-green { color: #10B981; }
+.hint-red { color: #EF4444; }
+
+/* 成本明细 */
+.breakdown-section {
+  margin-top: 8rpx;
+}
+
+.section-title {
+  font-size: 28rpx;
+  color: #CCCCCC;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.breakdown-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+  background: #1E1E1E;
+  border-radius: 8rpx;
+  margin-bottom: 8rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.04);
+}
+
+.bd-name {
+  font-size: 26rpx;
+  color: #CCCCCC;
+}
+
+.bd-amount {
+  font-size: 26rpx;
+  color: #E8A945;
+  font-weight: 600;
+  font-family: 'DIN Alternate', monospace;
+}

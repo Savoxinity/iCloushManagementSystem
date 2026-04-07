@@ -1,6 +1,6 @@
 /**
- * 车辆详情 — 查看 + 编辑 + 删除
- * Phase 4.1 PRD 1.2
+ * 车辆详情 — 查看 + 编辑 + 删除 + 历史日历
+ * Phase 4.2 修复: complete 回调不被 app.request 支持，改用 success/fail 中设置 loading
  */
 const app = getApp()
 
@@ -11,6 +11,14 @@ Page({
     loading: true,
     isAdmin: false,
     alerts: [],
+
+    // 历史日历
+    calendarYear: 0,
+    calendarMonth: 0,
+    calendarDays: [],
+    selectedDate: '',
+    dayDetail: null,
+    dayDetailLoading: false,
   },
 
   onLoad(options) {
@@ -20,9 +28,12 @@ Page({
       return
     }
     var userInfo = wx.getStorageSync('userInfo') || {}
+    var now = new Date()
     this.setData({
       vehicleId: parseInt(options.id),
       isAdmin: (userInfo.role || 1) >= 5,
+      calendarYear: now.getFullYear(),
+      calendarMonth: now.getMonth() + 1,
     })
     this.loadDetail()
   },
@@ -39,7 +50,6 @@ Page({
       success(res) {
         if (res.code === 200 && res.data) {
           var v = res.data
-          // 计算预警
           var today = new Date()
           var alerts = []
           var checks = [
@@ -60,16 +70,89 @@ Page({
               level: remaining < 0 ? 'expired' : remaining <= 7 ? 'urgent' : remaining <= 30 ? 'warning' : 'safe',
             })
           })
-          self.setData({ vehicle: v, alerts: alerts })
+          self.setData({ vehicle: v, alerts: alerts, loading: false })
+          self.buildCalendar()
         } else {
           wx.showToast({ title: '加载失败', icon: 'none' })
+          self.setData({ loading: false })
         }
       },
       fail() {
         wx.showToast({ title: '网络异常', icon: 'none' })
-      },
-      complete() {
         self.setData({ loading: false })
+      },
+    })
+  },
+
+  // ── 日历构建 ──
+  buildCalendar() {
+    var year = this.data.calendarYear
+    var month = this.data.calendarMonth
+    var firstDay = new Date(year, month - 1, 1).getDay() // 0=Sun
+    var daysInMonth = new Date(year, month, 0).getDate()
+    var days = []
+    // 填充前面的空白
+    for (var i = 0; i < firstDay; i++) {
+      days.push({ day: '', dateStr: '', empty: true })
+    }
+    for (var d = 1; d <= daysInMonth; d++) {
+      var mm = month < 10 ? '0' + month : '' + month
+      var dd = d < 10 ? '0' + d : '' + d
+      days.push({
+        day: d,
+        dateStr: year + '-' + mm + '-' + dd,
+        empty: false,
+      })
+    }
+    this.setData({ calendarDays: days })
+  },
+
+  prevMonth() {
+    var y = this.data.calendarYear
+    var m = this.data.calendarMonth - 1
+    if (m < 1) { m = 12; y-- }
+    this.setData({ calendarYear: y, calendarMonth: m, selectedDate: '', dayDetail: null })
+    this.buildCalendar()
+  },
+
+  nextMonth() {
+    var y = this.data.calendarYear
+    var m = this.data.calendarMonth + 1
+    if (m > 12) { m = 1; y++ }
+    this.setData({ calendarYear: y, calendarMonth: m, selectedDate: '', dayDetail: null })
+    this.buildCalendar()
+  },
+
+  selectDay(e) {
+    var dateStr = e.currentTarget.dataset.date
+    if (!dateStr) return
+    this.setData({ selectedDate: dateStr })
+    this.loadDayDetail(dateStr)
+  },
+
+  loadDayDetail(dateStr) {
+    var self = this
+    self.setData({ dayDetailLoading: true, dayDetail: null })
+    // 查询该车辆在指定日期的调度记录
+    app.request({
+      url: '/api/v1/vehicles/dispatch/list?vehicle_id=' + self.data.vehicleId + '&work_date=' + dateStr,
+      success(res) {
+        if (res.code === 200) {
+          var dispatches = res.data || []
+          self.setData({
+            dayDetail: {
+              date: dateStr,
+              dispatches: dispatches,
+              hasData: dispatches.length > 0,
+            },
+            dayDetailLoading: false,
+          })
+        } else {
+          self.setData({ dayDetail: { date: dateStr, dispatches: [], hasData: false }, dayDetailLoading: false })
+        }
+      },
+      fail() {
+        self.setData({ dayDetail: { date: dateStr, dispatches: [], hasData: false }, dayDetailLoading: false })
       },
     })
   },

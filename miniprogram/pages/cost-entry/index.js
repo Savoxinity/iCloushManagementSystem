@@ -12,6 +12,7 @@ Page({
     amount: '',
     description: '',
     occurDate: '',
+    tradeDate: '',
     submitting: false,
     canSubmit: false,
     recentEntries: [],
@@ -21,12 +22,17 @@ Page({
     wx.setNavigationBarTitle({ title: '成本直录' });
     this.loadCategories();
     this.loadRecent();
-    // 默认日期为今天
+    // 记账日期自动取当天（不显示在表单中，提交时自动附带）
     var today = new Date();
-    var dateStr = today.getFullYear() + '-' +
+    var tradeDateStr = today.getFullYear() + '-' +
       String(today.getMonth() + 1).padStart(2, '0') + '-' +
       String(today.getDate()).padStart(2, '0');
-    this.setData({ occurDate: dateStr });
+    // 发生日期默认当月最后一天
+    var lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    var occurDateStr = lastDay.getFullYear() + '-' +
+      String(lastDay.getMonth() + 1).padStart(2, '0') + '-' +
+      String(lastDay.getDate()).padStart(2, '0');
+    this.setData({ occurDate: occurDateStr, tradeDate: tradeDateStr });
   },
 
   loadCategories: function () {
@@ -92,6 +98,7 @@ Page({
       amount: parseFloat(self.data.amount),
       description: self.data.description || '',
       occur_date: self.data.occurDate || null,
+      trade_date: self.data.tradeDate || null,
     };
 
     app.request({
