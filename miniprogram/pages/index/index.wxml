@@ -302,8 +302,8 @@
       <view
         wx:for="{{scheduleSlots}}"
         wx:key="zone_id"
-        class="move-option {{item.zone_id === moveSourceZoneId ? 'current' : ''}} {{item.assigned.length >= item.capacity ? 'full' : ''}}"
-        bindtap="{{item.zone_id === moveSourceZoneId || item.assigned.length >= item.capacity ? '' : 'onMoveToZone'}}"
+        class="move-option {{item.zone_id === moveSourceZoneId ? 'current' : ''}}"
+        bindtap="{{item.zone_id === moveSourceZoneId ? '' : 'onMoveToZone'}}"
         data-zone-id="{{item.zone_id}}"
       >
         <view class="move-opt-dot" style="background:{{item.color}};"></view>
@@ -314,7 +314,7 @@
         <!-- ★ 物流区特殊标记 -->
         <text wx:if="{{item.zone_code === 'zone_f'}}" class="move-opt-badge dispatch-badge">🚛 派车</text>
         <text wx:elif="{{item.zone_id === moveSourceZoneId}}" class="move-opt-badge current-badge">当前</text>
-        <text wx:elif="{{item.assigned.length >= item.capacity}}" class="move-opt-badge full-badge">已满</text>
+
         <text wx:else class="move-opt-arrow">›</text>
       </view>
     </scroll-view>

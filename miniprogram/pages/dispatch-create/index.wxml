@@ -1,0 +1,72 @@
+<!--
+  创建调度单 — Phase 4 机动物流中台
+  车-线-人 三位一体调度
+-->
+<view class="page-container">
+  <view class="form-section">
+    <view class="section-title">调度信息</view>
+
+    <!-- 出车日期 -->
+    <view class="form-item">
+      <text class="form-label">出车日期 *</text>
+      <picker mode="date" value="{{workDate}}" bindchange="onDateChange">
+        <view class="form-picker">
+          <text class="{{workDate ? 'picker-value' : 'picker-placeholder'}}">{{workDate || '选择日期'}}</text>
+          <text class="picker-arrow">▼</text>
+        </view>
+      </picker>
+    </view>
+
+    <!-- 选择车辆 -->
+    <view class="form-item">
+      <text class="form-label">车辆 *</text>
+      <picker range="{{vehicleNames}}" value="{{vehicleIndex}}" bindchange="onVehicleChange">
+        <view class="form-picker">
+          <text class="{{vehicleIndex >= 0 ? 'picker-value' : 'picker-placeholder'}}">
+            {{vehicleIndex >= 0 ? vehicleNames[vehicleIndex] : '选择车辆'}}
+          </text>
+          <text class="picker-arrow">▼</text>
+        </view>
+      </picker>
+    </view>
+
+    <!-- 选择司机 -->
+    <view class="form-item">
+      <text class="form-label">司机 *</text>
+      <picker range="{{driverNames}}" value="{{driverIndex}}" bindchange="onDriverChange">
+        <view class="form-picker">
+          <text class="{{driverIndex >= 0 ? 'picker-value' : 'picker-placeholder'}}">
+            {{driverIndex >= 0 ? driverNames[driverIndex] : '选择司机'}}
+          </text>
+          <text class="picker-arrow">▼</text>
+        </view>
+      </picker>
+    </view>
+
+    <!-- 选择路线（可选） -->
+    <view class="form-item">
+      <text class="form-label">送货路线（选填）</text>
+      <picker range="{{routeNames}}" value="{{routeIndex}}" bindchange="onRouteChange">
+        <view class="form-picker">
+          <text class="{{routeIndex >= 0 ? 'picker-value' : 'picker-placeholder'}}">
+            {{routeIndex >= 0 ? routeNames[routeIndex] : '不指定路线'}}
+          </text>
+          <text class="picker-arrow">▼</text>
+        </view>
+      </picker>
+    </view>
+
+    <!-- 备注 -->
+    <view class="form-item">
+      <text class="form-label">备注</text>
+      <textarea class="form-textarea" placeholder="调度备注（选填）" value="{{remark}}" bindinput="onRemarkInput" />
+    </view>
+  </view>
+
+  <!-- 提交 -->
+  <view class="submit-bar">
+    <button class="btn-submit" bindtap="submitDispatch" disabled="{{submitting}}">
+      {{submitting ? '提交中...' : '创建调度单'}}
+    </button>
+  </view>
+</view>

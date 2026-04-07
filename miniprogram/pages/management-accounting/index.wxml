@@ -1,11 +1,16 @@
-<!-- 管理会计入口页 -->
+<!-- 管理会计入口页 — 全屏长条卡片 -->
 <view class="page-container">
   <view class="page-title">管理会计</view>
-  <view class="menu-grid">
+  <view class="menu-list">
     <view class="menu-card" wx:for="{{menuItems}}" wx:key="id" data-url="{{item.url}}" bindtap="goPage">
-      <text class="menu-icon">{{item.icon}}</text>
-      <text class="menu-title">{{item.title}}</text>
-      <text class="menu-desc">{{item.desc}}</text>
+      <view class="card-left">
+        <text class="menu-icon">{{item.icon}}</text>
+        <view class="card-text">
+          <text class="menu-title">{{item.title}}</text>
+          <text class="menu-desc">{{item.desc}}</text>
+        </view>
+      </view>
+      <text class="card-arrow">›</text>
     </view>
   </view>
 </view>

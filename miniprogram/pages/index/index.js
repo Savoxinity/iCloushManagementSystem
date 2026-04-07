@@ -257,7 +257,7 @@ Page({
           });
           scheduleSlots.push({
             zone_id: z.id, zone_name: z.name, zone_code: z.code,
-            color: z.color, capacity: z.capacity || 3,
+            color: z.color, capacity: z.capacity || 999,
             assigned: assigned,
           });
         }
@@ -425,8 +425,8 @@ Page({
         break;
       }
     }
-    if (!targetSlot || targetSlot.assigned.length >= targetSlot.capacity) {
-      wx.showToast({ title: '该工区已满员', icon: 'none' });
+    if (!targetSlot) {
+      wx.showToast({ title: '工区不存在', icon: 'none' });
       return;
     }
 
@@ -767,6 +767,12 @@ Page({
     setTimeout(function () {
       self.setData({ tappedZoneId: null });
     }, 600);
+
+    // ★ 物流区(zone_f)：直接跳转到物流调度中台
+    if (zone.code === 'zone_f') {
+      wx.navigateTo({ url: '/pages/logistics-dashboard/index' });
+      return;
+    }
 
     var statusMap = { running: '运行中', idle: '待机', alert: '告警', maintenance: '维护中' };
     var sheetStats = [];

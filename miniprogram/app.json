@@ -33,7 +33,9 @@
     "pages/logistics-dashboard/index",
     "pages/vehicle-add/index",
     "pages/vehicle-detail/index",
-    "pages/cost-ledger-detail/index"
+    "pages/cost-ledger-detail/index",
+    "pages/route-create/index",
+    "pages/dispatch-create/index"
   ],
   "tabBar": {
     "color": "#666666",

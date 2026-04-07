@@ -616,7 +616,7 @@ async def cost_ledger_detail(
     if creator_ids:
         users_result = await db.execute(select(User).where(User.id.in_(creator_ids)))
         for u in users_result.scalars().all():
-            creators_map[u.id] = u.real_name or u.username
+            creators_map[u.id] = u.name or u.username or f"用户#{u.id}"
 
     items = []
     for e in entries:

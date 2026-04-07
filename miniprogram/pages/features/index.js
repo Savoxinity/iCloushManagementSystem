@@ -63,11 +63,7 @@ var ALL_FEATURES = [
     iconBg: 'rgba(59, 130, 246, 0.15)', url: '/pages/logistics-dashboard/index',
     minRole: 5, comingSoon: false, adminOnly: true,
   },
-  {
-    id: 'vehicle_manage', name: '车队管理', sub: '车辆台账/预警', icon: '🚗',
-    iconBg: 'rgba(16, 185, 129, 0.15)', url: '/pages/vehicle-manage/index',
-    minRole: 5, comingSoon: false, adminOnly: true,
-  },
+
   // ── 业财一体化模块（Phase 3B/3C）──
   // 员工：创建报销单（极简三项，无成本分类）
   {
@@ -111,12 +107,6 @@ var ALL_FEATURES = [
     id: 'cost_ledger', name: '成本明细账', sub: '分类汇总/明细', icon: '📒',
     iconBg: 'rgba(245, 158, 11, 0.15)', url: '/pages/cost-ledger-detail/index',
     minRole: 5, comingSoon: false, adminOnly: true,
-  },
-  // 物流驾驶员专属入口（role >= 5 或有物流驾驶标签）
-  {
-    id: 'logistics_dispatch', name: '物流出车', sub: '接单/出车/回场', icon: '🚚',
-    iconBg: 'rgba(34, 197, 94, 0.15)', url: '/pages/logistics-dashboard/index',
-    minRole: 1, comingSoon: false, adminOnly: false, logisticsOnly: true,
   },
 ];
 

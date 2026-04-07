@@ -1,0 +1,72 @@
+<!--
+  新增排线 — Phase 4 机动物流中台
+  表单：排线名称、描述、预计时长、预计里程、站点列表（动态增删）
+-->
+<view class="page-container">
+  <!-- 基本信息 -->
+  <view class="form-section">
+    <view class="section-title">基本信息</view>
+    <view class="form-item">
+      <text class="form-label">排线名称 *</text>
+      <input class="form-input" placeholder="如：浦东线A" value="{{routeName}}" bindinput="onNameInput" />
+    </view>
+    <view class="form-item">
+      <text class="form-label">描述</text>
+      <textarea class="form-textarea" placeholder="排线说明（选填）" value="{{description}}" bindinput="onDescInput" />
+    </view>
+    <view class="form-row">
+      <view class="form-item half">
+        <text class="form-label">预计时长(分钟)</text>
+        <input class="form-input" type="number" placeholder="如 120" value="{{durationMin}}" bindinput="onDurationInput" />
+      </view>
+      <view class="form-item half">
+        <text class="form-label">预计里程(km)</text>
+        <input class="form-input" type="digit" placeholder="如 45.5" value="{{distanceKm}}" bindinput="onDistanceInput" />
+      </view>
+    </view>
+  </view>
+
+  <!-- 站点列表 -->
+  <view class="form-section">
+    <view class="section-header">
+      <text class="section-title">站点列表</text>
+      <view class="add-stop-btn" bindtap="addStop">+ 添加站点</view>
+    </view>
+
+    <view wx:if="{{stops.length === 0}}" class="empty-stops">
+      <text>暂无站点，点击上方按钮添加</text>
+    </view>
+
+    <view wx:for="{{stops}}" wx:key="seq" class="stop-card">
+      <view class="stop-header">
+        <text class="stop-seq">站点 {{index + 1}}</text>
+        <view class="stop-remove" bindtap="removeStop" data-index="{{index}}">删除</view>
+      </view>
+      <view class="form-item">
+        <text class="form-label">客户名称 *</text>
+        <input class="form-input" placeholder="客户/站点名称" value="{{item.client_name}}" bindinput="onStopFieldInput" data-index="{{index}}" data-field="client_name" />
+      </view>
+      <view class="form-item">
+        <text class="form-label">地址</text>
+        <input class="form-input" placeholder="详细地址（选填）" value="{{item.address}}" bindinput="onStopFieldInput" data-index="{{index}}" data-field="address" />
+      </view>
+      <view class="form-row">
+        <view class="form-item half">
+          <text class="form-label">预计到达</text>
+          <input class="form-input" placeholder="如 09:30" value="{{item.expected_eta}}" bindinput="onStopFieldInput" data-index="{{index}}" data-field="expected_eta" />
+        </view>
+        <view class="form-item half">
+          <text class="form-label">联系电话</text>
+          <input class="form-input" type="number" placeholder="选填" value="{{item.contact_phone}}" bindinput="onStopFieldInput" data-index="{{index}}" data-field="contact_phone" />
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="submit-bar">
+    <button class="btn-submit" bindtap="submitRoute" disabled="{{submitting}}">
+      {{submitting ? '提交中...' : '创建排线'}}
+    </button>
+  </view>
+</view>
