@@ -1,5 +1,5 @@
 // ============================================
-// 发票列表页
+// 发票列表页（发票夹 — 照搬华通APP"我的票夹"）
 // ============================================
 var app = getApp();
 
@@ -9,10 +9,20 @@ Page({
     loading: true,
     page: 1,
     hasMore: true,
+    // 筛选 tab
+    activeTab: 'all',
+    tabs: [
+      { key: 'all', label: '全部' },
+      { key: 'pending', label: '待核验' },
+      { key: 'verified', label: '已核验' },
+      { key: 'duplicate', label: '重复' },
+    ],
+    // 统计
+    totalCount: 0,
   },
 
   onLoad: function () {
-    wx.setNavigationBarTitle({ title: '发票列表' });
+    wx.setNavigationBarTitle({ title: '我的发票' });
     this.loadInvoices();
   },
 
@@ -21,11 +31,29 @@ Page({
     this.loadInvoices();
   },
 
+  // 切换筛选 tab
+  switchTab: function (e) {
+    var tab = e.currentTarget.dataset.tab;
+    this.setData({
+      activeTab: tab,
+      page: 1,
+      invoices: [],
+      hasMore: true,
+    });
+    this.loadInvoices();
+  },
+
   loadInvoices: function () {
     var self = this;
     self.setData({ loading: true });
+
+    var url = '/api/v1/invoices/list?page=' + self.data.page + '&page_size=20';
+    if (self.data.activeTab !== 'all') {
+      url += '&verify_status=' + self.data.activeTab;
+    }
+
     app.request({
-      url: '/api/v1/invoices/list?page=' + self.data.page + '&page_size=20',
+      url: url,
       success: function (res) {
         self.setData({ loading: false });
         if (res.code === 200) {
@@ -33,8 +61,12 @@ Page({
           self.setData({
             invoices: list,
             hasMore: (res.data || []).length >= 20,
+            totalCount: res.total || list.length,
           });
         }
+      },
+      fail: function () {
+        self.setData({ loading: false });
       },
     });
   },
@@ -46,18 +78,21 @@ Page({
     }
   },
 
+  // 跳转到发票详情页
+  goDetail: function (e) {
+    var id = e.currentTarget.dataset.id;
+    wx.navigateTo({ url: '/pages/invoice-detail/index?id=' + id });
+  },
+
   goUpload: function () {
     wx.navigateTo({ url: '/pages/invoice-upload/index' });
   },
 
-  goDetail: function (e) {
-    var id = e.currentTarget.dataset.id;
-    // 可以跳转到发票详情页（如果有的话）
-    wx.showToast({ title: '发票 #' + id, icon: 'none' });
-  },
-
+  // 预览发票图片
   previewImage: function (e) {
     var url = e.currentTarget.dataset.url;
-    if (url) wx.previewImage({ urls: [url], current: url });
+    if (url) {
+      wx.previewImage({ urls: [url], current: url });
+    }
   },
 });

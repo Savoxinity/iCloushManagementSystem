@@ -1,11 +1,13 @@
 // ============================================
-// 功能金刚区页面 V8 — Phase 3B/3C 业财分流
+// 功能金刚区页面 V9 — 权限修复 + 入口整理
 // ============================================
 var app = getApp();
 var util = require('../../utils/util');
 
 // 功能模块配置
 // adminOnly: true 的功能仅管理员可见
+// staffOnly: true 的功能仅员工可见（管理员不显示）
+// 无 adminOnly/staffOnly 的功能所有人可见
 var ALL_FEATURES = [
   {
     id: 'task_hall', name: '任务大厅', sub: '领任务 / 报工', icon: '🎯',
@@ -64,36 +66,31 @@ var ALL_FEATURES = [
     minRole: 5, comingSoon: false, adminOnly: true,
   },
 
-  // ── 业财一体化模块（Phase 3B/3C）──
-  // 员工：创建报销单（极简三项，无成本分类）
+  // ═══ 业财一体化模块 — 入口整理 ═══
+
+  // ★ 创建报销：所有权限账号均可使用（包括老板/管理员）
   {
     id: 'expense_create', name: '创建报销', sub: '提交报销单', icon: '📝',
     iconBg: 'rgba(251, 191, 36, 0.15)', url: '/pages/expense-create/index',
-    minRole: 1, comingSoon: false, adminOnly: false, staffOnly: true,
+    minRole: 1, comingSoon: false, adminOnly: false, staffOnly: false,
   },
-  // 员工：查看自己的报销记录
+  // 报销记录：所有人可查看自己的报销
   {
     id: 'expense_list', name: '报销记录', sub: '查看报销进度', icon: '💰',
     iconBg: 'rgba(251, 191, 36, 0.15)', url: '/pages/expense-list/index',
-    minRole: 1, comingSoon: false, adminOnly: false, staffOnly: true,
+    minRole: 1, comingSoon: false, adminOnly: false, staffOnly: false,
   },
-  // 员工：上传发票（补票用）
+  // ★ 发票夹（我的发票）：所有人可查看和上传自己的发票
   {
-    id: 'invoice_upload', name: '上传发票', sub: '发票OCR识别', icon: '🧾',
-    iconBg: 'rgba(16, 185, 129, 0.15)', url: '/pages/invoice-upload/index',
-    minRole: 1, comingSoon: false, adminOnly: false, staffOnly: true,
+    id: 'invoice_manage', name: '我的发票', sub: '发票夹/OCR识别', icon: '🧾',
+    iconBg: 'rgba(16, 185, 129, 0.15)', url: '/pages/invoice-list/index',
+    minRole: 1, comingSoon: false, adminOnly: false, staffOnly: false,
   },
-  // 管理员：报销审核（含成本分类选择）
+  // 管理员：报销审核（三按钮审核）
   {
-    id: 'expense_review', name: '报销审核', sub: '审核+成本分类', icon: '✅',
+    id: 'expense_review', name: '报销审核', sub: '驳回/小票/发票通过', icon: '✅',
     iconBg: 'rgba(251, 191, 36, 0.15)', url: '/pages/expense-review/index',
     minRole: 5, comingSoon: false, adminOnly: true,
-  },
-  // 管理员：发票管理
-  {
-    id: 'invoice_manage', name: '发票管理', sub: 'OCR识别/票夹', icon: '🧾',
-    iconBg: 'rgba(16, 185, 129, 0.15)', url: '/pages/invoice-list/index',
-    minRole: 3, comingSoon: false, adminOnly: true,
   },
   // 管理员：管理会计入口（欠票看板、成本直录、利润表）
   {
@@ -101,7 +98,6 @@ var ALL_FEATURES = [
     iconBg: 'rgba(239, 68, 68, 0.15)', url: '/pages/management-accounting/index',
     minRole: 5, comingSoon: false, adminOnly: true,
   },
-  // 成本明细账已移至管理会计模块内
 ];
 
 Page({
@@ -129,7 +125,7 @@ Page({
       if (f.adminOnly && !isAdmin) continue;
       // 员工专属功能：管理员版不显示
       if (f.staffOnly && isAdmin) continue;
-      // 物流驾驶员专属功能：需 role>=5 或有"物流驾驶"标签
+      // 物流驾驶员专属功能
       if (f.logisticsOnly) {
         var tags = (userInfo && userInfo.tags) || [];
         var hasLogisticsTag = false;

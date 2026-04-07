@@ -1,21 +1,26 @@
 """
-报销路由 — Phase 3B 业财分流重构
+报销路由 — Phase 3B+ 深度重构
 ═══════════════════════════════════════════════════
 核心变更：
   1. 员工端极简化：只填事由、金额、凭证（删除成本分类选择器）
-  2. 审核端专业化：管理员审核时选择 category_code，
-     审核通过自动生成 ManagementCostLedger 流水
-  3. 数据隔离：ManagementCostLedger 相关视图限制 role>=5
+  2. 创建报销时不再扣分/加分 → 积分奖惩后置到审核环节
+  3. 审核端三按钮：驳回 / 小票通过 / 发票通过
+     - 驳回：不产生积分
+     - 小票通过：-5 积分
+     - 发票通过：+10 积分
+  4. 审核通过自动生成 ManagementCostLedger 流水
+  5. 所有权限账号均可创建报销（包括老板/管理员）
 
 接口清单：
-  POST /create          员工创建报销单（极简三项）
+  POST /create          员工创建报销单（极简三项，不扣分）
   GET  /pending         待审核报销单（前端 expense-review 调用）
   GET  /my              我的报销单（前端 expense-list 调用）
   GET  /list            报销单列表（通用，支持 tab 参数）
   GET  /{id}            报销单详情
-  POST /review/{id}     审核报销单（管理员，含 category_code）
+  POST /review/{id}     审核报销单（三按钮审核）
   PUT  /review/{id}     审核报销单（兼容）
   GET  /stats           报销统计
+  GET  /categories      成本分类列表
 """
 from datetime import datetime, date, timezone
 from decimal import Decimal
@@ -44,7 +49,7 @@ router = APIRouter()
 class ExpenseCreateRequest(BaseModel):
     """
     员工创建报销单 — 极简三项
-    Phase 3B: 删除 category_code，员工不再选择成本分类
+    所有权限账号均可创建（包括老板/管理员）
     """
     purpose: str = Field(..., min_length=1, max_length=200, description="报销事由")
     claimed_amount: float = Field(..., gt=0, description="报销金额")
@@ -55,19 +60,25 @@ class ExpenseCreateRequest(BaseModel):
 
 class ExpenseReviewRequest(BaseModel):
     """
-    管理员审核报销单
-    Phase 3B: 审核时由管理员选择 category_code
+    管理员审核报销单 — 三按钮
+    action 取值：
+      - reject: 驳回（不产生积分）
+      - receipt_pass: 小票通过（-5 积分）
+      - invoice_pass: 发票通过（+10 积分）
     """
-    action: str = Field(..., description="审核动作: approve/reject")
+    action: str = Field(
+        ...,
+        description="审核动作: reject / receipt_pass / invoice_pass"
+    )
     review_note: Optional[str] = Field(default=None, description="审核备注")
     category_code: Optional[str] = Field(
         default=None,
-        description="成本分类代码（审核通过时必填）: E-0~E-10"
+        description="成本分类代码（通过时必填）: E-0~E-10"
     )
 
 
 # ═══════════════════════════════════════════════════
-# 员工创建报销单（极简三项）
+# 员工创建报销单（不再扣分/加分）
 # ═══════════════════════════════════════════════════
 
 @router.post("/create")
@@ -78,17 +89,9 @@ async def create_expense(
 ):
     """
     员工创建报销单
-    Phase 3B 极简化：只需填写事由、金额、凭证
-    积分规则：
-      - 有发票 → +10 积分（合规奖励）
-      - 无发票/收据 → -5 积分（无票惩罚）
+    所有权限账号均可创建（包括老板/管理员）
+    积分规则变更：创建时不再扣分/加分，积分奖惩后置到审核环节
     """
-    # 确定积分变动
-    if req.voucher_type == "invoice" and req.invoice_id:
-        points_delta = 10
-    else:
-        points_delta = -5
-
     # 如果有发票，校验发票是否存在并获取金额差异
     amount_diff_pct = None
     if req.invoice_id:
@@ -105,7 +108,7 @@ async def create_expense(
             diff = abs(float(invoice.total_amount) - req.claimed_amount)
             amount_diff_pct = round(diff / req.claimed_amount * 100, 2)
 
-    # 创建报销单
+    # 创建报销单（不扣分，points_delta=0）
     expense = ExpenseReport(
         user_id=current_user.id,
         purpose=req.purpose,
@@ -115,22 +118,9 @@ async def create_expense(
         receipt_image_url=req.receipt_image_url,
         status="pending",
         amount_diff_pct=Decimal(str(amount_diff_pct)) if amount_diff_pct is not None else None,
-        points_delta=points_delta,
+        points_delta=0,  # 积分后置到审核环节
     )
     db.add(expense)
-    await db.flush()
-
-    # 更新用户积分
-    current_user.total_points += points_delta
-    current_user.monthly_points += points_delta
-
-    # 记录积分流水
-    ledger = PointLedger(
-        user_id=current_user.id,
-        delta=points_delta,
-        reason=f"报销单#{expense.id} {'有票合规奖励' if points_delta > 0 else '无票惩罚'}",
-    )
-    db.add(ledger)
     await db.flush()
 
     return {
@@ -151,10 +141,7 @@ async def list_pending_expenses(
     current_user: User = Depends(require_role(5)),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    待审核报销单列表（/pending 路由别名）
-    等价于 /list?tab=pending，为前端兼容而设
-    """
+    """待审核报销单列表"""
     query = select(ExpenseReport).where(
         ExpenseReport.status.in_(["pending", "manual_review"])
     ).order_by(ExpenseReport.created_at.desc())
@@ -179,6 +166,25 @@ async def list_pending_expenses(
     for e in expenses:
         d = _serialize_expense(e)
         d["user_name"] = user_map.get(e.user_id, "未知")
+        # 附带发票图片信息
+        if e.invoice_id:
+            inv_result = await db.execute(
+                select(Invoice).where(Invoice.id == e.invoice_id)
+            )
+            inv = inv_result.scalar_one_or_none()
+            if inv:
+                d["invoice_info"] = {
+                    "id": inv.id,
+                    "invoice_type": inv.invoice_type,
+                    "invoice_type_code": getattr(inv, 'invoice_type_code', None) or (
+                        "专" if inv.invoice_type == "special_vat" else "普"
+                    ),
+                    "invoice_number": inv.invoice_number,
+                    "total_amount": float(inv.total_amount) if inv.total_amount else None,
+                    "seller_name": inv.seller_name,
+                    "verify_status": inv.verify_status,
+                    "image_url": inv.image_url,
+                }
         data.append(d)
 
     return {"code": 200, "data": data, "total": total, "page": page, "page_size": page_size}
@@ -196,10 +202,7 @@ async def list_my_expenses(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    当前用户的报销单列表（/my 路由别名）
-    等价于 /list?tab=my，为前端兼容而设
-    """
+    """当前用户的报销单列表"""
     query = select(ExpenseReport).where(
         ExpenseReport.user_id == current_user.id
     )
@@ -234,12 +237,7 @@ async def list_expenses(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    报销单列表
-    - tab=my: 当前用户的报销单
-    - tab=pending: 待审核（role>=5）
-    - tab=all: 全部（role>=5）
-    """
+    """报销单列表"""
     query = select(ExpenseReport)
 
     if tab == "my":
@@ -254,10 +252,8 @@ async def list_expenses(
     else:
         query = query.where(ExpenseReport.user_id == current_user.id)
 
-    # 排序：最新优先
     query = query.order_by(ExpenseReport.created_at.desc())
 
-    # 分页
     total_result = await db.execute(
         select(func.count()).select_from(query.subquery())
     )
@@ -267,7 +263,6 @@ async def list_expenses(
     result = await db.execute(query)
     expenses = result.scalars().all()
 
-    # 批量获取用户名
     user_ids = list(set(e.user_id for e in expenses))
     if user_ids:
         users_result = await db.execute(select(User).where(User.id.in_(user_ids)))
@@ -308,18 +303,16 @@ async def get_expense(
     if not expense:
         raise HTTPException(status_code=404, detail="报销单不存在")
 
-    # 权限：本人或管理员
     if expense.user_id != current_user.id and current_user.role < 5:
         raise HTTPException(status_code=403, detail="无权查看")
 
-    # 获取提交人姓名
     submitter_result = await db.execute(select(User).where(User.id == expense.user_id))
     submitter = submitter_result.scalar_one_or_none()
 
     data = _serialize_expense(expense)
     data["user_name"] = submitter.name if submitter else "未知"
 
-    # 如果有关联发票，返回发票信息
+    # 如果有关联发票，返回完整发票信息
     if expense.invoice_id:
         inv_result = await db.execute(
             select(Invoice).where(Invoice.id == expense.invoice_id)
@@ -329,18 +322,27 @@ async def get_expense(
             data["invoice_info"] = {
                 "id": invoice.id,
                 "invoice_type": invoice.invoice_type,
+                "invoice_type_code": getattr(invoice, 'invoice_type_code', None) or (
+                    "专" if invoice.invoice_type == "special_vat" else "普"
+                ),
+                "invoice_type_label": getattr(invoice, 'invoice_type_label', None),
+                "invoice_code": invoice.invoice_code,
                 "invoice_number": invoice.invoice_number,
+                "invoice_date": invoice.invoice_date.isoformat() if invoice.invoice_date else None,
                 "total_amount": float(invoice.total_amount) if invoice.total_amount else None,
                 "seller_name": invoice.seller_name,
+                "buyer_name": invoice.buyer_name,
                 "verify_status": invoice.verify_status,
                 "image_url": invoice.image_url,
+                "goods_name_summary": getattr(invoice, 'goods_name_summary', None),
+                "items": getattr(invoice, 'items_json', None) or [],
             }
 
     return {"code": 200, "data": data}
 
 
 # ═══════════════════════════════════════════════════
-# 审核报销单（Phase 3B 核心：管理员填写 category_code）
+# 审核报销单 — 三按钮审核
 # ═══════════════════════════════════════════════════
 
 @router.post("/{expense_id}/review")
@@ -384,10 +386,10 @@ async def _do_review(
 ):
     """
     审核报销单 — 内部实现
-    Phase 3B 核心变更：
-      - 审核通过时管理员必须选择 category_code
-      - 审核通过自动生成 ManagementCostLedger 流水
-      - 收据/无发票审核通过时自动生成 MissingInvoiceLedger 欠票记录
+    三按钮审核：
+      - reject: 驳回 → 不产生积分
+      - receipt_pass: 小票通过 → -5 积分
+      - invoice_pass: 发票通过 → +10 积分
     """
     result = await db.execute(
         select(ExpenseReport).where(ExpenseReport.id == expense_id)
@@ -400,9 +402,13 @@ async def _do_review(
 
     now = datetime.now(timezone.utc)
 
-    if req.action == "approve":
-        # ── 审核通过 ──
-        # Phase 3B: 必须提供 category_code
+    # ── 兼容旧版 approve 动作 → 映射为 invoice_pass ──
+    action = req.action
+    if action == "approve":
+        action = "invoice_pass"
+
+    if action in ("receipt_pass", "invoice_pass"):
+        # ── 通过审核 ──
         if not req.category_code:
             raise HTTPException(
                 status_code=422,
@@ -420,21 +426,45 @@ async def _do_review(
         expense.review_note = req.review_note
         expense.category_code = req.category_code
 
+        # ── 积分奖惩（后置到审核环节） ──
+        if action == "invoice_pass":
+            points_delta = 10
+            points_reason = f"报销单#{expense.id} 发票通过，合规奖励"
+        else:  # receipt_pass
+            points_delta = -5
+            points_reason = f"报销单#{expense.id} 小票通过，无票扣分"
+
+        expense.points_delta = points_delta
+
+        # 更新员工积分
+        employee = await db.get(User, expense.user_id)
+        if employee:
+            employee.total_points += points_delta
+            employee.monthly_points += points_delta
+
+            ledger = PointLedger(
+                user_id=employee.id,
+                delta=points_delta,
+                reason=points_reason,
+            )
+            db.add(ledger)
+
         # ── 自动生成 ManagementCostLedger 流水 ──
         cat_config = COST_CATEGORIES[req.category_code]
 
-        # 判断发票状态
         invoice_status = "none"
-        if expense.voucher_type == "invoice" and expense.invoice_id:
+        if action == "invoice_pass" and expense.invoice_id:
             inv_result = await db.execute(
                 select(Invoice).where(Invoice.id == expense.invoice_id)
             )
             invoice = inv_result.scalar_one_or_none()
             if invoice:
-                if invoice.invoice_type and "专" in invoice.invoice_type:
+                if invoice.invoice_type == "special_vat":
                     invoice_status = "special_vat"
                 else:
                     invoice_status = "general_vat"
+        elif action == "receipt_pass":
+            invoice_status = "none"
 
         cost_entry = ManagementCostLedger(
             trade_date=expense.created_at.date() if expense.created_at else date.today(),
@@ -457,11 +487,10 @@ async def _do_review(
         db.add(cost_entry)
         await db.flush()
 
-        # 回写 cost_ledger_id
         expense.cost_ledger_id = cost_entry.id
 
-        # ── Phase 3C: 收据/无发票 → 自动生成欠票记录 ──
-        if expense.voucher_type == "receipt" or not expense.invoice_id:
+        # ── Phase 3C: 小票通过 → 自动生成欠票记录 ──
+        if action == "receipt_pass":
             missing = MissingInvoiceLedger(
                 trade_date=expense.created_at.date() if expense.created_at else date.today(),
                 item_name=expense.purpose,
@@ -474,36 +503,28 @@ async def _do_review(
             )
             db.add(missing)
 
-    elif req.action == "reject":
-        # ── 审核驳回 ──
+        action_label = "发票通过" if action == "invoice_pass" else "小票通过"
+
+    elif action == "reject":
+        # ── 驳回 → 不产生积分 ──
         expense.status = "rejected"
         expense.reviewer_id = current_user.id
         expense.reviewed_at = now
         expense.review_note = req.review_note or "审核未通过"
-
-        # ── 新增：退还因无票扣除的积分 ──
-        if expense.points_delta and expense.points_delta < 0:
-            employee = await db.get(User, expense.user_id)
-            if employee:
-                refund_points = abs(expense.points_delta)
-                employee.total_points += refund_points
-                employee.monthly_points += refund_points
-                
-                ledger = PointLedger(
-                    user_id=employee.id,
-                    delta=refund_points,
-                    reason=f"报销单#{expense.id} 驳回，退还无票扣分"
-                )
-                db.add(ledger)
+        expense.points_delta = 0  # 驳回不产生积分
+        action_label = "驳回"
 
     else:
-        raise HTTPException(status_code=400, detail="无效的审核动作，请使用 approve/reject")
+        raise HTTPException(
+            status_code=400,
+            detail="无效的审核动作，请使用 reject / receipt_pass / invoice_pass"
+        )
 
     await db.flush()
 
     return {
         "code": 200,
-        "message": f"报销单已{'通过' if req.action == 'approve' else '驳回'}",
+        "message": f"报销单已{action_label}",
         "data": _serialize_expense(expense),
     }
 
@@ -517,16 +538,10 @@ async def expense_stats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    报销统计
-    - 员工：自己的报销统计
-    - 管理员：全厂报销统计
-    """
+    """报销统计"""
     if current_user.role >= 5:
-        # 管理员看全厂
         base_query = select(ExpenseReport)
     else:
-        # 员工看自己
         base_query = select(ExpenseReport).where(
             ExpenseReport.user_id == current_user.id
         )
@@ -566,10 +581,7 @@ async def expense_stats(
 async def list_categories(
     current_user: User = Depends(require_role(5)),
 ):
-    """
-    获取成本分类列表
-    供审核页面下拉选择，仅管理员可见
-    """
+    """获取成本分类列表"""
     categories = [
         {"code": code, "name": config["name"], "behavior": config["behavior"], "center": config["center"]}
         for code, config in COST_CATEGORIES.items()

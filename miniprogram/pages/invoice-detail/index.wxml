@@ -1,0 +1,228 @@
+<!-- 发票详情页（照搬华通APP — 上30%图片 + 下70%详情） -->
+<view class="page-container">
+
+  <!-- 加载中 -->
+  <view wx:if="{{loading}}" class="loading-state">
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- 错误状态 -->
+  <view wx:elif="{{error}}" class="error-state">
+    <text class="error-text">{{error}}</text>
+    <view class="btn-back" bindtap="goBack">返回</view>
+  </view>
+
+  <!-- 发票详情 -->
+  <view wx:elif="{{invoice}}" class="detail-content">
+
+    <!-- ═══ 上部 30%：发票图片区 ═══ -->
+    <view class="image-section" bindtap="previewImage">
+      <image
+        wx:if="{{invoice.image_url}}"
+        src="{{invoice.image_url}}"
+        class="invoice-image"
+        mode="aspectFit"
+      />
+      <view wx:else class="no-image">
+        <text class="no-image-text">暂无发票图片</text>
+      </view>
+      <!-- 类型角标 -->
+      <view class="type-corner {{invoice.invoice_type_code === '专' ? 'corner-special' : 'corner-general'}}">
+        <text class="corner-text">{{invoice.invoice_type_code || '普'}}</text>
+      </view>
+      <!-- 状态标签 -->
+      <view class="status-overlay">
+        <view wx:if="{{invoice.verify_status === 'verified'}}" class="status-badge badge-verified">
+          <text>验</text>
+        </view>
+        <view wx:elif="{{invoice.verify_status === 'pending'}}" class="status-badge badge-pending">
+          <text>待核验</text>
+        </view>
+        <view wx:elif="{{invoice.verify_status === 'failed'}}" class="status-badge badge-failed">
+          <text>核验失败</text>
+        </view>
+        <view wx:if="{{invoice.is_duplicate}}" class="status-badge badge-duplicate">
+          <text>重复发票</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ═══ 下部 70%：详情信息区 ═══ -->
+    <view class="info-section">
+
+      <!-- 金额区 -->
+      <view class="amount-block">
+        <text class="amount-label">价税合计</text>
+        <text class="amount-value">¥{{invoice.total_amount || '--'}}</text>
+        <text wx:if="{{invoice.total_amount_cn}}" class="amount-cn">{{invoice.total_amount_cn}}</text>
+      </view>
+
+      <!-- 基本信息 -->
+      <view class="info-group">
+        <view class="group-title">基本信息</view>
+
+        <view class="info-row">
+          <text class="info-label">发票类型</text>
+          <text class="info-value">{{invoice.invoice_type_label || invoice.invoice_type || '--'}}</text>
+        </view>
+        <view class="info-row" bindtap="copyNumber">
+          <text class="info-label">发票号码</text>
+          <view class="info-value-copy">
+            <text class="info-value">{{invoice.invoice_number || '--'}}</text>
+            <text class="copy-btn">复制</text>
+          </view>
+        </view>
+        <view class="info-row">
+          <text class="info-label">发票代码</text>
+          <text class="info-value">{{invoice.invoice_code || '--'}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">开票日期</text>
+          <text class="info-value">{{invoice.invoice_date || '--'}}</text>
+        </view>
+        <view wx:if="{{invoice.check_code}}" class="info-row" bindtap="copyCheckCode">
+          <text class="info-label">校验码</text>
+          <view class="info-value-copy">
+            <text class="info-value check-code">{{invoice.check_code}}</text>
+            <text class="copy-btn">复制</text>
+          </view>
+        </view>
+        <view wx:if="{{invoice.machine_number}}" class="info-row">
+          <text class="info-label">机器编号</text>
+          <text class="info-value">{{invoice.machine_number}}</text>
+        </view>
+      </view>
+
+      <!-- 金额明细 -->
+      <view class="info-group">
+        <view class="group-title">金额明细</view>
+        <view class="info-row">
+          <text class="info-label">不含税金额</text>
+          <text class="info-value">¥{{invoice.pre_tax_amount || '--'}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">税额</text>
+          <text class="info-value">¥{{invoice.tax_amount || '--'}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">价税合计</text>
+          <text class="info-value amount-highlight">¥{{invoice.total_amount || '--'}}</text>
+        </view>
+      </view>
+
+      <!-- 购方信息 -->
+      <view class="info-group">
+        <view class="group-title">购方信息</view>
+        <view class="info-row">
+          <text class="info-label">名称</text>
+          <text class="info-value">{{invoice.buyer_name || '--'}}</text>
+        </view>
+        <view wx:if="{{invoice.buyer_tax_id}}" class="info-row">
+          <text class="info-label">税号</text>
+          <text class="info-value mono">{{invoice.buyer_tax_id}}</text>
+        </view>
+        <view wx:if="{{invoice.buyer_address_phone}}" class="info-row">
+          <text class="info-label">地址电话</text>
+          <text class="info-value small">{{invoice.buyer_address_phone}}</text>
+        </view>
+        <view wx:if="{{invoice.buyer_bank_account}}" class="info-row">
+          <text class="info-label">开户银行</text>
+          <text class="info-value small">{{invoice.buyer_bank_account}}</text>
+        </view>
+      </view>
+
+      <!-- 销方信息 -->
+      <view class="info-group">
+        <view class="group-title">销方信息</view>
+        <view class="info-row">
+          <text class="info-label">名称</text>
+          <text class="info-value">{{invoice.seller_name || '--'}}</text>
+        </view>
+        <view wx:if="{{invoice.seller_tax_id}}" class="info-row">
+          <text class="info-label">税号</text>
+          <text class="info-value mono">{{invoice.seller_tax_id}}</text>
+        </view>
+        <view wx:if="{{invoice.seller_address_phone}}" class="info-row">
+          <text class="info-label">地址电话</text>
+          <text class="info-value small">{{invoice.seller_address_phone}}</text>
+        </view>
+        <view wx:if="{{invoice.seller_bank_account}}" class="info-row">
+          <text class="info-label">开户银行</text>
+          <text class="info-value small">{{invoice.seller_bank_account}}</text>
+        </view>
+      </view>
+
+      <!-- 货物/服务明细 -->
+      <view wx:if="{{invoice.hasItems}}" class="info-group">
+        <view class="group-title">货物/服务明细</view>
+        <view class="items-table">
+          <!-- 表头 -->
+          <view class="item-header">
+            <text class="item-col-name">名称</text>
+            <text class="item-col-qty">数量</text>
+            <text class="item-col-price">单价</text>
+            <text class="item-col-amount">金额</text>
+            <text class="item-col-tax">税额</text>
+          </view>
+          <!-- 明细行 -->
+          <view class="item-row" wx:for="{{invoice.items}}" wx:key="index" wx:for-item="row">
+            <text class="item-col-name item-name-text">{{row.name || row.Name || '--'}}</text>
+            <text class="item-col-qty">{{row.quantity || row.Quantity || '--'}}</text>
+            <text class="item-col-price">{{row.unit_price || row.Price || '--'}}</text>
+            <text class="item-col-amount">{{row.amount || row.Total || '--'}}</text>
+            <text class="item-col-tax">{{row.tax || row.Tax || '--'}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 人员信息 -->
+      <view wx:if="{{invoice.payee || invoice.reviewer_name || invoice.drawer}}" class="info-group">
+        <view class="group-title">开票人员</view>
+        <view wx:if="{{invoice.payee}}" class="info-row">
+          <text class="info-label">收款人</text>
+          <text class="info-value">{{invoice.payee}}</text>
+        </view>
+        <view wx:if="{{invoice.reviewer_name}}" class="info-row">
+          <text class="info-label">复核人</text>
+          <text class="info-value">{{invoice.reviewer_name}}</text>
+        </view>
+        <view wx:if="{{invoice.drawer}}" class="info-row">
+          <text class="info-label">开票人</text>
+          <text class="info-value">{{invoice.drawer}}</text>
+        </view>
+      </view>
+
+      <!-- 备注 -->
+      <view wx:if="{{invoice.remark}}" class="info-group">
+        <view class="group-title">备注</view>
+        <view class="remark-block">
+          <text class="remark-text">{{invoice.remark}}</text>
+        </view>
+      </view>
+
+      <!-- 其他信息 -->
+      <view class="info-group">
+        <view class="group-title">其他信息</view>
+        <view wx:if="{{invoice.province || invoice.city}}" class="info-row">
+          <text class="info-label">开票地区</text>
+          <text class="info-value">{{invoice.province || ''}} {{invoice.city || ''}}</text>
+        </view>
+        <view wx:if="{{invoice.consumption_type}}" class="info-row">
+          <text class="info-label">消费类型</text>
+          <text class="info-value">{{invoice.consumption_type}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">公司印章</text>
+          <text class="info-value">{{invoice.has_company_seal ? '有' : '无/未识别'}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">上传时间</text>
+          <text class="info-value">{{invoice.created_at || '--'}}</text>
+        </view>
+      </view>
+
+      <!-- 底部间距 -->
+      <view style="height: 60rpx;"></view>
+    </view>
+  </view>
+</view>

@@ -59,41 +59,96 @@ class MissingInvoiceStatus(str, enum.Enum):
 
 
 # ═══════════════════════════════════════════════════
-# 发票主表（Phase 3A，保持不变）
+# 发票主表（Phase 3A+ 深度重构）
 # ═══════════════════════════════════════════════════
 
 class Invoice(Base):
-    """发票主表（OCR识别后存储）"""
+    """
+    发票主表（OCR 识别后存储）
+    Phase 3A+ 深度重构：
+      - 新增完整的购销方信息（地址电话、开户行账号）
+      - 新增人员信息（收款人、复核、开票人）
+      - 新增发票类型标签（invoice_type_label / invoice_type_code）
+      - 新增查重标记（is_duplicate / duplicate_of_id）
+      - 新增核验时间戳
+      - 新增发票明细 JSON（items_json）
+      - 新增 goods_name_summary（货物/服务名称汇总行）
+    """
     __tablename__ = "invoices"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
 
-    # OCR 识别字段
+    # ── OCR 基本信息 ──
     invoice_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    # special_vat / general_vat
+    invoice_type_label: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    # 原始类型名，如"增值税电子普通发票"
+    invoice_type_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    # 简码："专" / "普"
+
     invoice_code: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     invoice_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     invoice_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    check_code: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    check_code: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    machine_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
+    # ── 购方信息 ──
     buyer_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     buyer_tax_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    buyer_address_phone: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    buyer_bank_account: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    # ── 销方信息 ──
     seller_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     seller_tax_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    seller_address_phone: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    seller_bank_account: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
+    # ── 金额信息 ──
     pre_tax_amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
     tax_amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
     total_amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2), nullable=True)
+    total_amount_cn: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    # 大写金额
 
+    # ── 人员信息 ──
+    payee: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)       # 收款人
+    reviewer_name: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # 复核
+    drawer: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)       # 开票人
+
+    # ── 货物/服务名称（汇总行） ──
+    goods_name_summary: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    # ── 备注与附加信息 ──
     remark: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    province: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    city: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    has_company_seal: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    consumption_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    # 发票消费类型：服务/货物
+
+    # ── 发票明细 JSON ──
+    items_json: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    # 存储 VatInvoiceItem 列表
+
+    # ── 图片与 OCR 原始数据 ──
     image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     ocr_raw_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
-    # 核验状态
+    # ── 核验状态 ──
     verify_status: Mapped[str] = mapped_column(String(20), default="pending")
+    # pending / verifying / verified / failed / duplicate
     verify_result_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    # 业务分类
+    # ── 查重 ──
+    is_duplicate: Mapped[bool] = mapped_column(Boolean, default=False)
+    duplicate_of_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("invoices.id"), nullable=True
+    )
+
+    # ── 业务分类 ──
     business_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
@@ -101,6 +156,9 @@ class Invoice(Base):
 
     __table_args__ = (
         Index("ix_invoices_user_id", "user_id"),
+        Index("ix_invoices_code_number", "invoice_code", "invoice_number"),
+        Index("ix_invoices_verify_status", "verify_status"),
+        Index("ix_invoices_seller_name", "seller_name"),
     )
 
 

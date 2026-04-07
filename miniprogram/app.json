@@ -20,6 +20,7 @@
     "pages/invoice-wallet/index",
     "pages/invoice-upload/index",
     "pages/invoice-list/index",
+    "pages/invoice-detail/index",
     "pages/expense-create/index",
     "pages/expense-list/index",
     "pages/expense-review/index",

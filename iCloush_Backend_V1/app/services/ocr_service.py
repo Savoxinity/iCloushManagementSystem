@@ -1,7 +1,13 @@
 """
-iCloush 智慧工厂 — 腾讯云发票 OCR & 核验服务
+iCloush 智慧工厂 — 腾讯云发票 OCR & 核验服务（V2 深度优化）
 ═══════════════════════════════════════════════════
-Phase 3A: 发票识别与真伪核验
+Phase 3A+: 发票识别与真伪核验
+
+深度优化内容：
+  1. 提取 VatInvoiceInfos 全部字段（40+ 字段）
+  2. 提取 Items 发票明细条目（含税收分类编码 TaxClassifyCode）
+  3. 发票查重（基于发票代码+发票号码唯一性）
+  4. 增强的发票类型归一化
 
 依赖：
   pip install tencentcloud-sdk-python-ocr
@@ -16,7 +22,7 @@ import base64
 import asyncio
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from app.core.config import settings
 
@@ -120,6 +126,11 @@ def _recognize_invoice_sync(image_url: Optional[str] = None,
     """
     同步调用腾讯云 VatInvoiceOCR 识别发票
     （腾讯云 SDK 是同步的，不能直接在 async 中调用）
+
+    V2 优化：
+      - 提取全部 VatInvoiceInfos 字段（40+ 字段）
+      - 提取 Items 发票明细条目
+      - 返回完整的结构化数据
     """
     try:
         from tencentcloud.ocr.v20181119 import models as ocr_models
@@ -153,14 +164,15 @@ def _recognize_invoice_sync(image_url: Optional[str] = None,
         resp = client.VatInvoiceOCR(req)
         raw = json.loads(resp.to_json_string())
 
-        # 解析结构化数据
-        parsed = _parse_ocr_result(raw)
+        # 解析结构化数据（V2 深度解析）
+        parsed = _parse_ocr_result_v2(raw)
         parsed["raw"] = raw
         parsed["success"] = True
         parsed["error"] = None
 
         logger.info(f"发票 OCR 识别成功: type={parsed.get('invoice_type')}, "
-                     f"number={parsed.get('data', {}).get('invoice_number')}")
+                     f"number={parsed.get('data', {}).get('invoice_number')}, "
+                     f"items_count={len(parsed.get('items', []))}")
         return parsed
 
     except ImportError:
@@ -169,6 +181,7 @@ def _recognize_invoice_sync(image_url: Optional[str] = None,
             "success": False,
             "invoice_type": None,
             "data": {},
+            "items": [],
             "raw": {},
             "error": "腾讯云 OCR SDK 未安装，请执行: pip install tencentcloud-sdk-python",
         }
@@ -179,6 +192,7 @@ def _recognize_invoice_sync(image_url: Optional[str] = None,
             "success": False,
             "invoice_type": None,
             "data": {},
+            "items": [],
             "raw": {},
             "error": error_msg,
         }
@@ -198,51 +212,152 @@ async def recognize_invoice(image_url: Optional[str] = None,
 
 
 # ═══════════════════════════════════════════════════
-# OCR 结果解析
+# OCR 结果解析 V2（深度提取全部字段）
 # ═══════════════════════════════════════════════════
 
-def _parse_ocr_result(raw: dict) -> dict:
+def _parse_ocr_result_v2(raw: dict) -> dict:
     """
-    将腾讯云 VatInvoiceOCR 原始返回解析为统一结构
+    V2 深度解析：将腾讯云 VatInvoiceOCR 原始返回解析为完整结构
 
     腾讯云返回的 VatInvoiceInfos 是一个列表，每项包含:
       Name: 字段名（如"发票号码"、"合计金额"等）
       Value: 字段值
+      Polygon: 坐标位置
+
+    Items 是明细条目列表，每项包含:
+      Name, Spec, Unit, Quantity, UnitPrice, AmountWithoutTax,
+      TaxRate, TaxAmount, TaxClassifyCode, LineNo 等
     """
-    items = raw.get("VatInvoiceInfos", [])
-    invoice_type = raw.get("Type", "")
+    infos = raw.get("VatInvoiceInfos", [])
+    items_raw = raw.get("Items", [])
+    invoice_type_raw = raw.get("Type", "")
 
-    # 构建字段映射
+    # ── 构建字段映射（全部字段） ──
     field_map = {}
-    for item in items:
-        field_map[item.get("Name", "")] = item.get("Value", "")
+    for item in infos:
+        name = item.get("Name", "")
+        value = item.get("Value", "")
+        if name:
+            field_map[name] = value
 
-    # 统一提取
+    # ── 核心发票信息 ──
     data = {
+        # 基本信息
         "invoice_code": field_map.get("发票代码", ""),
         "invoice_number": field_map.get("发票号码", ""),
         "invoice_date": _parse_date(field_map.get("开票日期", "")),
-        "check_code": field_map.get("校验码", "")[-6:] if field_map.get("校验码") else "",
+        "invoice_name": field_map.get("发票名称", ""),
+        "check_code": field_map.get("校验码", ""),
+        "check_code_last6": (field_map.get("校验码", "") or "")[-6:] if field_map.get("校验码") else "",
+        "machine_number": field_map.get("机器编号", ""),
+
+        # 购方信息
         "buyer_name": field_map.get("购买方名称", "") or field_map.get("购方名称", ""),
         "buyer_tax_id": field_map.get("购买方识别号", "") or field_map.get("购方纳税人识别号", ""),
+        "buyer_address_phone": field_map.get("购买方地址、电话", ""),
+        "buyer_bank_account": field_map.get("购买方开户行及账号", ""),
+
+        # 销方信息
         "seller_name": field_map.get("销售方名称", "") or field_map.get("销方名称", ""),
         "seller_tax_id": field_map.get("销售方识别号", "") or field_map.get("销方纳税人识别号", ""),
+        "seller_address_phone": field_map.get("销售方地址、电话", ""),
+        "seller_bank_account": field_map.get("销售方开户行及账号", ""),
+
+        # 金额信息
         "pre_tax_amount": _parse_amount(field_map.get("合计金额", "")),
         "tax_amount": _parse_amount(field_map.get("合计税额", "")),
         "total_amount": _parse_amount(
-            field_map.get("价税合计", "") or field_map.get("小写金额", "")
+            field_map.get("小写金额", "") or field_map.get("价税合计", "")
         ),
+        "total_amount_cn": field_map.get("价税合计(大写)", ""),
+
+        # 人员信息
+        "payee": field_map.get("收款人", ""),
+        "reviewer": field_map.get("复核", ""),
+        "drawer": field_map.get("开票人", ""),
+
+        # 备注与附加信息
         "remark": field_map.get("备注", ""),
+        "province": field_map.get("省", ""),
+        "city": field_map.get("市", ""),
+        "has_company_seal": field_map.get("是否有公司印章", "") == "1",
+        "consumption_type": field_map.get("发票消费类型", ""),
+        "is_agent_issued": field_map.get("是否代开", ""),
+        "service_type": field_map.get("服务类型", ""),
+        "copy_number": field_map.get("联次", ""),
+
+        # 密码区
+        "cipher_area": "".join([
+            field_map.get("密码区1", ""),
+            field_map.get("密码区2", ""),
+            field_map.get("密码区3", ""),
+            field_map.get("密码区4", ""),
+        ]),
+
+        # 通行费相关
+        "toll_flag": field_map.get("通行费标志", ""),
+        "vehicle_tax": field_map.get("车船税", ""),
+        "license_plate": field_map.get("车牌号", ""),
+        "toll_date_start": field_map.get("通行日期起", ""),
+        "toll_date_end": field_map.get("通行日期止", ""),
+
+        # 成品油标志
+        "oil_flag": field_map.get("成品油标志", ""),
+
+        # 打印信息
+        "print_invoice_code": field_map.get("打印发票代码", ""),
+        "print_invoice_number": field_map.get("打印发票号码", ""),
+
+        # 货物/服务名称（汇总行）
+        "goods_name_summary": field_map.get("货物或应税劳务、服务名称", ""),
     }
 
+    # ── 发票明细条目 ──
+    items = []
+    for item in items_raw:
+        items.append({
+            "line_no": item.get("LineNo", ""),
+            "name": item.get("Name", ""),
+            "spec": item.get("Spec", ""),
+            "unit": item.get("Unit", ""),
+            "quantity": item.get("Quantity", ""),
+            "unit_price": item.get("UnitPrice", ""),
+            "amount_without_tax": item.get("AmountWithoutTax", ""),
+            "tax_rate": item.get("TaxRate", ""),
+            "tax_amount": item.get("TaxAmount", ""),
+            "tax_classify_code": item.get("TaxClassifyCode", ""),
+            # 运输/建设相关（特殊发票类型）
+            "vehicle_type": item.get("VehicleType", ""),
+            "vehicle_brand": item.get("VehicleBrand", ""),
+            "departure_place": item.get("DeparturePlace", ""),
+            "arrival_place": item.get("ArrivalPlace", ""),
+            "transport_items_name": item.get("TransportItemsName", ""),
+            "construction_place": item.get("ConstructionPlace", ""),
+            "construction_name": item.get("ConstructionName", ""),
+        })
+
+    # ── 发票类型归一化 ──
+    invoice_type = _normalize_invoice_type(
+        field_map.get("发票类型", "") or field_map.get("发票名称", "") or invoice_type_raw
+    )
+    invoice_type_label = _get_invoice_type_label(
+        field_map.get("发票类型", "") or field_map.get("发票名称", "") or invoice_type_raw
+    )
+
     return {
-        "invoice_type": _normalize_invoice_type(invoice_type),
+        "invoice_type": invoice_type,
+        "invoice_type_label": invoice_type_label,
+        "invoice_type_raw": field_map.get("发票类型", "") or field_map.get("发票名称", ""),
         "data": data,
+        "items": items,
+        "field_map": field_map,  # 保留完整字段映射供调试
     }
 
 
 def _normalize_invoice_type(raw_type: str) -> str:
-    """将腾讯云返回的发票类型归一化"""
+    """将腾讯云返回的发票类型归一化为内部代码"""
+    if not raw_type:
+        return "general_vat"
     type_map = {
         "增值税专用发票": "special_vat",
         "增值税普通发票": "general_vat",
@@ -250,14 +365,31 @@ def _normalize_invoice_type(raw_type: str) -> str:
         "增值税电子普通发票": "general_vat",
         "全电发票（专用发票）": "special_vat",
         "全电发票（普通发票）": "general_vat",
+        "电子发票（增值税专用发票）": "special_vat",
+        "电子发票（普通发票）": "general_vat",
         "卷式发票": "general_vat",
         "区块链发票": "general_vat",
         "机动车销售统一发票": "special_vat",
+        "二手车销售统一发票": "general_vat",
+        "通行费发票": "general_vat",
     }
     for key, val in type_map.items():
         if key in raw_type:
             return val
+    # 兜底：含"专"字的归为专票
+    if "专" in raw_type:
+        return "special_vat"
     return "general_vat"
+
+
+def _get_invoice_type_label(raw_type: str) -> str:
+    """获取发票类型的中文标签"""
+    if not raw_type:
+        return "增值税普通发票"
+    # 直接返回腾讯云识别的原始类型名
+    if raw_type:
+        return raw_type
+    return "增值税普通发票"
 
 
 def _parse_date(date_str: str) -> Optional[str]:
@@ -281,6 +413,9 @@ def _parse_amount(amount_str: str) -> Optional[float]:
         return None
     # 去掉 ¥ ￥ 符号和空格
     cleaned = amount_str.replace("¥", "").replace("￥", "").replace(",", "").replace(" ", "").strip()
+    # 处理负数（有些税额显示为 ***）
+    if cleaned == "***" or cleaned == "****" or not cleaned:
+        return None
     try:
         return round(float(cleaned), 2)
     except (ValueError, TypeError):
@@ -298,7 +433,7 @@ def _verify_invoice_sync(
     total_amount: str,
     check_code: str = "",
 ) -> Dict[str, Any]:
-    """同步调用腾讯云 VatInvoiceVerify 核验发票真伪"""
+    """同步调用腾讯云 VatInvoiceVerifyNew 核验发票真伪"""
     try:
         from tencentcloud.ocr.v20181119 import models as ocr_models
 

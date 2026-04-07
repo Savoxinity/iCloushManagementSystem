@@ -1,4 +1,4 @@
-<!-- 报销审核页 — 管理员/财务 -->
+<!-- 报销审核页 — 三按钮审核 + 详情查看 -->
 <view class="page-container">
   <view class="header-bar">
     <text class="page-title">报销审核</text>
@@ -17,31 +17,123 @@
   <!-- 报销单列表 -->
   <view wx:else class="expense-list">
     <view class="expense-card" wx:for="{{expenses}}" wx:key="id">
-      <view class="card-header">
-        <text class="emp-name">{{item.user_name || '员工#' + item.user_id}}</text>
-        <text class="voucher-badge {{item.voucher_type}}">{{item.voucher_type === 'invoice' ? '有票' : '无票'}}</text>
+      <!-- 可点击查看详情 -->
+      <view class="card-clickable" bindtap="viewDetail" data-id="{{item.id}}">
+        <view class="card-header">
+          <text class="emp-name">{{item.user_name || '员工#' + item.user_id}}</text>
+          <text class="voucher-badge {{item.voucher_type}}">{{item.voucher_type === 'invoice' ? '有票' : '无票'}}</text>
+        </view>
+        <view class="card-body">
+          <view class="info-row">
+            <text class="info-label">事由</text>
+            <text class="info-value">{{item.purpose}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">金额</text>
+            <text class="info-value amount">¥ {{item.claimed_amount}}</text>
+          </view>
+          <view class="info-row">
+            <text class="info-label">提交时间</text>
+            <text class="info-value small">{{item.created_at}}</text>
+          </view>
+        </view>
+        <!-- 发票缩略图 -->
+        <view wx:if="{{item.invoice_info}}" class="invoice-preview">
+          <image src="{{item.invoice_info.image_url}}" class="inv-thumb" mode="aspectFill" />
+          <view class="inv-preview-info">
+            <text class="inv-preview-type">
+              <text class="type-mini {{item.invoice_info.invoice_type_code === '专' ? 'mini-special' : 'mini-general'}}">{{item.invoice_info.invoice_type_code || '普'}}</text>
+              {{item.invoice_info.seller_name || '发票'}}
+            </text>
+            <text class="inv-preview-amount">¥{{item.invoice_info.total_amount || '--'}}</text>
+          </view>
+        </view>
       </view>
-      <view class="card-body">
-        <view class="info-row">
-          <text class="info-label">事由</text>
-          <text class="info-value">{{item.purpose}}</text>
-        </view>
-        <view class="info-row">
-          <text class="info-label">金额</text>
-          <text class="info-value amount">¥ {{item.claimed_amount}}</text>
-        </view>
-        <view class="info-row" wx:if="{{item.invoice_amount}}">
-          <text class="info-label">票面金额</text>
-          <text class="info-value">¥ {{item.invoice_amount}}</text>
-        </view>
-      </view>
+
+      <!-- 审核按钮 -->
       <view class="card-actions">
+        <view class="btn-view-detail" data-id="{{item.id}}" bindtap="viewDetail">查看详情</view>
         <view class="btn-review" data-id="{{item.id}}" bindtap="openReview">审核</view>
       </view>
     </view>
   </view>
 
-  <!-- 审核弹窗 -->
+  <!-- ═══ 详情弹窗 ═══ -->
+  <view wx:if="{{showDetailPanel}}" class="review-mask" bindtap="closeDetail">
+    <view class="detail-panel" catchtap="stopPropagation">
+      <view class="panel-title">报销单详情</view>
+
+      <view wx:if="{{currentExpense}}" class="detail-scroll">
+        <view class="detail-group">
+          <view class="detail-row">
+            <text class="detail-label">提交人</text>
+            <text class="detail-value">{{currentExpense.user_name || '未知'}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">事由</text>
+            <text class="detail-value">{{currentExpense.purpose}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">金额</text>
+            <text class="detail-value amount">¥ {{currentExpense.claimed_amount}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">凭证类型</text>
+            <text class="detail-value">{{currentExpense.voucher_type_label}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">提交时间</text>
+            <text class="detail-value small">{{currentExpense.created_at}}</text>
+          </view>
+        </view>
+
+        <!-- 关联发票信息 -->
+        <view wx:if="{{currentExpense.invoice_info}}" class="detail-group">
+          <view class="group-subtitle">关联发票</view>
+          <image
+            wx:if="{{currentExpense.invoice_info.image_url}}"
+            src="{{currentExpense.invoice_info.image_url}}"
+            class="detail-invoice-image"
+            mode="aspectFit"
+            bindtap="previewVoucher"
+            data-url="{{currentExpense.invoice_info.image_url}}"
+          />
+          <view class="detail-row">
+            <text class="detail-label">发票号码</text>
+            <text class="detail-value">{{currentExpense.invoice_info.invoice_number || '--'}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">销方名称</text>
+            <text class="detail-value">{{currentExpense.invoice_info.seller_name || '--'}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">票面金额</text>
+            <text class="detail-value amount">¥ {{currentExpense.invoice_info.total_amount || '--'}}</text>
+          </view>
+          <view class="btn-view-invoice" bindtap="viewInvoiceDetail">查看发票完整详情 →</view>
+        </view>
+
+        <!-- 收据图片 -->
+        <view wx:elif="{{currentExpense.receipt_image_url}}" class="detail-group">
+          <view class="group-subtitle">收据图片</view>
+          <image
+            src="{{currentExpense.receipt_image_url}}"
+            class="detail-invoice-image"
+            mode="aspectFit"
+            bindtap="previewVoucher"
+            data-url="{{currentExpense.receipt_image_url}}"
+          />
+        </view>
+      </view>
+
+      <view class="panel-actions">
+        <view class="btn-close-detail" bindtap="closeDetail">关闭</view>
+        <view class="btn-go-review" bindtap="openReviewFromDetail">进入审核</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ═══ 审核弹窗（三按钮） ═══ -->
   <view wx:if="{{showReviewPanel}}" class="review-mask" bindtap="closeReview">
     <view class="review-panel" catchtap="stopPropagation">
       <view class="panel-title">审核报销单</view>
@@ -50,7 +142,23 @@
         <text class="panel-amount">¥ {{currentExpense.claimed_amount}}</text>
       </view>
 
-      <!-- 成本分类选择器 — 仅管理员可见 -->
+      <!-- 积分说明 -->
+      <view class="points-hint">
+        <view class="hint-row">
+          <text class="hint-icon reject-icon">✕</text>
+          <text class="hint-text">驳回 — 不产生积分</text>
+        </view>
+        <view class="hint-row">
+          <text class="hint-icon receipt-icon">票</text>
+          <text class="hint-text">小票通过 — 扣除 5 积分</text>
+        </view>
+        <view class="hint-row">
+          <text class="hint-icon invoice-icon">发</text>
+          <text class="hint-text">发票通过 — 奖励 10 积分</text>
+        </view>
+      </view>
+
+      <!-- 成本分类选择器 -->
       <view class="form-item">
         <text class="label">成本分类</text>
         <picker mode="selector" range="{{categoryNames}}" value="{{categoryIndex}}" bindchange="onCategoryChange">
@@ -66,10 +174,11 @@
         <input class="input" placeholder="可选" value="{{reviewNote}}" bindinput="onNoteInput" />
       </view>
 
-      <!-- 操作按钮 -->
-      <view class="panel-actions">
+      <!-- 三按钮操作 -->
+      <view class="panel-actions-three">
         <view class="btn-reject" bindtap="rejectExpense">驳回</view>
-        <view class="btn-approve" bindtap="approveExpense">通过</view>
+        <view class="btn-receipt-pass" bindtap="receiptPassExpense">小票通过</view>
+        <view class="btn-invoice-pass" bindtap="invoicePassExpense">发票通过</view>
       </view>
     </view>
   </view>

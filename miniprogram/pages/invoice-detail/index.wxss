@@ -1,0 +1,178 @@
+/* 发票详情页 — 华通APP风格 */
+.page-container { background: #0a0a0a; min-height: 100vh; }
+
+/* 加载/错误状态 */
+.loading-state, .error-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 60vh;
+}
+.loading-text { font-size: 28rpx; color: #888; }
+.error-text { font-size: 28rpx; color: #EF4444; margin-bottom: 32rpx; }
+.btn-back { font-size: 28rpx; color: #C9A84C; border: 1rpx solid #C9A84C; padding: 16rpx 48rpx; border-radius: 8rpx; }
+
+/* 详情内容 */
+.detail-content { display: flex; flex-direction: column; }
+
+/* ═══ 上部 30%：发票图片区 ═══ */
+.image-section {
+  position: relative;
+  width: 100%;
+  height: 480rpx;
+  background: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.invoice-image {
+  width: 100%;
+  height: 100%;
+}
+.no-image {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%;
+}
+.no-image-text { font-size: 28rpx; color: #555; }
+
+/* 类型角标 */
+.type-corner {
+  position: absolute;
+  top: 20rpx;
+  left: 20rpx;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.corner-special { background: rgba(239, 68, 68, 0.85); }
+.corner-general { background: rgba(59, 130, 246, 0.85); }
+.corner-text { font-size: 28rpx; font-weight: bold; color: #fff; }
+
+/* 状态标签覆盖 */
+.status-overlay {
+  position: absolute;
+  top: 20rpx;
+  right: 20rpx;
+  display: flex;
+  gap: 8rpx;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.status-badge {
+  padding: 6rpx 16rpx;
+  border-radius: 6rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+}
+.badge-verified { background: rgba(16, 185, 129, 0.9); color: #fff; }
+.badge-pending { background: rgba(251, 191, 36, 0.9); color: #000; }
+.badge-failed { background: rgba(239, 68, 68, 0.9); color: #fff; }
+.badge-duplicate { background: rgba(249, 115, 22, 0.9); color: #fff; }
+
+/* ═══ 下部 70%：详情信息区 ═══ */
+.info-section {
+  padding: 32rpx 28rpx;
+  flex: 1;
+}
+
+/* 金额区 */
+.amount-block {
+  text-align: center;
+  padding: 32rpx 0;
+  margin-bottom: 24rpx;
+  border-bottom: 1rpx solid rgba(255,255,255,0.08);
+}
+.amount-label { font-size: 24rpx; color: #888; display: block; margin-bottom: 8rpx; }
+.amount-value { font-size: 56rpx; color: #C9A84C; font-weight: bold; display: block; }
+.amount-cn { font-size: 22rpx; color: #666; display: block; margin-top: 8rpx; }
+
+/* 信息组 */
+.info-group {
+  margin-bottom: 28rpx;
+  padding-bottom: 20rpx;
+  border-bottom: 1rpx solid rgba(255,255,255,0.05);
+}
+.group-title {
+  font-size: 28rpx;
+  color: #C9A84C;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+  padding-left: 12rpx;
+  border-left: 4rpx solid #C9A84C;
+}
+
+/* 信息行 */
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12rpx 0;
+}
+.info-label {
+  font-size: 26rpx;
+  color: #888;
+  flex-shrink: 0;
+  width: 160rpx;
+}
+.info-value {
+  font-size: 26rpx;
+  color: #ddd;
+  text-align: right;
+  flex: 1;
+  word-break: break-all;
+}
+.info-value.mono { font-family: 'Courier New', monospace; font-size: 24rpx; }
+.info-value.small { font-size: 22rpx; color: #999; }
+.info-value.check-code { font-family: 'Courier New', monospace; font-size: 22rpx; }
+.amount-highlight { color: #C9A84C; font-weight: bold; }
+
+/* 复制按钮 */
+.info-value-copy { display: flex; align-items: center; justify-content: flex-end; flex: 1; gap: 12rpx; }
+.copy-btn {
+  font-size: 20rpx;
+  color: #C9A84C;
+  border: 1rpx solid #C9A84C;
+  padding: 4rpx 12rpx;
+  border-radius: 4rpx;
+  flex-shrink: 0;
+}
+
+/* 货物/服务明细表格 */
+.items-table {
+  background: rgba(255,255,255,0.03);
+  border-radius: 8rpx;
+  overflow: hidden;
+}
+.item-header {
+  display: flex;
+  padding: 16rpx 12rpx;
+  background: rgba(255,255,255,0.06);
+  border-bottom: 1rpx solid rgba(255,255,255,0.08);
+}
+.item-header text {
+  font-size: 22rpx;
+  color: #888;
+  font-weight: 500;
+}
+.item-row {
+  display: flex;
+  padding: 14rpx 12rpx;
+  border-bottom: 1rpx solid rgba(255,255,255,0.03);
+}
+.item-row text { font-size: 22rpx; color: #ccc; }
+.item-col-name { flex: 3; overflow: hidden; text-overflow: ellipsis; }
+.item-name-text { white-space: nowrap; }
+.item-col-qty { flex: 1; text-align: center; }
+.item-col-price { flex: 1.5; text-align: right; }
+.item-col-amount { flex: 1.5; text-align: right; }
+.item-col-tax { flex: 1; text-align: right; }
+
+/* 备注 */
+.remark-block {
+  background: rgba(255,255,255,0.03);
+  padding: 16rpx;
+  border-radius: 8rpx;
+}
+.remark-text { font-size: 24rpx; color: #aaa; line-height: 1.6; }

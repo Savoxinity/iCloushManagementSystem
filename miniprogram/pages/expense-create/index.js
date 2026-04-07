@@ -17,7 +17,7 @@ Page({
     tempInvoicePath: '',     // 本地临时路径
     tempReceiptPath: '',
     invoiceId: null,
-    pointsHint: '+10 合规奖励',
+    pointsHint: '积分将在审核后发放',
     canSubmit: false,
     submitting: false,
     uploading: false,
@@ -44,7 +44,7 @@ Page({
     var type = e.currentTarget.dataset.type;
     this.setData({
       voucherType: type,
-      pointsHint: type === 'invoice' ? '+10 合规奖励' : '-5 无票扣减',
+      pointsHint: '积分将在审核后发放',
     });
     this._checkCanSubmit();
   },

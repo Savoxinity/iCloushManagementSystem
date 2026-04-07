@@ -1,3 +1,4 @@
+/* 报销审核页 — 三按钮审核 */
 .page-container { padding: 24rpx; background: #0a0a0a; min-height: 100vh; }
 .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32rpx; }
 .page-title { font-size: 36rpx; color: #fff; font-weight: bold; }
@@ -5,7 +6,11 @@
 .empty-state { display: flex; flex-direction: column; align-items: center; padding: 120rpx 0; }
 .empty-icon { font-size: 80rpx; margin-bottom: 24rpx; }
 .empty-text { font-size: 28rpx; color: #666; }
-.expense-card { background: rgba(255,255,255,0.05); border-radius: 12rpx; padding: 24rpx; margin-bottom: 20rpx; }
+
+/* 报销卡片 */
+.expense-card { background: rgba(255,255,255,0.05); border-radius: 12rpx; margin-bottom: 20rpx; overflow: hidden; }
+.card-clickable { padding: 24rpx; }
+.card-clickable:active { background: rgba(255,255,255,0.08); }
 .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20rpx; }
 .emp-name { font-size: 30rpx; color: #fff; font-weight: bold; }
 .voucher-badge { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 6rpx; }
@@ -15,20 +20,147 @@
 .info-label { font-size: 26rpx; color: #888; }
 .info-value { font-size: 26rpx; color: #ccc; }
 .info-value.amount { color: #C9A84C; font-weight: bold; font-size: 32rpx; }
-.card-actions { margin-top: 20rpx; display: flex; justify-content: flex-end; }
-.btn-review { font-size: 26rpx; color: #000; background: #C9A84C; padding: 12rpx 40rpx; border-radius: 8rpx; font-weight: bold; }
+.info-value.small { font-size: 22rpx; color: #666; }
 
-/* 审核弹窗 */
-.review-mask { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 100; display: flex; align-items: flex-end; }
-.review-panel { width: 100%; background: #1a1a1a; border-radius: 24rpx 24rpx 0 0; padding: 40rpx 32rpx; padding-bottom: calc(40rpx + env(safe-area-inset-bottom)); }
+/* 发票缩略图 */
+.invoice-preview {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 16rpx;
+  padding: 16rpx;
+  background: rgba(255,255,255,0.03);
+  border-radius: 8rpx;
+}
+.inv-thumb { width: 80rpx; height: 80rpx; border-radius: 8rpx; flex-shrink: 0; }
+.inv-preview-info { flex: 1; }
+.inv-preview-type { font-size: 24rpx; color: #aaa; display: flex; align-items: center; gap: 8rpx; }
+.inv-preview-amount { font-size: 24rpx; color: #C9A84C; display: block; margin-top: 4rpx; }
+.type-mini {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32rpx; height: 32rpx; border-radius: 50%;
+  font-size: 18rpx; font-weight: bold;
+}
+.mini-special { background: rgba(239, 68, 68, 0.2); color: #EF4444; }
+.mini-general { background: rgba(59, 130, 246, 0.2); color: #3B82F6; }
+
+/* 卡片操作按钮 */
+.card-actions {
+  display: flex; gap: 16rpx; padding: 16rpx 24rpx;
+  border-top: 1rpx solid rgba(255,255,255,0.05);
+  justify-content: flex-end;
+}
+.btn-view-detail {
+  font-size: 26rpx; color: #888; padding: 10rpx 28rpx;
+  border: 1rpx solid rgba(255,255,255,0.15); border-radius: 8rpx;
+}
+.btn-review {
+  font-size: 26rpx; color: #000; background: #C9A84C;
+  padding: 10rpx 40rpx; border-radius: 8rpx; font-weight: bold;
+}
+
+/* ═══ 弹窗通用 ═══ */
+.review-mask {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7); z-index: 100;
+  display: flex; align-items: flex-end;
+}
+
+/* ═══ 详情弹窗 ═══ */
+.detail-panel {
+  width: 100%; max-height: 85vh;
+  background: #1a1a1a; border-radius: 24rpx 24rpx 0 0;
+  padding: 40rpx 32rpx; padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column;
+}
+.detail-scroll { flex: 1; overflow-y: auto; max-height: 60vh; }
+.detail-group {
+  margin-bottom: 24rpx; padding-bottom: 20rpx;
+  border-bottom: 1rpx solid rgba(255,255,255,0.06);
+}
+.group-subtitle {
+  font-size: 26rpx; color: #C9A84C; font-weight: 600;
+  margin-bottom: 16rpx;
+}
+.detail-row { display: flex; justify-content: space-between; padding: 10rpx 0; }
+.detail-label { font-size: 26rpx; color: #888; flex-shrink: 0; width: 160rpx; }
+.detail-value { font-size: 26rpx; color: #ddd; text-align: right; flex: 1; }
+.detail-value.amount { color: #C9A84C; font-weight: bold; }
+.detail-value.small { font-size: 22rpx; color: #666; }
+.detail-invoice-image {
+  width: 100%; height: 300rpx; border-radius: 8rpx;
+  margin-bottom: 16rpx; background: #111;
+}
+.btn-view-invoice {
+  font-size: 24rpx; color: #C9A84C; text-align: center;
+  padding: 16rpx 0; margin-top: 8rpx;
+}
+.btn-close-detail {
+  flex: 1; height: 88rpx; line-height: 88rpx; text-align: center;
+  font-size: 30rpx; color: #888; border: 2rpx solid rgba(255,255,255,0.15);
+  border-radius: 12rpx;
+}
+.btn-go-review {
+  flex: 1; height: 88rpx; line-height: 88rpx; text-align: center;
+  font-size: 30rpx; color: #000; background: #C9A84C;
+  border-radius: 12rpx; font-weight: bold;
+}
+
+/* ═══ 审核弹窗 ═══ */
+.review-panel {
+  width: 100%; background: #1a1a1a;
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 40rpx 32rpx; padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+}
 .panel-title { font-size: 32rpx; color: #fff; font-weight: bold; margin-bottom: 24rpx; text-align: center; }
-.panel-info { display: flex; justify-content: space-between; align-items: center; padding: 20rpx; background: rgba(255,255,255,0.05); border-radius: 12rpx; margin-bottom: 24rpx; }
+.panel-info {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 20rpx; background: rgba(255,255,255,0.05);
+  border-radius: 12rpx; margin-bottom: 24rpx;
+}
 .panel-purpose { font-size: 28rpx; color: #ccc; }
 .panel-amount { font-size: 36rpx; color: #C9A84C; font-weight: bold; }
-.form-item { display: flex; align-items: center; justify-content: space-between; padding: 24rpx 0; border-bottom: 1rpx solid rgba(255,255,255,0.08); }
+
+/* 积分说明 */
+.points-hint {
+  background: rgba(255,255,255,0.03); border-radius: 12rpx;
+  padding: 20rpx; margin-bottom: 24rpx;
+}
+.hint-row { display: flex; align-items: center; gap: 16rpx; padding: 8rpx 0; }
+.hint-icon {
+  width: 40rpx; height: 40rpx; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20rpx; font-weight: bold;
+}
+.reject-icon { background: rgba(239,68,68,0.15); color: #EF4444; }
+.receipt-icon { background: rgba(249,115,22,0.15); color: #F97316; }
+.invoice-icon { background: rgba(16,185,129,0.15); color: #10B981; }
+.hint-text { font-size: 24rpx; color: #888; }
+
+/* 表单 */
+.form-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 24rpx 0; border-bottom: 1rpx solid rgba(255,255,255,0.08);
+}
 .label { font-size: 28rpx; color: #aaa; flex-shrink: 0; }
 .input { flex: 1; font-size: 28rpx; color: #fff; text-align: right; }
 .picker-value { font-size: 28rpx; color: #C9A84C; }
+
+/* 三按钮操作 */
 .panel-actions { display: flex; gap: 24rpx; margin-top: 32rpx; }
-.btn-reject { flex: 1; height: 88rpx; line-height: 88rpx; text-align: center; font-size: 30rpx; color: #EF4444; border: 2rpx solid #EF4444; border-radius: 12rpx; font-weight: bold; }
-.btn-approve { flex: 1; height: 88rpx; line-height: 88rpx; text-align: center; font-size: 30rpx; color: #000; background: #C9A84C; border-radius: 12rpx; font-weight: bold; }
+.panel-actions-three { display: flex; gap: 16rpx; margin-top: 32rpx; }
+.btn-reject {
+  flex: 1; height: 88rpx; line-height: 88rpx; text-align: center;
+  font-size: 28rpx; color: #EF4444; border: 2rpx solid #EF4444;
+  border-radius: 12rpx; font-weight: bold;
+}
+.btn-receipt-pass {
+  flex: 1; height: 88rpx; line-height: 88rpx; text-align: center;
+  font-size: 28rpx; color: #000; background: #F97316;
+  border-radius: 12rpx; font-weight: bold;
+}
+.btn-invoice-pass {
+  flex: 1; height: 88rpx; line-height: 88rpx; text-align: center;
+  font-size: 28rpx; color: #000; background: #10B981;
+  border-radius: 12rpx; font-weight: bold;
+}
