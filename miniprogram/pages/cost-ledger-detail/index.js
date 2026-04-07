@@ -1,32 +1,39 @@
 /**
  * 成本分类明细账 — Phase 4.1 PRD 2.3
- * 顶部 Tab 切换成本分类，动态汇总卡片 + 底层列表
+ * 顶部 Tab 切换成本分类（一级细化标签），动态汇总卡片 + 底层列表
+ *
+ * 分类体系：
+ *   一级标签（Tab 切换）：员工工资、折旧摊销、水电能源、物流 等具体分类
+ *   二级标签（仅利润表汇总时使用）：固定成本 / 变动成本
  *
  * Bug 修复：
  *   1. app.request 不支持 complete 回调 → 在 success/fail 中手动重置 loading
  *   2. 日期分类按 occur_date（发生日期）聚类，而非 trade_date（录入时间）
+ *   3. Tab 分类与后端 COST_CATEGORIES 对齐，动态从接口加载
  */
 var app = getApp()
 
-// 成本分类 Tab 配置
-var CATEGORY_TABS = [
+// 默认分类（兜底，正常情况下会从接口动态加载覆盖）
+var DEFAULT_TABS = [
   { code: '', name: '全部' },
-  { code: 'E-1', name: '员工工资' },
   { code: 'E-0', name: '折旧摊销' },
-  { code: 'E-5', name: '设备维修' },
+  { code: 'E-1-1', name: '员工工资' },
+  { code: 'E-1-2', name: '外包劳务' },
+  { code: 'E-2', name: '物流' },
   { code: 'E-3', name: '水电能源' },
-  { code: 'E-10', name: '员工报销' },
-  { code: 'E-2', name: '原辅材料' },
-  { code: 'E-4', name: '包装物流' },
-  { code: 'E-6', name: '质检损耗' },
-  { code: 'E-7', name: '租金物业' },
-  { code: 'E-8', name: '行政办公' },
-  { code: 'E-9', name: '营销推广' },
+  { code: 'E-4', name: '洗涤化料' },
+  { code: 'E-5', name: '设备维修' },
+  { code: 'E-6', name: '食堂' },
+  { code: 'E-7', name: '客户维护' },
+  { code: 'E-8', name: '外包分包' },
+  { code: 'E-9', name: '代加工' },
+  { code: 'E-10', name: '报销杂项' },
+  { code: 'RENT', name: '厂房租金' },
 ]
 
 Page({
   data: {
-    tabs: CATEGORY_TABS,
+    tabs: DEFAULT_TABS,
     activeTab: 0,
     currentCategory: '',
 
@@ -54,6 +61,7 @@ Page({
       currentPeriod: period,
       periodDisplay: y + '年' + m + '月',
     })
+    this.loadCategories()
     this.loadData(true)
   },
 
@@ -62,13 +70,33 @@ Page({
     if (this.data.currentPeriod) this.loadData(true)
   },
 
+  // ── 动态加载分类（与后端 COST_CATEGORIES 对齐）──
+  loadCategories: function () {
+    var self = this
+    app.request({
+      url: '/api/v1/accounting/categories',
+      success: function (res) {
+        if (res.code === 200 && res.data && res.data.length > 0) {
+          var tabs = [{ code: '', name: '全部' }]
+          for (var i = 0; i < res.data.length; i++) {
+            tabs.push({
+              code: res.data[i].code,
+              name: res.data[i].name,
+            })
+          }
+          self.setData({ tabs: tabs })
+        }
+      },
+    })
+  },
+
   // ── Tab 切换 ──
   onTabChange: function (e) {
     var idx = parseInt(e.currentTarget.dataset.index)
-    var tab = CATEGORY_TABS[idx]
+    var tab = this.data.tabs[idx]
     this.setData({
       activeTab: idx,
-      currentCategory: tab.code,
+      currentCategory: tab ? tab.code : '',
       page: 1,
       hasMore: true,
       items: [],
@@ -113,20 +141,19 @@ Page({
       url: '/api/v1/accounting/cost-ledger',
       data: params,
       success: function (res) {
-        // 关键修复：在 success 中重置 loading（app.request 不支持 complete）
         if (res.code === 200 && res.data) {
           var newItems = (res.data.items || []).map(function (item) {
             return {
               id: item.id,
               item_name: item.item_name || '未命名',
               category_name: item.category_name || '',
+              cost_behavior_label: item.cost_behavior_label || '',
               post_tax_amount: item.post_tax_amount || 0,
               // 优先显示 occur_date（发生日期），回退到 trade_date
               trade_date: item.occur_date || item.trade_date || '',
               invoice_status_label: item.invoice_status_label || '无票',
               source_label: item.source_label || '手动录入',
               creator_name: item.creator_name || '',
-              cost_behavior_label: item.cost_behavior_label || '',
             }
           })
 
@@ -142,7 +169,6 @@ Page({
         }
       },
       fail: function () {
-        // 关键修复：在 fail 中也重置 loading
         self.setData({ loading: false })
         wx.showToast({ title: '加载失败', icon: 'none' })
       },

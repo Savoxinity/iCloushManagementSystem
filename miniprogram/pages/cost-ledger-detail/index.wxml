@@ -1,6 +1,7 @@
 <!--
   成本分类明细账 — Phase 4.1 PRD 2.3
-  顶部 Tab 切换 + 动态汇总卡片 + 明细列表
+  顶部 Tab 切换（一级细化分类标签） + 动态汇总卡片 + 明细列表
+  分类体系：一级标签=具体分类（员工工资、水电能源等），二级=固定/变动（仅利润表汇总用）
 -->
 <view class="page-container">
 
@@ -14,7 +15,7 @@
     </picker>
   </view>
 
-  <!-- Tab 栏 -->
+  <!-- Tab 栏（一级细化分类标签） -->
   <scroll-view scroll-x class="tab-scroll">
     <view class="tab-list">
       <view
@@ -51,6 +52,7 @@
       <view class="item-left">
         <view class="item-name">{{item.item_name}}</view>
         <view class="item-meta">
+          <!-- 一级分类标签（具体分类名） -->
           <text class="meta-tag tag-category">{{item.category_name}}</text>
           <text class="meta-tag tag-invoice">{{item.invoice_status_label}}</text>
           <text class="meta-source">{{item.source_label}}</text>
@@ -62,6 +64,7 @@
       </view>
       <view class="item-right">
         <text class="item-amount">¥ {{item.post_tax_amount}}</text>
+        <!-- 二级分类标签（固定/变动）作为辅助信息 -->
         <text class="item-behavior">{{item.cost_behavior_label}}</text>
       </view>
     </view>

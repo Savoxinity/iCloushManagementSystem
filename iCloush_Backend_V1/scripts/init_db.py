@@ -60,7 +60,7 @@ async def init():
                  pos_left="30%", pos_top="20%", pos_width="18%", pos_height="35%",
                  iot_summary={"temp": 85, "speed": 30},
                  iot_summary_text="单机洗烘机组 85°C", status="running"),
-            Zone(id=3, name="燫烫区", code="zone_c", floor=1, color="#8B5CF6",
+            Zone(id=3, name="熨烫区", code="zone_c", floor=1, color="#8B5CF6",
                  zone_type="iron", capacity=999, pipeline_order=3,
                  pos_left="52%", pos_top="20%", pos_width="20%", pos_height="35%",
                  iot_summary={"temp": 180, "speed": 12},

@@ -196,7 +196,21 @@ Page({
 
   _formatTime: function (isoStr) {
     if (!isoStr) return '';
-    var d = new Date(isoStr.replace(/-/g, '/'));
-    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    // ISO 8601 格式：2026-04-07T08:30:00+00:00
+    // 不能简单 replace(/-/g, '/') 因为会破坏时区偏移部分
+    // 方案1：只替换日期部分的 -
+    var dateOnly = isoStr.substring(0, 10).replace(/-/g, '/');
+    var rest = isoStr.substring(10); // T08:30:00+00:00
+    var d = new Date(dateOnly + rest);
+    if (isNaN(d.getTime())) {
+      // 兜底：尝试直接用 Date.parse
+      d = new Date(isoStr);
+    }
+    if (isNaN(d.getTime())) return '--:--';
+    // 转为北京时间 (UTC+8)
+    var utcMs = d.getTime() + d.getTimezoneOffset() * 60000;
+    var bjMs = utcMs + 8 * 3600000;
+    var bjDate = new Date(bjMs);
+    return String(bjDate.getHours()).padStart(2, '0') + ':' + String(bjDate.getMinutes()).padStart(2, '0');
   },
 });
