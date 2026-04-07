@@ -13,12 +13,17 @@ Phase 3A: 发票识别与真伪核验
 import json
 import logging
 import base64
+import asyncio
 from datetime import datetime
+from pathlib import Path
 from typing import Optional, Dict, Any
 
 from app.core.config import settings
 
 logger = logging.getLogger("icloush.ocr")
+
+# ── 本地上传目录（与 upload.py / main.py 一致）──
+UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
 
 
 # ═══════════════════════════════════════════════════
@@ -27,16 +32,20 @@ logger = logging.getLogger("icloush.ocr")
 
 def _get_ocr_client():
     """获取腾讯云 OCR 客户端实例"""
+    sid = getattr(settings, 'TENCENT_SECRET_ID', '') or ''
+    skey = getattr(settings, 'TENCENT_SECRET_KEY', '') or ''
+    if not sid or not skey:
+        raise RuntimeError(
+            "腾讯云 OCR 密钥未配置，请在 .env 中设置 TENCENT_SECRET_ID 和 TENCENT_SECRET_KEY"
+        )
+
     try:
         from tencentcloud.common import credential
         from tencentcloud.common.profile.client_profile import ClientProfile
         from tencentcloud.common.profile.http_profile import HttpProfile
         from tencentcloud.ocr.v20181119 import ocr_client
 
-        cred = credential.Credential(
-            settings.TENCENT_SECRET_ID,
-            settings.TENCENT_SECRET_KEY,
-        )
+        cred = credential.Credential(sid, skey)
         http_profile = HttpProfile()
         http_profile.endpoint = "ocr.tencentcloudapi.com"
         http_profile.reqMethod = "POST"
@@ -44,46 +53,99 @@ def _get_ocr_client():
         client_profile = ClientProfile()
         client_profile.httpProfile = http_profile
 
-        client = ocr_client.OcrClient(cred, "ap-shanghai", client_profile)
+        region = getattr(settings, 'TENCENT_OCR_REGION', 'ap-shanghai') or 'ap-shanghai'
+        client = ocr_client.OcrClient(cred, region, client_profile)
         return client
+    except ImportError:
+        raise RuntimeError(
+            "腾讯云 OCR SDK 未安装，请执行: pip install tencentcloud-sdk-python"
+        )
     except Exception as e:
         logger.error(f"腾讯云 OCR 客户端初始化失败: {e}")
         raise
 
 
 # ═══════════════════════════════════════════════════
-# 发票 OCR 识别
+# 工具函数：将本地 URL 转为 Base64
 # ═══════════════════════════════════════════════════
 
-async def recognize_invoice(image_url: Optional[str] = None,
+def _is_local_url(url: str) -> bool:
+    """判断是否是本地存储的 URL（无法被腾讯云访问）"""
+    if not url:
+        return False
+    local_indicators = [
+        'localhost', '127.0.0.1', '192.168.', '10.0.', '172.16.',
+        '/uploads/', '0.0.0.0',
+    ]
+    return any(indicator in url for indicator in local_indicators)
+
+
+def _local_url_to_base64(url: str) -> Optional[str]:
+    """
+    将本地存储的 URL 转为 Base64 编码
+    URL 格式: http://host:port/uploads/images/invoice/6/20260407/xxx.jpg
+    本地路径: UPLOAD_DIR/images/invoice/6/20260407/xxx.jpg
+    """
+    try:
+        # 从 URL 中提取 /uploads/ 之后的相对路径
+        if '/uploads/' in url:
+            relative_path = url.split('/uploads/', 1)[1]
+        else:
+            logger.warning(f"无法从 URL 提取本地路径: {url}")
+            return None
+
+        local_path = UPLOAD_DIR / relative_path
+        if not local_path.exists():
+            logger.error(f"本地文件不存在: {local_path}")
+            return None
+
+        with open(local_path, 'rb') as f:
+            file_bytes = f.read()
+
+        b64 = base64.b64encode(file_bytes).decode('utf-8')
+        logger.info(f"本地文件转 Base64 成功: {local_path} ({len(file_bytes)} bytes)")
+        return b64
+
+    except Exception as e:
+        logger.error(f"本地文件转 Base64 失败: {e}")
+        return None
+
+
+# ═══════════════════════════════════════════════════
+# 发票 OCR 识别（核心函数 — 同步，在线程中执行）
+# ═══════════════════════════════════════════════════
+
+def _recognize_invoice_sync(image_url: Optional[str] = None,
                             image_base64: Optional[str] = None) -> Dict[str, Any]:
     """
-    调用腾讯云 VatInvoiceOCR 识别发票
-
-    参数:
-        image_url:    图片 URL（与 image_base64 二选一）
-        image_base64: 图片 Base64 编码
-
-    返回:
-        {
-            "success": True/False,
-            "invoice_type": "增值税专用发票" / "增值税普通发票" / ...,
-            "data": { ... 结构化字段 ... },
-            "raw": { ... 原始 OCR 响应 ... },
-            "error": None / "错误信息"
-        }
+    同步调用腾讯云 VatInvoiceOCR 识别发票
+    （腾讯云 SDK 是同步的，不能直接在 async 中调用）
     """
     try:
         from tencentcloud.ocr.v20181119 import models as ocr_models
+
+        # ── 智能处理图片来源 ──
+        # 如果传入的是本地 URL，自动转为 Base64
+        if image_url and _is_local_url(image_url):
+            logger.info(f"检测到本地 URL，自动转为 Base64: {image_url}")
+            local_b64 = _local_url_to_base64(image_url)
+            if local_b64:
+                image_base64 = local_b64
+                image_url = None  # 改用 Base64 模式
+            else:
+                return {
+                    "success": False,
+                    "error": "图片文件读取失败，请重新上传",
+                }
 
         client = _get_ocr_client()
         req = ocr_models.VatInvoiceOCRRequest()
 
         params = {}
-        if image_url:
-            params["ImageUrl"] = image_url
-        elif image_base64:
+        if image_base64:
             params["ImageBase64"] = image_base64
+        elif image_url:
+            params["ImageUrl"] = image_url
         else:
             return {"success": False, "error": "需要提供 image_url 或 image_base64"}
 
@@ -101,16 +163,43 @@ async def recognize_invoice(image_url: Optional[str] = None,
                      f"number={parsed.get('data', {}).get('invoice_number')}")
         return parsed
 
-    except Exception as e:
-        logger.error(f"发票 OCR 识别失败: {e}")
+    except ImportError:
+        logger.error("腾讯云 OCR SDK 未安装")
         return {
             "success": False,
             "invoice_type": None,
             "data": {},
             "raw": {},
-            "error": str(e),
+            "error": "腾讯云 OCR SDK 未安装，请执行: pip install tencentcloud-sdk-python",
+        }
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"发票 OCR 识别失败: {error_msg}")
+        return {
+            "success": False,
+            "invoice_type": None,
+            "data": {},
+            "raw": {},
+            "error": error_msg,
         }
 
+
+async def recognize_invoice(image_url: Optional[str] = None,
+                            image_base64: Optional[str] = None) -> Dict[str, Any]:
+    """
+    异步包装：在线程池中执行同步的腾讯云 SDK 调用
+    避免阻塞 FastAPI 的事件循环
+    """
+    return await asyncio.to_thread(
+        _recognize_invoice_sync,
+        image_url=image_url,
+        image_base64=image_base64,
+    )
+
+
+# ═══════════════════════════════════════════════════
+# OCR 结果解析
+# ═══════════════════════════════════════════════════
 
 def _parse_ocr_result(raw: dict) -> dict:
     """
@@ -202,31 +291,14 @@ def _parse_amount(amount_str: str) -> Optional[float]:
 # 发票真伪核验
 # ═══════════════════════════════════════════════════
 
-async def verify_invoice(
+def _verify_invoice_sync(
     invoice_code: str,
     invoice_number: str,
     invoice_date: str,
     total_amount: str,
     check_code: str = "",
 ) -> Dict[str, Any]:
-    """
-    调用腾讯云 VatInvoiceVerify 核验发票真伪
-
-    参数:
-        invoice_code:   发票代码
-        invoice_number: 发票号码
-        invoice_date:   开票日期 YYYY-MM-DD
-        total_amount:   价税合计金额
-        check_code:     校验码后6位（普票必填）
-
-    返回:
-        {
-            "success": True/False,
-            "verified": True/False,
-            "data": { ... 核验详情 ... },
-            "error": None / "错误信息"
-        }
-    """
+    """同步调用腾讯云 VatInvoiceVerify 核验发票真伪"""
     try:
         from tencentcloud.ocr.v20181119 import models as ocr_models
 
@@ -270,6 +342,24 @@ async def verify_invoice(
             "data": {},
             "error": error_msg if is_fake else None,
         }
+
+
+async def verify_invoice(
+    invoice_code: str,
+    invoice_number: str,
+    invoice_date: str,
+    total_amount: str,
+    check_code: str = "",
+) -> Dict[str, Any]:
+    """异步包装：在线程池中执行同步的腾讯云核验调用"""
+    return await asyncio.to_thread(
+        _verify_invoice_sync,
+        invoice_code=invoice_code,
+        invoice_number=invoice_number,
+        invoice_date=invoice_date,
+        total_amount=total_amount,
+        check_code=check_code,
+    )
 
 
 # ═══════════════════════════════════════════════════
