@@ -157,6 +157,13 @@
 }
 .tag-failed .tag-text { color: #EF4444; }
 
+/* 待人工复核 — 橙色深 */
+.tag-manual-review {
+  background: rgba(234, 88, 12, 0.15);
+  border: 1rpx solid rgba(234, 88, 12, 0.3);
+}
+.tag-manual-review .tag-text { color: #EA580C; }
+
 /* 重复发票 — 橙色 */
 .tag-duplicate {
   background: rgba(249, 115, 22, 0.15);

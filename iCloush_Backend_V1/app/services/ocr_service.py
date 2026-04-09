@@ -1,13 +1,13 @@
 """
-iCloush 智慧工厂 — 腾讯云发票 OCR & 核验服务（V2 深度优化）
+iCloush 智慧工厂 — 腾讯云发票 OCR & 核验服务（V3 Phase 4.5 重构）
 ═══════════════════════════════════════════════════
-Phase 3A+: 发票识别与真伪核验
-
-深度优化内容：
-  1. 提取 VatInvoiceInfos 全部字段（40+ 字段）
-  2. 提取 Items 发票明细条目（含税收分类编码 TaxClassifyCode）
-  3. 发票查重（基于发票代码+发票号码唯一性）
-  4. 增强的发票类型归一化
+Phase 4.5 重构内容：
+  1. 精益 OCR 解析引擎：深度解析 VatInvoiceInfos 全部字段
+  2. 必填提取字段清单：invoice_code, check_code(后6位), buyer_tax_id,
+     seller_tax_id, remark, drawer, goods_name_summary
+  3. 非标票据降级策略：出租车票/卷票等仅提取 total_amount，
+     允许 invoice_code/invoice_number 为空，绝不抛异常
+  4. 发票真伪核验（VatInvoiceVerifyNew）
 
 依赖：
   pip install tencentcloud-sdk-python-ocr
@@ -30,6 +30,13 @@ logger = logging.getLogger("icloush.ocr")
 
 # ── 本地上传目录（与 upload.py / main.py 一致）──
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
+
+# ── 非标票据类型集合（仅提取总金额，不要求 code/number）──
+NON_STANDARD_INVOICE_TYPES = {
+    "出租车发票", "出租车票", "火车票", "飞机行程单",
+    "客运汽车票", "过路过桥费", "定额发票", "通用机打发票",
+    "卷式发票", "非税收入", "其他",
+}
 
 
 # ═══════════════════════════════════════════════════
@@ -93,7 +100,6 @@ def _local_url_to_base64(url: str) -> Optional[str]:
     本地路径: UPLOAD_DIR/images/invoice/6/20260407/xxx.jpg
     """
     try:
-        # 从 URL 中提取 /uploads/ 之后的相对路径
         if '/uploads/' in url:
             relative_path = url.split('/uploads/', 1)[1]
         else:
@@ -125,24 +131,22 @@ def _recognize_invoice_sync(image_url: Optional[str] = None,
                             image_base64: Optional[str] = None) -> Dict[str, Any]:
     """
     同步调用腾讯云 VatInvoiceOCR 识别发票
-    （腾讯云 SDK 是同步的，不能直接在 async 中调用）
 
-    V2 优化：
-      - 提取全部 VatInvoiceInfos 字段（40+ 字段）
-      - 提取 Items 发票明细条目
-      - 返回完整的结构化数据
+    V3 Phase 4.5 重构：
+      - 精益提取全部 VatInvoiceInfos 字段
+      - 非标票据降级策略：出租车票/卷票等仅提取 total_amount
+      - 绝不因字段缺失抛出异常
     """
     try:
         from tencentcloud.ocr.v20181119 import models as ocr_models
 
         # ── 智能处理图片来源 ──
-        # 如果传入的是本地 URL，自动转为 Base64
         if image_url and _is_local_url(image_url):
             logger.info(f"检测到本地 URL，自动转为 Base64: {image_url}")
             local_b64 = _local_url_to_base64(image_url)
             if local_b64:
                 image_base64 = local_b64
-                image_url = None  # 改用 Base64 模式
+                image_url = None
             else:
                 return {
                     "success": False,
@@ -164,15 +168,18 @@ def _recognize_invoice_sync(image_url: Optional[str] = None,
         resp = client.VatInvoiceOCR(req)
         raw = json.loads(resp.to_json_string())
 
-        # 解析结构化数据（V2 深度解析）
-        parsed = _parse_ocr_result_v2(raw)
+        # 解析结构化数据（V3 精益解析）
+        parsed = _parse_ocr_result_v3(raw)
         parsed["raw"] = raw
         parsed["success"] = True
         parsed["error"] = None
 
-        logger.info(f"发票 OCR 识别成功: type={parsed.get('invoice_type')}, "
-                     f"number={parsed.get('data', {}).get('invoice_number')}, "
-                     f"items_count={len(parsed.get('items', []))}")
+        logger.info(
+            f"发票 OCR 识别成功: type={parsed.get('invoice_type')}, "
+            f"is_non_standard={parsed.get('is_non_standard', False)}, "
+            f"number={parsed.get('data', {}).get('invoice_number')}, "
+            f"items_count={len(parsed.get('items', []))}"
+        )
         return parsed
 
     except ImportError:
@@ -200,10 +207,7 @@ def _recognize_invoice_sync(image_url: Optional[str] = None,
 
 async def recognize_invoice(image_url: Optional[str] = None,
                             image_base64: Optional[str] = None) -> Dict[str, Any]:
-    """
-    异步包装：在线程池中执行同步的腾讯云 SDK 调用
-    避免阻塞 FastAPI 的事件循环
-    """
+    """异步包装：在线程池中执行同步的腾讯云 SDK 调用"""
     return await asyncio.to_thread(
         _recognize_invoice_sync,
         image_url=image_url,
@@ -212,21 +216,26 @@ async def recognize_invoice(image_url: Optional[str] = None,
 
 
 # ═══════════════════════════════════════════════════
-# OCR 结果解析 V2（深度提取全部字段）
+# OCR 结果解析 V3（Phase 4.5 精益提取）
 # ═══════════════════════════════════════════════════
 
-def _parse_ocr_result_v2(raw: dict) -> dict:
+def _parse_ocr_result_v3(raw: dict) -> dict:
     """
-    V2 深度解析：将腾讯云 VatInvoiceOCR 原始返回解析为完整结构
+    V3 精益解析：将腾讯云 VatInvoiceOCR 原始返回解析为完整结构
 
-    腾讯云返回的 VatInvoiceInfos 是一个列表，每项包含:
-      Name: 字段名（如"发票号码"、"合计金额"等）
-      Value: 字段值
-      Polygon: 坐标位置
+    Phase 4.5 PRD 必填提取字段清单：
+      - invoice_code（发票代码）
+      - check_code（校验码后6位）
+      - buyer_tax_id（购买方纳税人识别号）
+      - seller_tax_id（销售方纳税人识别号）
+      - remark（备注）
+      - drawer（开票人）
+      - goods_name_summary（货物/服务明细第一项名称）
 
-    Items 是明细条目列表，每项包含:
-      Name, Spec, Unit, Quantity, UnitPrice, AmountWithoutTax,
-      TaxRate, TaxAmount, TaxClassifyCode, LineNo 等
+    非标票据降级策略：
+      - 出租车票、卷票等非标准票据仅提取 total_amount
+      - 允许 invoice_code / invoice_number 为空
+      - 绝不抛出异常阻断上传
     """
     infos = raw.get("VatInvoiceInfos", [])
     items_raw = raw.get("Items", [])
@@ -239,6 +248,22 @@ def _parse_ocr_result_v2(raw: dict) -> dict:
         value = item.get("Value", "")
         if name:
             field_map[name] = value
+
+    # ── 发票类型归一化 ──
+    type_source = field_map.get("发票类型", "") or field_map.get("发票名称", "") or invoice_type_raw
+    invoice_type = _normalize_invoice_type(type_source)
+    invoice_type_label = _get_invoice_type_label(type_source)
+
+    # ── 判断是否为非标票据 ──
+    is_non_standard = _is_non_standard_invoice(type_source)
+
+    # ── 提取 goods_name_summary ──
+    # 优先从 field_map 获取，其次从明细第一项提取
+    goods_name_summary = field_map.get("货物或应税劳务、服务名称", "")
+    if not goods_name_summary and items_raw:
+        first_item_name = items_raw[0].get("Name", "")
+        if first_item_name:
+            goods_name_summary = first_item_name
 
     # ── 核心发票信息 ──
     data = {
@@ -309,8 +334,20 @@ def _parse_ocr_result_v2(raw: dict) -> dict:
         "print_invoice_number": field_map.get("打印发票号码", ""),
 
         # 货物/服务名称（汇总行）
-        "goods_name_summary": field_map.get("货物或应税劳务、服务名称", ""),
+        "goods_name_summary": goods_name_summary,
     }
+
+    # ── 非标票据降级：仅保留 total_amount，其余字段置空不报错 ──
+    if is_non_standard:
+        logger.info(f"非标票据降级处理: type_source={type_source}")
+        # 尝试从各种字段中提取总金额
+        if not data["total_amount"]:
+            # 非标票据可能在不同字段存储金额
+            for amount_key in ["小写金额", "价税合计", "合计金额", "金额", "发票金额"]:
+                amt = _parse_amount(field_map.get(amount_key, ""))
+                if amt:
+                    data["total_amount"] = amt
+                    break
 
     # ── 发票明细条目 ──
     items = []
@@ -336,28 +373,33 @@ def _parse_ocr_result_v2(raw: dict) -> dict:
             "construction_name": item.get("ConstructionName", ""),
         })
 
-    # ── 发票类型归一化 ──
-    invoice_type = _normalize_invoice_type(
-        field_map.get("发票类型", "") or field_map.get("发票名称", "") or invoice_type_raw
-    )
-    invoice_type_label = _get_invoice_type_label(
-        field_map.get("发票类型", "") or field_map.get("发票名称", "") or invoice_type_raw
-    )
-
     return {
         "invoice_type": invoice_type,
         "invoice_type_label": invoice_type_label,
-        "invoice_type_raw": field_map.get("发票类型", "") or field_map.get("发票名称", ""),
+        "invoice_type_raw": type_source,
+        "is_non_standard": is_non_standard,
         "data": data,
         "items": items,
         "field_map": field_map,  # 保留完整字段映射供调试
     }
 
 
+def _is_non_standard_invoice(type_source: str) -> bool:
+    """判断是否为非标准票据（出租车票、卷票等无法调用国税局核验的票据）"""
+    if not type_source:
+        return False
+    for ns_type in NON_STANDARD_INVOICE_TYPES:
+        if ns_type in type_source:
+            return True
+    return False
+
+
 def _normalize_invoice_type(raw_type: str) -> str:
     """将腾讯云返回的发票类型归一化为内部代码"""
     if not raw_type:
         return "general_vat"
+
+    # 标准增值税发票映射
     type_map = {
         "增值税专用发票": "special_vat",
         "增值税普通发票": "general_vat",
@@ -367,15 +409,17 @@ def _normalize_invoice_type(raw_type: str) -> str:
         "全电发票（普通发票）": "general_vat",
         "电子发票（增值税专用发票）": "special_vat",
         "电子发票（普通发票）": "general_vat",
-        "卷式发票": "general_vat",
-        "区块链发票": "general_vat",
         "机动车销售统一发票": "special_vat",
         "二手车销售统一发票": "general_vat",
-        "通行费发票": "general_vat",
     }
     for key, val in type_map.items():
         if key in raw_type:
             return val
+
+    # 非标票据统一归为 non_standard
+    if _is_non_standard_invoice(raw_type):
+        return "non_standard"
+
     # 兜底：含"专"字的归为专票
     if "专" in raw_type:
         return "special_vat"
@@ -386,17 +430,13 @@ def _get_invoice_type_label(raw_type: str) -> str:
     """获取发票类型的中文标签"""
     if not raw_type:
         return "增值税普通发票"
-    # 直接返回腾讯云识别的原始类型名
-    if raw_type:
-        return raw_type
-    return "增值税普通发票"
+    return raw_type
 
 
 def _parse_date(date_str: str) -> Optional[str]:
     """解析各种日期格式为 YYYY-MM-DD"""
     if not date_str:
         return None
-    # 常见格式：2026年03月15日 / 2026-03-15 / 20260315
     date_str = date_str.replace("年", "-").replace("月", "-").replace("日", "").strip()
     try:
         if len(date_str) == 8 and date_str.isdigit():
@@ -411,9 +451,7 @@ def _parse_amount(amount_str: str) -> Optional[float]:
     """解析金额字符串"""
     if not amount_str:
         return None
-    # 去掉 ¥ ￥ 符号和空格
     cleaned = amount_str.replace("¥", "").replace("￥", "").replace(",", "").replace(" ", "").strip()
-    # 处理负数（有些税额显示为 ***）
     if cleaned == "***" or cleaned == "****" or not cleaned:
         return None
     try:
@@ -453,7 +491,6 @@ def _verify_invoice_sync(
         resp = client.VatInvoiceVerifyNew(req)
         raw = json.loads(resp.to_json_string())
 
-        # 核验通过
         invoice_info = raw.get("Invoice", {})
         verified = bool(invoice_info)
 

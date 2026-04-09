@@ -446,22 +446,19 @@ async def _do_review(
 
     if action in ("receipt_pass", "invoice_pass"):
         # ── 通过审核 ──
-        if not req.category_code:
+        # 默认分类为 E-10（报销杂项），管理员可在审核时覆盖
+        category_code = req.category_code or "E-10"
+        if category_code not in COST_CATEGORIES:
             raise HTTPException(
                 status_code=422,
-                detail="审核通过时必须选择成本分类(category_code)"
-            )
-        if req.category_code not in COST_CATEGORIES:
-            raise HTTPException(
-                status_code=422,
-                detail=f"无效的成本分类代码: {req.category_code}"
+                detail=f"无效的成本分类代码: {category_code}"
             )
 
         expense.status = "approved"
         expense.reviewer_id = current_user.id
         expense.reviewed_at = now
         expense.review_note = req.review_note
-        expense.category_code = req.category_code
+        expense.category_code = category_code
 
         # ── 积分奖惩（后置到审核环节） ──
         if action == "invoice_pass":
@@ -487,7 +484,7 @@ async def _do_review(
             db.add(ledger)
 
         # ── 自动生成 ManagementCostLedger 流水 ──
-        cat_config = COST_CATEGORIES[req.category_code]
+        cat_config = COST_CATEGORIES[category_code]
 
         invoice_status = "none"
         if action == "invoice_pass" and expense.invoice_id:
@@ -512,7 +509,7 @@ async def _do_review(
             tax_amount=Decimal("0"),
             post_tax_amount=expense.claimed_amount,
             invoice_status=invoice_status,
-            category_code=req.category_code,
+            category_code=category_code,
             cost_behavior=cat_config["behavior"],
             cost_center=cat_config["center"],
             is_sunk_cost=False,

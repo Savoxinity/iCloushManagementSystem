@@ -35,6 +35,7 @@ class InvoiceVerifyStatus(str, enum.Enum):
     VERIFIED = "verified"
     FAILED = "failed"
     DUPLICATE = "duplicate"
+    MANUAL_REVIEW = "manual_review"  # 非标票据待人工复核
 
 
 class ExpenseStatus(str, enum.Enum):

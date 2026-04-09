@@ -22,6 +22,7 @@ Page({
       { key: 'verified', label: '已核验' },
       { key: 'failed', label: '核验失败' },
       { key: 'duplicate', label: '重复' },
+      { key: 'manual_review', label: '待复核' },
     ],
 
     // 日期筛选

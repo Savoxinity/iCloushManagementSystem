@@ -115,8 +115,14 @@
         <view wx:elif="{{item.verify_status === 'failed'}}" class="tag tag-failed">
           <text class="tag-text">核验失败</text>
         </view>
+        <view wx:elif="{{item.verify_status === 'manual_review'}}" class="tag tag-manual-review">
+          <text class="tag-text">待人工复核</text>
+        </view>
+        <view wx:elif="{{item.verify_status === 'duplicate'}}" class="tag tag-duplicate">
+          <text class="tag-text">重复发票</text>
+        </view>
 
-        <!-- 重复发票标签 -->
+        <!-- 重复发票标签（is_duplicate 独立标记） -->
         <view wx:if="{{item.is_duplicate}}" class="tag tag-duplicate">
           <text class="tag-text">重复发票</text>
         </view>

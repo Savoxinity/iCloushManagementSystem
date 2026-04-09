@@ -279,15 +279,13 @@ async def update_cost_entry(
     current_user: User = Depends(require_role(5)),
     db: AsyncSession = Depends(get_db),
 ):
-    """编辑成本流水（仅手动录入的可编辑）"""
+    """编辑成本流水（管理员可编辑所有来源的成本，包括报销自动生成的）"""
     result = await db.execute(
         select(ManagementCostLedger).where(ManagementCostLedger.id == entry_id)
     )
     entry = result.scalar_one_or_none()
     if not entry:
         raise HTTPException(status_code=404, detail="成本记录不存在")
-    if entry.source_type != "manual":
-        raise HTTPException(status_code=400, detail="仅手动录入的成本可编辑")
 
     actual_trade_date = req.get_trade_date()
     actual_item_name = req.get_item_name()
@@ -348,15 +346,13 @@ async def delete_cost_entry(
     current_user: User = Depends(require_role(7)),  # 经理级别才能删除
     db: AsyncSession = Depends(get_db),
 ):
-    """删除成本流水（仅手动录入的可删除，需经理权限）"""
+    """删除成本流水（需经理权限，所有来源均可删除）"""
     result = await db.execute(
         select(ManagementCostLedger).where(ManagementCostLedger.id == entry_id)
     )
     entry = result.scalar_one_or_none()
     if not entry:
         raise HTTPException(status_code=404, detail="成本记录不存在")
-    if entry.source_type != "manual":
-        raise HTTPException(status_code=400, detail="仅手动录入的成本可删除")
 
     await db.delete(entry)
     await db.flush()

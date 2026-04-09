@@ -41,7 +41,13 @@
         <view wx:elif="{{invoice.verify_status === 'failed'}}" class="status-badge badge-failed">
           <text>核验失败</text>
         </view>
-        <view wx:if="{{invoice.is_duplicate}}" class="status-badge badge-duplicate">
+        <view wx:elif="{{invoice.verify_status === 'manual_review'}}" class="status-badge badge-manual-review">
+          <text>待人工复核</text>
+        </view>
+        <view wx:elif="{{invoice.verify_status === 'duplicate'}}" class="status-badge badge-duplicate">
+          <text>重复发票</text>
+        </view>
+        <view wx:if="{{invoice.is_duplicate && invoice.verify_status !== 'duplicate'}}" class="status-badge badge-duplicate">
           <text>重复发票</text>
         </view>
       </view>

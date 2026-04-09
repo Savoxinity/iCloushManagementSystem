@@ -16,6 +16,8 @@ Page({
       { key: 'pending', label: '待核验' },
       { key: 'verified', label: '已核验' },
       { key: 'duplicate', label: '重复' },
+      { key: 'manual_review', label: '待复核' },
+      { key: 'failed', label: '失败' },
     ],
     // 统计
     totalCount: 0,

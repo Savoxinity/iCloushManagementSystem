@@ -25,6 +25,10 @@ class Base(DeclarativeBase):
     pass
 
 
+# 导出 session factory 供后台任务使用（不依赖 FastAPI 依赖注入）
+async_session_factory = AsyncSessionLocal
+
+
 async def get_db() -> AsyncSession:
     """FastAPI 依赖注入：获取数据库会话"""
     async with AsyncSessionLocal() as session:
