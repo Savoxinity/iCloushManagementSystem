@@ -1,8 +1,21 @@
-<!-- 报销审核页 — 三按钮审核 + 详情查看 -->
+<!-- 报销审核页 — 五Tab分类 + 三按钮审核 + 详情查看 -->
 <view class="page-container">
   <view class="header-bar">
     <text class="page-title">报销审核</text>
-    <text class="pending-count">{{expenses.length}} 待审核</text>
+    <text class="pending-count">{{expenses.length}} 条记录</text>
+  </view>
+
+  <!-- ═══ 五Tab筛选栏 ═══ -->
+  <view class="filter-tabs">
+    <view
+      wx:for="{{tabs}}"
+      wx:key="key"
+      class="tab-item {{activeTab === item.key ? 'active' : ''}}"
+      bindtap="switchTab"
+      data-tab="{{item.key}}"
+    >
+      <text>{{item.label}}</text>
+    </view>
   </view>
 
   <view wx:if="{{loading}}" class="empty-state">
@@ -11,7 +24,7 @@
 
   <view wx:elif="{{expenses.length === 0}}" class="empty-state">
     <text class="empty-icon">✅</text>
-    <text class="empty-text">暂无待审核报销单</text>
+    <text class="empty-text">暂无{{currentTabLabel}}报销单</text>
   </view>
 
   <!-- 报销单列表 -->
@@ -21,7 +34,16 @@
       <view class="card-clickable" bindtap="viewDetail" data-id="{{item.id}}">
         <view class="card-header">
           <text class="emp-name">{{item.user_name || '员工#' + item.user_id}}</text>
-          <text class="voucher-badge {{item.voucher_type}}">{{item.voucher_type === 'invoice' ? '有票' : '无票'}}</text>
+          <view class="header-badges">
+            <!-- 审核状态标签 -->
+            <text wx:if="{{item.status === 'approved' && item.points_delta > 0}}" class="status-badge badge-invoice-pass">发票通过</text>
+            <text wx:elif="{{item.status === 'approved' && item.points_delta < 0}}" class="status-badge badge-receipt-pass">小票通过</text>
+            <text wx:elif="{{item.status === 'approved'}}" class="status-badge badge-approved">已通过</text>
+            <text wx:elif="{{item.status === 'rejected'}}" class="status-badge badge-rejected">已驳回</text>
+            <text wx:elif="{{item.status === 'pending' || item.status === 'manual_review'}}" class="status-badge badge-pending">待审核</text>
+            <!-- 凭证类型 -->
+            <text class="voucher-badge {{item.voucher_type}}">{{item.voucher_type === 'invoice' ? '有票' : '无票'}}</text>
+          </view>
         </view>
         <view class="card-body">
           <view class="info-row">
@@ -35,6 +57,13 @@
           <view class="info-row">
             <text class="info-label">提交时间</text>
             <text class="info-value small">{{item.created_at}}</text>
+          </view>
+          <!-- 积分变动（已审核的显示） -->
+          <view wx:if="{{item.points_delta !== 0 && item.points_delta !== undefined}}" class="info-row">
+            <text class="info-label">积分变动</text>
+            <text class="info-value {{item.points_delta > 0 ? 'points-plus' : 'points-minus'}}">
+              {{item.points_delta > 0 ? '+' : ''}}{{item.points_delta}} 分
+            </text>
           </view>
         </view>
         <!-- 发票缩略图 -->
@@ -50,10 +79,14 @@
         </view>
       </view>
 
-      <!-- 审核按钮 -->
-      <view class="card-actions">
+      <!-- 审核按钮（仅待审核状态显示） -->
+      <view wx:if="{{item.status === 'pending' || item.status === 'manual_review'}}" class="card-actions">
         <view class="btn-view-detail" data-id="{{item.id}}" bindtap="viewDetail">查看详情</view>
         <view class="btn-review" data-id="{{item.id}}" bindtap="openReview">审核</view>
+      </view>
+      <!-- 已审核状态只显示查看详情 -->
+      <view wx:else class="card-actions">
+        <view class="btn-view-detail full-width" data-id="{{item.id}}" bindtap="viewDetail">查看详情</view>
       </view>
     </view>
   </view>
@@ -84,6 +117,10 @@
           <view class="detail-row">
             <text class="detail-label">提交时间</text>
             <text class="detail-value small">{{currentExpense.created_at}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-label">状态</text>
+            <text class="detail-value">{{currentExpense.status_label || currentExpense.status}}</text>
           </view>
         </view>
 
@@ -128,7 +165,8 @@
 
       <view class="panel-actions">
         <view class="btn-close-detail" bindtap="closeDetail">关闭</view>
-        <view class="btn-go-review" bindtap="openReviewFromDetail">进入审核</view>
+        <!-- 仅待审核状态显示审核按钮 -->
+        <view wx:if="{{currentExpense.status === 'pending' || currentExpense.status === 'manual_review'}}" class="btn-go-review" bindtap="openReviewFromDetail">进入审核</view>
       </view>
     </view>
   </view>

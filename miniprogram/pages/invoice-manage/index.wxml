@@ -1,0 +1,134 @@
+<!-- 管理员发票管理页 — 全员工发票仓库 -->
+<view class="page-container">
+
+  <!-- 顶部标题栏 -->
+  <view class="header-bar">
+    <text class="page-title">发票管理</text>
+    <view class="header-actions">
+      <view class="btn-filter" bindtap="toggleDateFilter">
+        <text class="filter-icon">📅</text>
+        <text class="filter-text">日期</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <input
+      class="search-input"
+      placeholder="搜索销方名称/发票号码"
+      value="{{keyword}}"
+      bindinput="onSearchInput"
+      bindconfirm="doSearch"
+    />
+    <view class="btn-search" bindtap="doSearch">搜索</view>
+  </view>
+
+  <!-- 日期筛选面板 -->
+  <view wx:if="{{showDateFilter}}" class="date-filter-panel">
+    <view class="date-row">
+      <text class="date-label">起始日期</text>
+      <picker mode="date" value="{{dateFrom}}" bindchange="onDateFromChange">
+        <view class="date-picker">{{dateFrom || '选择日期'}}</view>
+      </picker>
+    </view>
+    <view class="date-row">
+      <text class="date-label">结束日期</text>
+      <picker mode="date" value="{{dateTo}}" bindchange="onDateToChange">
+        <view class="date-picker">{{dateTo || '选择日期'}}</view>
+      </picker>
+    </view>
+    <view class="btn-apply" bindtap="applyDateFilter">应用筛选</view>
+  </view>
+
+  <!-- 筛选 Tab 栏 -->
+  <view class="filter-tabs">
+    <view
+      wx:for="{{tabs}}"
+      wx:key="key"
+      class="tab-item {{activeTab === item.key ? 'active' : ''}}"
+      bindtap="switchTab"
+      data-tab="{{item.key}}"
+    >
+      <text>{{item.label}}</text>
+    </view>
+  </view>
+
+  <!-- 统计信息 -->
+  <view class="stats-bar">
+    <text class="stats-text">共 {{totalCount}} 张发票</text>
+    <text class="stats-date">{{dateFrom}} ~ {{dateTo}}</text>
+  </view>
+
+  <!-- 加载中 -->
+  <view wx:if="{{loading && invoices.length === 0}}" class="empty-state">
+    <text class="empty-text">加载中...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:elif="{{invoices.length === 0}}" class="empty-state">
+    <text class="empty-icon-text">🧾</text>
+    <text class="empty-text">暂无发票记录</text>
+  </view>
+
+  <!-- 发票列表 -->
+  <view wx:else class="invoice-list">
+    <view
+      class="invoice-card"
+      wx:for="{{invoices}}"
+      wx:key="id"
+      bindtap="goDetail"
+      data-id="{{item.id}}"
+    >
+      <!-- 第一行：类型图标 + 标题 + 金额 -->
+      <view class="card-row-main">
+        <!-- 专/普 圆形图标 -->
+        <view class="type-badge {{item.invoice_type_code === '专' ? 'type-special' : 'type-general'}}">
+          <text class="type-badge-text">{{item.invoice_type_code || '普'}}</text>
+        </view>
+
+        <view class="card-info">
+          <view class="card-title-row">
+            <text class="inv-title">{{item.goods_name_summary || item.seller_name || '未识别发票'}}</text>
+            <text class="inv-amount">¥{{item.total_amount || '--'}}</text>
+          </view>
+          <view class="card-sub-row">
+            <text class="inv-seller">{{item.seller_name || ''}}</text>
+            <text class="inv-date">{{item.invoice_date || ''}}</text>
+          </view>
+          <!-- 员工姓名 -->
+          <view class="card-user-row">
+            <text class="inv-user">👤 {{item.user_name || '未知'}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 第二行：状态标签栏 -->
+      <view class="card-tags">
+        <!-- 核验状态标签 -->
+        <view wx:if="{{item.verify_status === 'verified'}}" class="tag tag-verified">
+          <text class="tag-text">验</text>
+        </view>
+        <view wx:elif="{{item.verify_status === 'pending'}}" class="tag tag-pending">
+          <text class="tag-text">待核验</text>
+        </view>
+        <view wx:elif="{{item.verify_status === 'failed'}}" class="tag tag-failed">
+          <text class="tag-text">核验失败</text>
+        </view>
+
+        <!-- 重复发票标签 -->
+        <view wx:if="{{item.is_duplicate}}" class="tag tag-duplicate">
+          <text class="tag-text">重复发票</text>
+        </view>
+
+        <!-- 发票号码 -->
+        <text class="inv-number-tag">{{item.invoice_number || ''}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载更多提示 -->
+  <view wx:if="{{invoices.length > 0 && !hasMore}}" class="load-end">
+    <text class="load-end-text">— 已加载全部 {{totalCount}} 张发票 —</text>
+  </view>
+</view>

@@ -138,13 +138,50 @@ async def create_expense(
 async def list_pending_expenses(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=100),
+    status: Optional[str] = Query(default=None, description="状态筛选: all/pending/invoice_pass/receipt_pass/rejected"),
     current_user: User = Depends(require_role(5)),
     db: AsyncSession = Depends(get_db),
 ):
-    """待审核报销单列表"""
-    query = select(ExpenseReport).where(
-        ExpenseReport.status.in_(["pending", "manual_review"])
-    ).order_by(ExpenseReport.created_at.desc())
+    """
+    报销审核列表（支持 Tab 分类筛选）
+    status 参数：
+      - 不传/pending: 待审核（pending + manual_review）
+      - all: 全部报销单
+      - invoice_pass: 发票通过（approved 且 points_delta > 0）
+      - receipt_pass: 小票通过（approved 且 points_delta < 0）
+      - rejected: 已驳回
+    """
+    query = select(ExpenseReport)
+
+    if status == "all":
+        # 全部报销单
+        pass
+    elif status == "invoice_pass":
+        # 发票通过：approved 且积分 > 0
+        query = query.where(
+            and_(
+                ExpenseReport.status == "approved",
+                ExpenseReport.points_delta > 0,
+            )
+        )
+    elif status == "receipt_pass":
+        # 小票通过：approved 且积分 < 0
+        query = query.where(
+            and_(
+                ExpenseReport.status == "approved",
+                ExpenseReport.points_delta < 0,
+            )
+        )
+    elif status == "rejected":
+        # 已驳回
+        query = query.where(ExpenseReport.status == "rejected")
+    else:
+        # 默认：待审核
+        query = query.where(
+            ExpenseReport.status.in_(["pending", "manual_review"])
+        )
+
+    query = query.order_by(ExpenseReport.created_at.desc())
 
     total_result = await db.execute(
         select(func.count()).select_from(query.subquery())

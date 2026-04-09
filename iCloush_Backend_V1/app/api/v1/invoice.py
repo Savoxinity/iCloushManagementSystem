@@ -1,5 +1,5 @@
 """
-发票路由 — Phase 3A+ 深度重构
+发票路由 — Phase 3A+ 深度重构 + Phase 4.4 兼容性修复
 ═══════════════════════════════════════════════════
 核心功能：
   1. 发票OCR上传识别（集成腾讯云 VatInvoiceOCR 全字段 + 明细）
@@ -8,18 +8,21 @@
   4. 发票核验（腾讯云 VatInvoiceVerifyNew 自动核验）
   5. 发票查重（基于发票代码+发票号码唯一性）
   6. Phase 3C: 上传发票后自动触发欠票销账
+  7. Phase 4.4: 管理员发票管理（全员工发票仓库）
 
 接口清单：
   POST /upload          上传发票图片并OCR识别（全字段提取）
   POST /ocr             独立OCR识别接口（前端调用）
   GET  /list            发票列表（含状态标签）
+  GET  /admin-list      管理员发票管理（全员工发票仓库，支持日期筛选）
   GET  /{id}            发票详情（含明细条目）
   POST /{id}/verify     发票核验（自动/手动）
   GET  /check-duplicate 查重检查
 """
-from datetime import datetime, date, timezone
+from datetime import datetime, date, timezone, timedelta
 from decimal import Decimal
 from typing import Optional
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -36,6 +39,7 @@ from app.services.ocr_service import (
     verify_invoice as ocr_verify,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -75,6 +79,26 @@ class InvoiceVerifyRequest(BaseModel):
     verify_result: Optional[str] = Field(default=None, description="手动核验结果: verified/failed/duplicate")
     verify_result_json: Optional[dict] = Field(default=None, description="核验详情JSON")
     auto_verify: Optional[bool] = Field(default=False, description="是否调用腾讯云自动核验")
+
+
+# ═══════════════════════════════════════════════════
+# 工具函数：检测 Invoice 表是否有某个列
+# ═══════════════════════════════════════════════════
+
+def _invoice_has_column(col_name: str) -> bool:
+    """检测 Invoice 模型对应的表是否有指定列"""
+    try:
+        return col_name in {c.name for c in Invoice.__table__.columns}
+    except Exception:
+        return False
+
+
+def _safe_getattr(obj, attr, default=None):
+    """安全获取属性，兼容数据库缺少字段的情况"""
+    try:
+        return getattr(obj, attr, default)
+    except Exception:
+        return default
 
 
 # ═══════════════════════════════════════════════════
@@ -143,6 +167,8 @@ async def upload_invoice(
       2. 自动查重（基于发票代码+发票号码）
       3. 将识别结果存入 Invoice 表（含全部字段+明细）
       4. Phase 3C: 上传成功后自动触发欠票销账匹配
+    兼容性：
+      - 如果数据库尚未执行迁移（缺少新字段），自动降级为基础字段写入
     """
     # ── Step 1: 判断是否需要后端 OCR ──
     has_ocr_data = any([
@@ -223,80 +249,125 @@ async def upload_invoice(
             is_duplicate = True
             duplicate_of_id = existing.id
 
-    # ── Step 4: 存入数据库（全字段） ──
-    invoice = Invoice(
+    # ── Step 4: 存入数据库（全字段，兼容旧数据库结构） ──
+    # 基础字段（旧表一定存在）
+    invoice_kwargs = dict(
         user_id=current_user.id,
         invoice_type=invoice_type,
-        invoice_type_label=invoice_type_label,
-        invoice_type_code=invoice_type_code,
         invoice_code=invoice_code,
         invoice_number=invoice_number,
         invoice_date=invoice_date,
         check_code=check_code,
-        machine_number=machine_number,
         buyer_name=buyer_name,
         buyer_tax_id=buyer_tax_id,
-        buyer_address_phone=buyer_address_phone,
-        buyer_bank_account=buyer_bank_account,
         seller_name=seller_name,
         seller_tax_id=seller_tax_id,
-        seller_address_phone=seller_address_phone,
-        seller_bank_account=seller_bank_account,
         pre_tax_amount=Decimal(str(pre_tax_amount)) if pre_tax_amount else None,
         tax_amount=Decimal(str(tax_amount)) if tax_amount else None,
         total_amount=Decimal(str(total_amount)) if total_amount else None,
-        total_amount_cn=total_amount_cn,
-        payee=payee,
-        reviewer_name=reviewer_name,
-        drawer=drawer,
-        goods_name_summary=goods_name_summary,
         remark=remark,
-        province=province,
-        city=city,
-        has_company_seal=has_company_seal,
-        consumption_type=consumption_type,
-        items_json=ocr_items if ocr_items else None,
         image_url=req.image_url,
         ocr_raw_json=ocr_raw,
         verify_status="duplicate" if is_duplicate else "pending",
-        is_duplicate=is_duplicate,
-        duplicate_of_id=duplicate_of_id,
         business_type=req.business_type,
     )
+
+    # V2 新增字段（数据库迁移后才存在，用列检测兼容）
+    v2_fields = {
+        "invoice_type_label": invoice_type_label,
+        "invoice_type_code": invoice_type_code,
+        "machine_number": machine_number,
+        "buyer_address_phone": buyer_address_phone,
+        "buyer_bank_account": buyer_bank_account,
+        "seller_address_phone": seller_address_phone,
+        "seller_bank_account": seller_bank_account,
+        "total_amount_cn": total_amount_cn,
+        "payee": payee,
+        "reviewer_name": reviewer_name,
+        "drawer": drawer,
+        "goods_name_summary": goods_name_summary,
+        "province": province,
+        "city": city,
+        "has_company_seal": has_company_seal,
+        "consumption_type": consumption_type,
+        "items_json": ocr_items if ocr_items else None,
+        "is_duplicate": is_duplicate,
+        "duplicate_of_id": duplicate_of_id,
+    }
+
+    # 检测 Invoice 模型是否有这些列（兼容未迁移的数据库）
+    invoice_columns = {c.name for c in Invoice.__table__.columns}
+    for field_name, field_value in v2_fields.items():
+        if field_name in invoice_columns:
+            invoice_kwargs[field_name] = field_value
+
+    invoice = Invoice(**invoice_kwargs)
     db.add(invoice)
-    await db.flush()
+
+    try:
+        await db.flush()
+    except Exception as flush_err:
+        # 如果 flush 失败（可能是数据库缺少新字段），回退到只用基础字段
+        await db.rollback()
+        logger.warning(f"发票全字段写入失败，降级为基础字段: {flush_err}")
+        invoice_fallback = Invoice(
+            user_id=current_user.id,
+            invoice_type=invoice_type,
+            invoice_code=invoice_code,
+            invoice_number=invoice_number,
+            invoice_date=invoice_date,
+            check_code=check_code,
+            buyer_name=buyer_name,
+            buyer_tax_id=buyer_tax_id,
+            seller_name=seller_name,
+            seller_tax_id=seller_tax_id,
+            pre_tax_amount=Decimal(str(pre_tax_amount)) if pre_tax_amount else None,
+            tax_amount=Decimal(str(tax_amount)) if tax_amount else None,
+            total_amount=Decimal(str(total_amount)) if total_amount else None,
+            remark=remark,
+            image_url=req.image_url,
+            ocr_raw_json=ocr_raw,
+            verify_status="duplicate" if is_duplicate else "pending",
+            business_type=req.business_type,
+        )
+        db.add(invoice_fallback)
+        await db.flush()
+        invoice = invoice_fallback
 
     # ── Step 5: Phase 3C 自动销账匹配 ──
     auto_resolved = []
     if invoice.total_amount and not is_duplicate:
-        missing_result = await db.execute(
-            select(MissingInvoiceLedger).where(
-                and_(
-                    MissingInvoiceLedger.responsible_user_id == current_user.id,
-                    MissingInvoiceLedger.status.in_(["pending", "reminded"]),
+        try:
+            missing_result = await db.execute(
+                select(MissingInvoiceLedger).where(
+                    and_(
+                        MissingInvoiceLedger.responsible_user_id == current_user.id,
+                        MissingInvoiceLedger.status.in_(["pending", "reminded"]),
+                    )
                 )
-            ).order_by(MissingInvoiceLedger.trade_date.desc())
-        )
-        pending_records = missing_result.scalars().all()
+            )
+            pending_records = missing_result.scalars().all()
 
-        now = datetime.now(timezone.utc)
-        inv_amount = float(invoice.total_amount)
+            now = datetime.now(timezone.utc)
+            inv_amount = float(invoice.total_amount)
 
-        for record in pending_records:
-            record_amount = float(record.amount)
-            if record_amount > 0:
-                diff_pct = abs(inv_amount - record_amount) / record_amount
-                if diff_pct <= 0.05:
-                    record.status = "received"
-                    record.matched_invoice_id = invoice.id
-                    record.resolved_at = now
-                    record.resolved_by = current_user.id
-                    auto_resolved.append({
-                        "missing_invoice_id": record.id,
-                        "item_name": record.item_name,
-                        "amount": record_amount,
-                    })
-                    break
+            for record in pending_records:
+                record_amount = float(record.amount)
+                if record_amount > 0:
+                    diff_pct = abs(inv_amount - record_amount) / record_amount
+                    if diff_pct <= 0.05:
+                        record.status = "received"
+                        record.matched_invoice_id = invoice.id
+                        record.resolved_at = now
+                        record.resolved_by = current_user.id
+                        auto_resolved.append({
+                            "missing_invoice_id": record.id,
+                            "item_name": record.item_name,
+                            "amount": record_amount,
+                        })
+                        break
+        except Exception as e:
+            logger.warning(f"自动销账匹配失败: {e}")
 
     await db.flush()
 
@@ -365,13 +436,10 @@ async def list_invoices(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    发票列表（员工看自己的，管理员看全部）
+    发票列表（员工看自己的）
     支持按核验状态和发票类型筛选
     """
-    query = select(Invoice)
-
-    if current_user.role < 5:
-        query = query.where(Invoice.user_id == current_user.id)
+    query = select(Invoice).where(Invoice.user_id == current_user.id)
 
     # 筛选条件
     if verify_status:
@@ -393,6 +461,109 @@ async def list_invoices(
     return {
         "code": 200,
         "data": [_serialize_invoice(inv) for inv in invoices],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+# ═══════════════════════════════════════════════════
+# 管理员发票管理（全员工发票仓库）— Phase 4.4 新增
+# ═══════════════════════════════════════════════════
+
+@router.get("/admin-list")
+async def admin_list_invoices(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    verify_status: Optional[str] = Query(default=None, description="筛选核验状态"),
+    invoice_type: Optional[str] = Query(default=None, description="筛选发票类型"),
+    date_from: Optional[str] = Query(default=None, description="起始日期 YYYY-MM-DD"),
+    date_to: Optional[str] = Query(default=None, description="结束日期 YYYY-MM-DD"),
+    keyword: Optional[str] = Query(default=None, description="关键词搜索（销方名称/发票号码）"),
+    user_id: Optional[int] = Query(default=None, description="按员工ID筛选"),
+    current_user: User = Depends(require_role(5)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    管理员发票管理（全员工发票仓库）
+    - 默认近90天
+    - 20条/页，支持分页
+    - 支持按日期、核验状态、发票类型、关键词筛选
+    - 返回员工姓名
+    """
+    query = select(Invoice)
+
+    # 日期范围筛选（默认近90天）
+    if date_from:
+        try:
+            start_date = date.fromisoformat(date_from)
+            query = query.where(Invoice.created_at >= datetime.combine(start_date, datetime.min.time()))
+        except ValueError:
+            pass
+    else:
+        # 默认近90天
+        default_start = datetime.now(timezone.utc) - timedelta(days=90)
+        query = query.where(Invoice.created_at >= default_start)
+
+    if date_to:
+        try:
+            end_date = date.fromisoformat(date_to)
+            query = query.where(Invoice.created_at <= datetime.combine(end_date, datetime.max.time()))
+        except ValueError:
+            pass
+
+    # 核验状态筛选
+    if verify_status and verify_status != "all":
+        query = query.where(Invoice.verify_status == verify_status)
+
+    # 发票类型筛选
+    if invoice_type and invoice_type != "all":
+        query = query.where(Invoice.invoice_type == invoice_type)
+
+    # 员工筛选
+    if user_id:
+        query = query.where(Invoice.user_id == user_id)
+
+    # 关键词搜索
+    if keyword:
+        query = query.where(
+            or_(
+                Invoice.seller_name.contains(keyword),
+                Invoice.invoice_number.contains(keyword),
+                Invoice.invoice_code.contains(keyword),
+                Invoice.buyer_name.contains(keyword),
+            )
+        )
+
+    # 总数
+    total_result = await db.execute(
+        select(func.count()).select_from(query.subquery())
+    )
+    total = total_result.scalar() or 0
+
+    # 分页
+    query = query.order_by(Invoice.created_at.desc())
+    query = query.offset((page - 1) * page_size).limit(page_size)
+
+    result = await db.execute(query)
+    invoices = result.scalars().all()
+
+    # 获取员工姓名映射
+    user_ids = list(set(inv.user_id for inv in invoices))
+    user_map = {}
+    if user_ids:
+        users_result = await db.execute(select(User).where(User.id.in_(user_ids)))
+        user_map = {u.id: u.name for u in users_result.scalars().all()}
+
+    data = []
+    for inv in invoices:
+        d = _serialize_invoice(inv)
+        d["user_name"] = user_map.get(inv.user_id, "未知")
+        data.append(d)
+
+    return {
+        "code": 200,
+        "data": data,
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -471,10 +642,22 @@ async def verify_invoice_endpoint(
 
         if verify_result["success"]:
             invoice.verify_status = "verified" if verify_result["verified"] else "failed"
-            invoice.verify_result_json = verify_result.get("data", {})
-            invoice.verified_at = now
+            if _invoice_has_column("verify_result_json"):
+                try:
+                    invoice.verify_result_json = verify_result.get("data", {})
+                except Exception:
+                    pass
+            if _invoice_has_column("verified_at"):
+                try:
+                    invoice.verified_at = now
+                except Exception:
+                    pass
         else:
-            invoice.verify_result_json = {"error": verify_result.get("error", "")}
+            if _invoice_has_column("verify_result_json"):
+                try:
+                    invoice.verify_result_json = {"error": verify_result.get("error", "")}
+                except Exception:
+                    pass
             return {
                 "code": 200,
                 "message": f"自动核验失败: {verify_result.get('error', '未知错误')}",
@@ -488,11 +671,23 @@ async def verify_invoice_endpoint(
             raise HTTPException(status_code=422, detail="核验结果必须为 verified/failed/duplicate")
 
         invoice.verify_status = req.verify_result
-        invoice.verify_result_json = req.verify_result_json
-        invoice.verified_at = now
+        if _invoice_has_column("verify_result_json"):
+            try:
+                invoice.verify_result_json = req.verify_result_json
+            except Exception:
+                pass
+        if _invoice_has_column("verified_at"):
+            try:
+                invoice.verified_at = now
+            except Exception:
+                pass
 
         if req.verify_result == "duplicate":
-            invoice.is_duplicate = True
+            if _invoice_has_column("is_duplicate"):
+                try:
+                    invoice.is_duplicate = True
+                except Exception:
+                    pass
 
     await db.flush()
 
@@ -520,20 +715,20 @@ def _serialize_invoice(inv: Invoice) -> dict:
         "id": inv.id,
         "user_id": inv.user_id,
         "invoice_type": inv.invoice_type,
-        "invoice_type_label": getattr(inv, 'invoice_type_label', None) or inv.invoice_type,
-        "invoice_type_code": getattr(inv, 'invoice_type_code', None) or (
+        "invoice_type_label": _safe_getattr(inv, 'invoice_type_label') or inv.invoice_type,
+        "invoice_type_code": _safe_getattr(inv, 'invoice_type_code') or (
             "专" if inv.invoice_type == "special_vat" else "普"
         ),
         "invoice_code": inv.invoice_code,
         "invoice_number": inv.invoice_number,
         "invoice_date": inv.invoice_date.isoformat() if inv.invoice_date else None,
         "seller_name": inv.seller_name,
-        "goods_name_summary": getattr(inv, 'goods_name_summary', None) or "",
+        "goods_name_summary": _safe_getattr(inv, 'goods_name_summary') or "",
         "total_amount": float(inv.total_amount) if inv.total_amount else None,
         "image_url": inv.image_url,
         "verify_status": inv.verify_status,
         "verify_status_label": VERIFY_LABELS.get(inv.verify_status, "未知"),
-        "is_duplicate": getattr(inv, 'is_duplicate', False),
+        "is_duplicate": _safe_getattr(inv, 'is_duplicate', False),
         "business_type": inv.business_type,
         "created_at": inv.created_at.isoformat() if inv.created_at else None,
     }
@@ -552,57 +747,60 @@ def _serialize_invoice_detail(inv: Invoice) -> dict:
         "failed": "核验失败",
         "duplicate": "重复发票",
     }
+
+    verified_at_val = _safe_getattr(inv, 'verified_at')
+
     return {
         "id": inv.id,
         "user_id": inv.user_id,
 
         # 基本信息
         "invoice_type": inv.invoice_type,
-        "invoice_type_label": getattr(inv, 'invoice_type_label', None) or inv.invoice_type,
-        "invoice_type_code": getattr(inv, 'invoice_type_code', None) or (
+        "invoice_type_label": _safe_getattr(inv, 'invoice_type_label') or inv.invoice_type,
+        "invoice_type_code": _safe_getattr(inv, 'invoice_type_code') or (
             "专" if inv.invoice_type == "special_vat" else "普"
         ),
         "invoice_code": inv.invoice_code,
         "invoice_number": inv.invoice_number,
         "invoice_date": inv.invoice_date.isoformat() if inv.invoice_date else None,
         "check_code": inv.check_code,
-        "machine_number": getattr(inv, 'machine_number', None),
+        "machine_number": _safe_getattr(inv, 'machine_number'),
 
         # 购方信息
         "buyer_name": inv.buyer_name,
         "buyer_tax_id": inv.buyer_tax_id,
-        "buyer_address_phone": getattr(inv, 'buyer_address_phone', None),
-        "buyer_bank_account": getattr(inv, 'buyer_bank_account', None),
+        "buyer_address_phone": _safe_getattr(inv, 'buyer_address_phone'),
+        "buyer_bank_account": _safe_getattr(inv, 'buyer_bank_account'),
 
         # 销方信息
         "seller_name": inv.seller_name,
         "seller_tax_id": inv.seller_tax_id,
-        "seller_address_phone": getattr(inv, 'seller_address_phone', None),
-        "seller_bank_account": getattr(inv, 'seller_bank_account', None),
+        "seller_address_phone": _safe_getattr(inv, 'seller_address_phone'),
+        "seller_bank_account": _safe_getattr(inv, 'seller_bank_account'),
 
         # 金额信息
         "pre_tax_amount": float(inv.pre_tax_amount) if inv.pre_tax_amount else None,
         "tax_amount": float(inv.tax_amount) if inv.tax_amount else None,
         "total_amount": float(inv.total_amount) if inv.total_amount else None,
-        "total_amount_cn": getattr(inv, 'total_amount_cn', None),
+        "total_amount_cn": _safe_getattr(inv, 'total_amount_cn'),
 
         # 人员信息
-        "payee": getattr(inv, 'payee', None),
-        "reviewer_name": getattr(inv, 'reviewer_name', None),
-        "drawer": getattr(inv, 'drawer', None),
+        "payee": _safe_getattr(inv, 'payee'),
+        "reviewer_name": _safe_getattr(inv, 'reviewer_name'),
+        "drawer": _safe_getattr(inv, 'drawer'),
 
         # 货物/服务名称
-        "goods_name_summary": getattr(inv, 'goods_name_summary', None),
+        "goods_name_summary": _safe_getattr(inv, 'goods_name_summary'),
 
         # 备注与附加
         "remark": inv.remark,
-        "province": getattr(inv, 'province', None),
-        "city": getattr(inv, 'city', None),
-        "has_company_seal": getattr(inv, 'has_company_seal', None),
-        "consumption_type": getattr(inv, 'consumption_type', None),
+        "province": _safe_getattr(inv, 'province'),
+        "city": _safe_getattr(inv, 'city'),
+        "has_company_seal": _safe_getattr(inv, 'has_company_seal'),
+        "consumption_type": _safe_getattr(inv, 'consumption_type'),
 
         # 发票明细
-        "items": getattr(inv, 'items_json', None) or [],
+        "items": _safe_getattr(inv, 'items_json') or [],
 
         # 图片
         "image_url": inv.image_url,
@@ -610,12 +808,11 @@ def _serialize_invoice_detail(inv: Invoice) -> dict:
         # 核验状态
         "verify_status": inv.verify_status,
         "verify_status_label": VERIFY_LABELS.get(inv.verify_status, "未知"),
-        "verified_at": (getattr(inv, 'verified_at', None) or "").isoformat()
-            if getattr(inv, 'verified_at', None) else None,
+        "verified_at": verified_at_val.isoformat() if verified_at_val else None,
 
         # 查重
-        "is_duplicate": getattr(inv, 'is_duplicate', False),
-        "duplicate_of_id": getattr(inv, 'duplicate_of_id', None),
+        "is_duplicate": _safe_getattr(inv, 'is_duplicate', False),
+        "duplicate_of_id": _safe_getattr(inv, 'duplicate_of_id'),
 
         # 业务分类
         "business_type": inv.business_type,

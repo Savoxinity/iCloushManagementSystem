@@ -1,5 +1,6 @@
 // ============================================
 // 报销审核页 — 管理员/财务专用
+// ★ 五Tab分类：全部 / 待审核 / 发票通过 / 小票通过 / 已驳回
 // ★ 三按钮审核：驳回 / 小票通过 / 发票通过
 // ★ 积分后置：审核时才产生积分奖惩
 // ============================================
@@ -16,24 +17,56 @@ Page({
     showReviewPanel: false,
     showDetailPanel: false,
     reviewNote: '',
+
+    // ═══ 五Tab筛选 ═══
+    activeTab: 'pending',
+    currentTabLabel: '待审核',
+    tabs: [
+      { key: 'all', label: '全部' },
+      { key: 'pending', label: '待审核' },
+      { key: 'invoice_pass', label: '发票通过' },
+      { key: 'receipt_pass', label: '小票通过' },
+      { key: 'rejected', label: '已驳回' },
+    ],
   },
 
   onLoad: function () {
     wx.setNavigationBarTitle({ title: '报销审核' });
-    this.loadPendingExpenses();
+    this.loadExpenses();
     this.loadCategories();
   },
 
   onShow: function () {
-    this.loadPendingExpenses();
+    this.loadExpenses();
   },
 
-  // ── 加载待审核报销单 ──
-  loadPendingExpenses: function () {
+  // ── 切换Tab ──
+  switchTab: function (e) {
+    var tab = e.currentTarget.dataset.tab;
+    var tabLabels = {
+      all: '全部',
+      pending: '待审核',
+      invoice_pass: '发票通过',
+      receipt_pass: '小票通过',
+      rejected: '已驳回',
+    };
+    this.setData({
+      activeTab: tab,
+      currentTabLabel: tabLabels[tab] || '',
+      expenses: [],
+    });
+    this.loadExpenses();
+  },
+
+  // ── 加载报销单（支持Tab状态筛选） ──
+  loadExpenses: function () {
     var self = this;
     self.setData({ loading: true });
+
+    var url = '/api/v1/expenses/pending?status=' + self.data.activeTab;
+
     app.request({
-      url: '/api/v1/expenses/pending',
+      url: url,
       success: function (res) {
         self.setData({ loading: false });
         if (res.code === 200) {
@@ -245,7 +278,7 @@ Page({
             icon: 'success',
           });
           self.setData({ showReviewPanel: false, currentExpense: null });
-          self.loadPendingExpenses();
+          self.loadExpenses();
         } else {
           wx.showToast({ title: res.message || '操作失败', icon: 'none' });
         }

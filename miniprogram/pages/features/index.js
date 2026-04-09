@@ -92,6 +92,12 @@ var ALL_FEATURES = [
     iconBg: 'rgba(251, 191, 36, 0.15)', url: '/pages/expense-review/index',
     minRole: 5, comingSoon: false, adminOnly: true,
   },
+  // 管理员：发票管理（全员工发票仓库）
+  {
+    id: 'invoice_admin', name: '发票管理', sub: '全员工发票仓库', icon: '📋',
+    iconBg: 'rgba(59, 130, 246, 0.15)', url: '/pages/invoice-manage/index',
+    minRole: 5, comingSoon: false, adminOnly: true,
+  },
   // 管理员：管理会计入口（欠票看板、成本直录、利润表）
   {
     id: 'accounting', name: '管理会计', sub: '利润表/成本/欠票', icon: '📈',
