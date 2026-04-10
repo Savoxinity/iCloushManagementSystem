@@ -40,6 +40,33 @@
     </view>
   </view>
 
+  <!-- 货物/服务明细条目 -->
+  <view class="form-section" wx:if="{{ocrItems.length > 0}}">
+    <view class="section-title">货物/服务明细（{{ocrItems.length}}项）</view>
+    <view class="items-table">
+      <!-- 表头 -->
+      <view class="item-header">
+        <text class="item-col-name">项目名称</text>
+        <text class="item-col-spec">规格型号</text>
+        <text class="item-col-qty">数量</text>
+        <text class="item-col-price">单价</text>
+        <text class="item-col-amount">金额</text>
+        <text class="item-col-tax">税率</text>
+        <text class="item-col-tax-amt">税额</text>
+      </view>
+      <!-- 明细行 -->
+      <view class="item-row" wx:for="{{ocrItems}}" wx:key="index">
+        <text class="item-col-name item-name-text">{{item.name || '--'}}</text>
+        <text class="item-col-spec">{{item.spec || '--'}}</text>
+        <text class="item-col-qty">{{item.quantity || '--'}}</text>
+        <text class="item-col-price">{{item.unit_price || '--'}}</text>
+        <text class="item-col-amount">{{item.amount_without_tax || '--'}}</text>
+        <text class="item-col-tax">{{item.tax_rate || '--'}}</text>
+        <text class="item-col-tax-amt">{{item.tax_amount || '--'}}</text>
+      </view>
+    </view>
+  </view>
+
   <!-- 提交按钮 -->
   <view class="btn-area">
     <button class="btn-submit {{submitDisabled || submitting || ocrLoading ? 'btn-disabled' : ''}}"

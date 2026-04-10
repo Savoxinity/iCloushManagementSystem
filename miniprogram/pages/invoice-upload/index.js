@@ -15,17 +15,26 @@ Page({
     ocrResult: null,     // OCR识别结果（结构化）
     ocrAvailable: false, // OCR 是否可用
     ocrFields: [
-      { key: 'invoice_type', label: '发票类型', value: '' },
+      { key: 'invoice_type_label', label: '发票类型', value: '' },
       { key: 'invoice_code', label: '发票代码', value: '' },
       { key: 'invoice_number', label: '发票号码', value: '' },
       { key: 'invoice_date', label: '开票日期', value: '' },
-      { key: 'total_amount', label: '价税合计', value: '' },
-      { key: 'pre_tax_amount', label: '不含税金额', value: '' },
-      { key: 'tax_amount', label: '税额', value: '' },
-      { key: 'seller_name', label: '销方名称', value: '' },
-      { key: 'buyer_name', label: '购方名称', value: '' },
+      { key: 'total_amount', label: '价税合计（小写）', value: '' },
+      { key: 'pre_tax_amount', label: '合计金额（不含税）', value: '' },
+      { key: 'tax_amount', label: '合计税额', value: '' },
       { key: 'check_code', label: '校验码', value: '' },
+      { key: 'buyer_name', label: '购买方名称', value: '' },
+      { key: 'buyer_tax_id', label: '购买方纳税人识别号', value: '' },
+      { key: 'seller_name', label: '销售方名称', value: '' },
+      { key: 'seller_tax_id', label: '销售方纳税人识别号', value: '' },
+      { key: 'drawer', label: '开票人', value: '' },
+      { key: 'payee', label: '收款人', value: '' },
+      { key: 'reviewer', label: '复核人', value: '' },
+      { key: 'remark', label: '备注', value: '' },
+      { key: 'goods_name_summary', label: '货物/服务名称', value: '' },
     ],
+    // 明细条目
+    ocrItems: [],
     submitDisabled: true,
     submitting: false,
   },
@@ -48,6 +57,7 @@ Page({
           imageUrl: '',
           ocrResult: null,
           ocrAvailable: false,
+          ocrItems: [],
         });
         // 重置 OCR 字段
         var fields = self.data.ocrFields.map(function (f) {
@@ -126,6 +136,10 @@ Page({
             });
             self.setData({ ocrFields: fields });
 
+            // 保存明细条目
+            var items = res.data.items || [];
+            self.setData({ ocrItems: items });
+
             wx.showToast({ title: 'OCR 识别成功', icon: 'success' });
           } else {
             // OCR 不可用（密钥未配置等）
@@ -175,9 +189,15 @@ Page({
       }
     });
 
+    // 发票类型需要传内部代码，从OCR结果中获取
+    var invoiceType = null;
+    if (self.data.ocrResult && self.data.ocrResult.invoice_type) {
+      invoiceType = self.data.ocrResult.invoice_type;
+    }
+
     var payload = {
       image_url: self.data.imageUrl,
-      invoice_type: fieldData.invoice_type || null,
+      invoice_type: invoiceType,
       invoice_code: fieldData.invoice_code || null,
       invoice_number: fieldData.invoice_number || null,
       invoice_date: fieldData.invoice_date || null,
@@ -185,8 +205,11 @@ Page({
       pre_tax_amount: fieldData.pre_tax_amount ? parseFloat(fieldData.pre_tax_amount) : null,
       tax_amount: fieldData.tax_amount ? parseFloat(fieldData.tax_amount) : null,
       seller_name: fieldData.seller_name || null,
+      seller_tax_id: fieldData.seller_tax_id || null,
       buyer_name: fieldData.buyer_name || null,
+      buyer_tax_id: fieldData.buyer_tax_id || null,
       check_code: fieldData.check_code || null,
+      remark: fieldData.remark || null,
     };
 
     app.request({
@@ -197,6 +220,9 @@ Page({
         self.setData({ submitting: false });
         if (res.code === 200) {
           var msg = '发票上传成功';
+          if (res.data && res.data.is_duplicate) {
+            msg = '发票上传成功（检测到重复发票）';
+          }
           if (res.data && res.data.auto_resolved && res.data.auto_resolved.length > 0) {
             msg += '，自动核销 ' + res.data.auto_resolved.length + ' 条欠票';
           }

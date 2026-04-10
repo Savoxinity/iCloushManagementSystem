@@ -170,6 +170,42 @@
 .item-col-amount { flex: 1.5; text-align: right; }
 .item-col-tax { flex: 1; text-align: right; }
 
+/* 核验操作区 */
+.verify-action-bar {
+  display: flex;
+  gap: 16rpx;
+  padding: 20rpx 28rpx;
+  background: rgba(255,255,255,0.03);
+}
+.verify-btn {
+  flex: 1;
+  height: 72rpx;
+  line-height: 72rpx;
+  text-align: center;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+}
+.verify-btn-auto {
+  background: #C9A84C;
+  color: #000;
+}
+.verify-btn-manual {
+  background: rgba(255,255,255,0.08);
+  color: #ddd;
+  border: 1rpx solid rgba(255,255,255,0.15);
+}
+.btn-loading {
+  opacity: 0.5;
+}
+
+/* 文字颜色 */
+.text-green { color: #10B981 !important; }
+.text-red { color: #EF4444 !important; }
+
+/* 税额列 */
+.item-col-tax-amt { flex: 1; text-align: right; }
+
 /* 备注 */
 .remark-block {
   background: rgba(255,255,255,0.03);

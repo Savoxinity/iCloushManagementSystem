@@ -40,7 +40,7 @@
 .edit-btn{background:rgba(201,168,76,0.15);border-radius:20rpx;padding:6rpx 20rpx;}
 .edit-btn text{font-size:22rpx;color:#C9A84C;}
 .form-label{display:block;font-size:22rpx;color:#888888;margin-bottom:10rpx;margin-top:20rpx;}
-.form-input{background:#1A1A1A;border-radius:12rpx;border:1rpx solid #252525;padding:16rpx;font-size:26rpx;color:#F0F0F0;width:100%;box-sizing:border-box;}
+.form-input{background:#1A1A1A;border-radius:12rpx;border:1rpx solid #252525;padding:20rpx 16rpx;font-size:26rpx;color:#F0F0F0;width:100%;box-sizing:border-box;min-height:84rpx;line-height:44rpx;height:auto;}
 .form-value{display:block;font-size:26rpx;color:#F0F0F0;padding:8rpx 0;}
 .avatar-grid-scroll{white-space:nowrap;}
 .avatar-grid{display:flex;gap:12rpx;padding:4rpx 0;}

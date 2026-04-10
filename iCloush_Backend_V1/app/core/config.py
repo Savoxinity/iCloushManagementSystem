@@ -44,6 +44,12 @@ class Settings(BaseSettings):
     APP_PORT: int = 80  # 微信云托管要求 80
     APP_HOST: str = "0.0.0.0"
 
+    # ── 文件访问 ──
+    # 本地部署时设置为局域网IP，如 http://192.168.1.4:8000
+    # 微信云托管时设置为云托管域名
+    # 用于生成上传文件的可访问URL（小程序/真机需要局域网IP，不能用localhost）
+    BASE_URL: str = "http://192.168.1.4:8000"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

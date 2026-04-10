@@ -780,6 +780,13 @@ VERIFY_LABELS = {
     "manual_review": "待人工复核",
 }
 
+# 发票类型中文映射（当数据库中 invoice_type_label 为空时的兆底）
+INVOICE_TYPE_LABELS = {
+    "special_vat": "增值税专用发票",
+    "general_vat": "增值税普通发票",
+    "non_standard": "非标票据",
+}
+
 
 def _serialize_invoice(inv: Invoice) -> dict:
     """列表序列化：精简版，用于列表展示"""
@@ -787,7 +794,7 @@ def _serialize_invoice(inv: Invoice) -> dict:
         "id": inv.id,
         "user_id": inv.user_id,
         "invoice_type": inv.invoice_type,
-        "invoice_type_label": _safe_getattr(inv, 'invoice_type_label') or inv.invoice_type,
+        "invoice_type_label": _safe_getattr(inv, 'invoice_type_label') or INVOICE_TYPE_LABELS.get(inv.invoice_type, inv.invoice_type),
         "invoice_type_code": _safe_getattr(inv, 'invoice_type_code') or (
             "专" if inv.invoice_type == "special_vat" else "普"
         ),
@@ -820,7 +827,7 @@ def _serialize_invoice_detail(inv: Invoice) -> dict:
 
         # 基本信息
         "invoice_type": inv.invoice_type,
-        "invoice_type_label": _safe_getattr(inv, 'invoice_type_label') or inv.invoice_type,
+        "invoice_type_label": _safe_getattr(inv, 'invoice_type_label') or INVOICE_TYPE_LABELS.get(inv.invoice_type, inv.invoice_type),
         "invoice_type_code": _safe_getattr(inv, 'invoice_type_code') or (
             "专" if inv.invoice_type == "special_vat" else "普"
         ),
