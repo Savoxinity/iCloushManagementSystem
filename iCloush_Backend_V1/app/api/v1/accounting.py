@@ -311,7 +311,7 @@ async def update_cost_entry(
     if req.is_sunk_cost is not None:
         entry.is_sunk_cost = req.is_sunk_cost
     if req.remark is not None:
-        entry.item_name = req.remark if not actual_item_name else actual_item_name
+        entry.remark = req.remark
 
     # 如果分类变了，更新关联的 behavior 和 center
     if req.category_code is not None:
