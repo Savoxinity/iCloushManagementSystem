@@ -21,6 +21,27 @@
 .mall-card-stock.low { color: var(--color-alert); }
 .insufficient-mask { position: absolute; inset: 0; background: rgba(0,0,0,0.6); border-radius: 20rpx; display: flex; align-items: center; justify-content: center; }
 .insufficient-text { font-size: 26rpx; color: var(--color-text-muted); }
+
+/* 管理员：删除按钮 */
+.admin-badge { position: absolute; top: 8rpx; right: 8rpx; width: 44rpx; height: 44rpx; background: rgba(239,68,68,0.85); border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 10; }
+.admin-badge-text { font-size: 24rpx; color: #fff; font-weight: 700; }
+
+/* 管理员：添加卡片 */
+.add-card { display: flex; flex-direction: column; align-items: center; justify-content: center; border: 2rpx dashed var(--color-gold); background: transparent; min-height: 320rpx; }
+.add-card-icon { width: 80rpx; height: 80rpx; border-radius: 50%; background: rgba(201,168,76,0.15); display: flex; align-items: center; justify-content: center; margin-bottom: 16rpx; }
+.add-card-icon text { font-size: 48rpx; color: var(--color-gold); font-weight: 300; }
+.add-card-text { font-size: 26rpx; color: var(--color-gold); letter-spacing: 2rpx; }
+
+/* 新增/编辑弹窗 */
+.add-modal { background: var(--color-surface); border-radius: 32rpx 32rpx 0 0; padding: 40rpx 32rpx 60rpx; width: 100%; max-height: 85vh; overflow-y: auto; }
+.add-modal-header { margin-bottom: 32rpx; }
+.add-modal-title { font-size: 36rpx; font-weight: 700; color: var(--color-text); }
+.add-modal-form { margin-bottom: 32rpx; }
+.form-group { margin-bottom: 24rpx; }
+.form-label { display: block; font-size: 24rpx; color: var(--color-text-muted); margin-bottom: 10rpx; letter-spacing: 1rpx; }
+.form-input { background: var(--color-bg); border: 1rpx solid var(--color-border); border-radius: 12rpx; padding: 20rpx 24rpx; font-size: 28rpx; color: var(--color-text); width: 100%; box-sizing: border-box; }
+.form-textarea { background: var(--color-bg); border: 1rpx solid var(--color-border); border-radius: 12rpx; padding: 20rpx 24rpx; font-size: 28rpx; color: var(--color-text); width: 100%; box-sizing: border-box; height: 160rpx; }
+
 .ledger-list, .exchange-list { padding: 0 24rpx; }
 .ledger-item { display: flex; flex-direction: row; justify-content: space-between; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid var(--color-border); }
 .ledger-reason { display: block; font-size: 28rpx; color: var(--color-text); margin-bottom: 8rpx; }

@@ -1,5 +1,5 @@
 // ============================================
-// 积分商城页面
+// 积分商城页面（含管理员 CRUD）
 // ============================================
 var app = getApp();
 var util = require('../../utils/util');
@@ -9,10 +9,23 @@ Page({
     activeTab: 'mall', myPoints: 0, monthlyPoints: 0,
     mallItems: [], ledgerRecords: [], exchangeRecords: [],
     showItemModal: false, currentItem: {}, exchanging: false,
+    // 管理员
+    isAdmin: false,
+    showAddModal: false, editingItem: null, submitting: false,
+    formData: { name: '', icon: '🎁', category: '福利', points_cost: '', stock: '', description: '' },
   },
 
-  onLoad: function () { this.loadData(); },
-  onShow: function () { this.loadPoints(); },
+  onLoad: function () {
+    // 判断是否管理员（role >= 5）
+    var userInfo = app.globalData.userInfo || {};
+    this.setData({ isAdmin: (userInfo.role || 0) >= 5 });
+    this.loadData();
+  },
+  onShow: function () {
+    var userInfo = app.globalData.userInfo || {};
+    this.setData({ isAdmin: (userInfo.role || 0) >= 5 });
+    this.loadPoints();
+  },
 
   loadData: function () {
     this.loadPoints();
@@ -43,14 +56,7 @@ Page({
         if (res.code === 200 && res.data) {
           self.setData({ mallItems: res.data });
         } else {
-          self.setData({ mallItems: [
-            { id: 1, name: '下午茶券', description: '可兑换一份下午茶或饮品', icon: '☕', points_cost: 50, stock: 20 },
-            { id: 2, name: '外卖补贴', description: '满30减15外卖补贴券', icon: '🍱', points_cost: 80, stock: 15 },
-            { id: 3, name: '半天调休', description: '申请半天带薪调休', icon: '🌙', points_cost: 200, stock: 5 },
-            { id: 4, name: '全天调休', description: '申请一天带薪调休', icon: '🏖️', points_cost: 350, stock: 3 },
-            { id: 5, name: '超市购物卡', description: '50元超市购物卡', icon: '🛒', points_cost: 150, stock: 10 },
-            { id: 6, name: '月度之星', description: '获得月度之星荣誉证书', icon: '⭐', points_cost: 500, stock: 1 },
-          ]});
+          self.setData({ mallItems: [] });
         }
       },
     });
@@ -74,12 +80,7 @@ Page({
           }
           self.setData({ ledgerRecords: records });
         } else {
-          self.setData({ ledgerRecords: [
-            { id: 1, reason: '完成日常任务x3', delta: 30, timeStr: '今天 09:30' },
-            { id: 2, reason: '任务质量优秀奖励', delta: 20, timeStr: '今天 08:15' },
-            { id: 3, reason: '兑换下午茶券', delta: -50, timeStr: '昨天 15:00' },
-            { id: 4, reason: '完成周期任务', delta: 50, timeStr: '前天 10:20' },
-          ]});
+          self.setData({ ledgerRecords: [] });
         }
       },
     });
@@ -104,9 +105,7 @@ Page({
           }
           self.setData({ exchangeRecords: records });
         } else {
-          self.setData({ exchangeRecords: [
-            { id: 1, name: '下午茶券', icon: '☕', points_cost: 50, status: 'completed', statusLabel: '已核销', timeStr: '昨天 15:00' },
-          ]});
+          self.setData({ exchangeRecords: [] });
         }
       },
     });
@@ -141,6 +140,106 @@ Page({
               self.loadData();
             } else {
               wx.showToast({ title: res.message || '兑换失败', icon: 'none' });
+            }
+          },
+        });
+      },
+    });
+  },
+
+  // ═══════════════════════════════════════════
+  // 管理员：新增商品
+  // ═══════════════════════════════════════════
+  onAddItem: function () {
+    this.setData({
+      showAddModal: true,
+      editingItem: null,
+      formData: { name: '', icon: '🎁', category: '福利', points_cost: '', stock: '', description: '' },
+    });
+  },
+
+  closeAddModal: function () {
+    this.setData({ showAddModal: false, editingItem: null });
+  },
+
+  onFormInput: function (e) {
+    var field = e.currentTarget.dataset.field;
+    var value = e.detail.value;
+    var key = 'formData.' + field;
+    this.setData({ [key]: value });
+  },
+
+  submitAddItem: function () {
+    var self = this;
+    var form = this.data.formData;
+    // 校验
+    if (!form.name || !form.name.trim()) {
+      wx.showToast({ title: '请输入奖品名称', icon: 'none' }); return;
+    }
+    var pointsCost = parseInt(form.points_cost);
+    if (!pointsCost || pointsCost <= 0) {
+      wx.showToast({ title: '请输入有效积分数', icon: 'none' }); return;
+    }
+    var stock = parseInt(form.stock);
+    if (isNaN(stock) || stock < 0) {
+      wx.showToast({ title: '请输入有效库存', icon: 'none' }); return;
+    }
+
+    self.setData({ submitting: true });
+
+    var isEdit = !!this.data.editingItem;
+    var url = isEdit ? '/api/v1/mall/items/' + this.data.editingItem.id : '/api/v1/mall/items';
+    var method = isEdit ? 'PUT' : 'POST';
+
+    app.request({
+      url: url,
+      method: method,
+      data: {
+        name: form.name.trim(),
+        icon: form.icon || '🎁',
+        category: form.category || '福利',
+        points_cost: pointsCost,
+        stock: stock,
+        description: form.description || '',
+      },
+      success: function (res) {
+        self.setData({ submitting: false });
+        if (res.code === 200) {
+          wx.showToast({ title: isEdit ? '修改成功' : '添加成功', icon: 'success' });
+          self.setData({ showAddModal: false, editingItem: null });
+          self.loadMallItems();
+        } else {
+          wx.showToast({ title: res.detail || res.message || '操作失败', icon: 'none' });
+        }
+      },
+      fail: function () {
+        self.setData({ submitting: false });
+        wx.showToast({ title: '网络错误', icon: 'none' });
+      },
+    });
+  },
+
+  // ═══════════════════════════════════════════
+  // 管理员：删除商品
+  // ═══════════════════════════════════════════
+  onDeleteItem: function (e) {
+    var item = e.currentTarget.dataset.item;
+    var self = this;
+    wx.showModal({
+      title: '删除奖品',
+      content: '确认删除「' + item.name + '」？此操作不可撤销。',
+      confirmColor: '#EF4444',
+      success: function (res) {
+        if (!res.confirm) return;
+        app.request({
+          url: '/api/v1/mall/items/' + item.id,
+          method: 'DELETE',
+          success: function (res) {
+            if (res.code === 200) {
+              wx.showToast({ title: '已删除', icon: 'success' });
+              self.loadMallItems();
+            } else {
+              wx.showToast({ title: res.detail || '删除失败', icon: 'none' });
             }
           },
         });

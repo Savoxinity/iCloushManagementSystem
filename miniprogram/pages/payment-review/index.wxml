@@ -1,0 +1,53 @@
+<!-- 付款审批 — 管理员 -->
+<view class="page-container">
+  <!-- 状态筛选 -->
+  <view class="filter-tabs">
+    <view class="tab {{statusFilter === 'pending' ? 'active' : ''}}" data-status="pending" bindtap="filterByStatus">待审批</view>
+    <view class="tab {{statusFilter === 'approved' ? 'active' : ''}}" data-status="approved" bindtap="filterByStatus">已批准</view>
+    <view class="tab {{statusFilter === 'completed' ? 'active' : ''}}" data-status="completed" bindtap="filterByStatus">已付款</view>
+    <view class="tab {{statusFilter === '' ? 'active' : ''}}" data-status="" bindtap="filterByStatus">全部</view>
+  </view>
+
+  <!-- 列表 -->
+  <view class="list-container">
+    <view wx:if="{{loading}}" class="loading-hint">加载中...</view>
+    <view wx:elif="{{!payments.length}}" class="empty-hint">暂无申请单</view>
+    <view wx:else class="payment-card" wx:for="{{payments}}" wx:key="id">
+      <view class="card-header">
+        <view class="type-badge type-{{item.payment_type}}">Type {{item.payment_type}}</view>
+        <view class="status-badge status-{{item.status}}">{{item.statusLabel}}</view>
+      </view>
+      <view class="card-body">
+        <text class="applicant">申请人：{{item.applicant_name || '未知'}}</text>
+        <text class="supplier">供应商：{{item.supplier_name}}</text>
+        <text class="purpose">{{item.purpose}}</text>
+        <view class="card-meta">
+          <text class="amount">¥{{item.total_amount}}</text>
+          <text class="date">{{item.created_at_display}}</text>
+        </view>
+        <!-- 分期明细 -->
+        <view wx:if="{{item.payment_type === 'C' && item.installments}}" class="installment-detail">
+          <view wx:for="{{item.installments}}" wx:for-item="inst" wx:for-index="idx" wx:key="idx" class="inst-row">
+            <text>第{{idx+1}}笔：¥{{inst.amount}} ({{inst.date}})</text>
+          </view>
+        </view>
+        <view wx:if="{{item.expected_invoice_date}}" class="invoice-info">
+          <text>预期开票：{{item.expected_invoice_date}}</text>
+        </view>
+        <!-- 发票图片 -->
+        <view wx:if="{{item.invoice_image_url}}" class="invoice-preview">
+          <image src="{{item.invoice_image_url}}" mode="aspectFit" class="invoice-img" bindtap="previewImage" data-url="{{item.invoice_image_url}}" />
+        </view>
+      </view>
+
+      <!-- 审批操作 -->
+      <view wx:if="{{item.status === 'pending'}}" class="action-bar">
+        <button class="btn-reject" data-id="{{item.id}}" bindtap="rejectPayment">驳回</button>
+        <button class="btn-approve" data-id="{{item.id}}" bindtap="approvePayment">批准</button>
+      </view>
+      <view wx:if="{{item.status === 'approved'}}" class="action-bar">
+        <button class="btn-complete" data-id="{{item.id}}" bindtap="completePayment">标记已付款</button>
+      </view>
+    </view>
+  </view>
+</view>

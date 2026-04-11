@@ -1,0 +1,34 @@
+.page-container { padding: 24rpx; background: #0a0a0a; min-height: 100vh; }
+
+/* 筛选标签 */
+.filter-tabs { display: flex; gap: 12rpx; margin-bottom: 24rpx; overflow-x: auto; white-space: nowrap; }
+.tab { padding: 12rpx 24rpx; font-size: 26rpx; color: #888; background: rgba(255,255,255,0.05); border-radius: 8rpx; flex-shrink: 0; }
+.tab.active { background: #C9A84C; color: #000; font-weight: bold; }
+
+/* 列表 */
+.list-container { }
+.loading-hint, .empty-hint { text-align: center; color: #666; font-size: 28rpx; padding: 120rpx 0; }
+
+/* 卡片 */
+.payment-card { background: rgba(255,255,255,0.05); border-radius: 16rpx; padding: 24rpx; margin-bottom: 20rpx; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
+.type-badge { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 6rpx; font-weight: bold; }
+.type-A { background: rgba(16,185,129,0.2); color: #10B981; }
+.type-B { background: rgba(59,130,246,0.2); color: #3B82F6; }
+.type-C { background: rgba(245,158,11,0.2); color: #F59E0B; }
+.status-badge { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 6rpx; }
+.status-pending { background: rgba(251,191,36,0.2); color: #FBB024; }
+.status-approved { background: rgba(59,130,246,0.2); color: #3B82F6; }
+.status-completed { background: rgba(16,185,129,0.2); color: #10B981; }
+.status-rejected { background: rgba(239,68,68,0.2); color: #EF4444; }
+
+.card-body { }
+.supplier { font-size: 32rpx; color: #fff; font-weight: bold; display: block; margin-bottom: 8rpx; }
+.purpose { font-size: 26rpx; color: #888; display: block; margin-bottom: 12rpx; }
+.card-meta { display: flex; justify-content: space-between; align-items: center; }
+.amount { font-size: 36rpx; color: #C9A84C; font-weight: bold; }
+.date { font-size: 24rpx; color: #666; }
+
+.card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 16rpx; padding-top: 16rpx; border-top: 1rpx solid rgba(255,255,255,0.08); }
+.invoice-date { font-size: 24rpx; color: #888; }
+.overdue-tag { font-size: 22rpx; padding: 4rpx 12rpx; background: rgba(239,68,68,0.2); color: #EF4444; border-radius: 6rpx; }

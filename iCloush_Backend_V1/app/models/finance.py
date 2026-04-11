@@ -52,6 +52,21 @@ class CostInvoiceStatus(str, enum.Enum):
     NONE = "none"                 # 无票
 
 
+class PaymentType(str, enum.Enum):
+    TYPE_A = "type_a"   # 即付即票：已有发票，立即付款
+    TYPE_B = "type_b"   # 先付后票：先付款，约定开票日期
+    TYPE_C = "type_c"   # 分期付款：多笔分期付款，约定开票日期
+
+
+class PaymentStatus(str, enum.Enum):
+    DRAFT = "draft"             # 草稿
+    PENDING = "pending"         # 待审批
+    APPROVED = "approved"       # 已审批
+    REJECTED = "rejected"       # 已驳回
+    COMPLETED = "completed"     # 已付款
+    CANCELLED = "cancelled"     # 已取消
+
+
 class MissingInvoiceStatus(str, enum.Enum):
     PENDING = "pending"           # 待追票
     REMINDED = "reminded"         # 已催票
@@ -151,6 +166,11 @@ class Invoice(Base):
 
     # ── 业务分类 ──
     business_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+
+    # ── Phase 5.3: 发票打印管理 ──
+    is_printed: Mapped[bool] = mapped_column(Boolean, default=False)
+    printed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    printed_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
@@ -365,9 +385,72 @@ class MonthlyRevenue(Base):
     )
 
 
-# ═════════════════════════════════════════════════
+# ═══# ═════════════════════════════════════════════
+# 付款申请单（Phase 5.3 核心）
+# ═════════════════════════════════════════════
+
+class PaymentApplication(Base):
+    """
+    付款申请单（三板斧逻辑）
+    Phase 5.3 核心：
+      Type A — 即付即票：已有发票，立即付款
+      Type B — 先付后票：先付款，约定开票日期
+      Type C — 分期付款：多笔分期付款，约定开票日期
+    """
+    __tablename__ = "payment_applications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+
+    # ── 基本信息 ──
+    title: Mapped[str] = mapped_column(String(200), nullable=False)  # 申请标题
+    payment_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    # type_a / type_b / type_c
+    supplier_name: Mapped[str] = mapped_column(String(200), nullable=False)  # 供应商名称
+    purpose: Mapped[str] = mapped_column(String(500), nullable=False)  # 付款事由
+
+    # ── 金额信息 ──
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)  # 总金额
+    # Type C 分期明细 JSON: [{"seq": 1, "amount": 5000, "due_date": "2026-05-01"}, ...]
+    installments_json: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+
+    # ── 票据信息 ──
+    # Type A: 已有发票，关联 invoice_id
+    invoice_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("invoices.id"), nullable=True)
+    # Type B/C: 预期开票日期
+    expected_invoice_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    # 如果预期开票日期是今天，强制上传发票
+    invoice_image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    # ── 审批流程 ──
+    status: Mapped[str] = mapped_column(String(20), default="pending")
+    # draft / pending / approved / rejected / completed / cancelled
+    review_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    reviewer_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # ── 管会关联 ──
+    category_code: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    # 审核时由管理员填写的成本分类
+    cost_ledger_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # 完成付款后自动生成的成本流水 ID
+    missing_invoice_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    # Type B/C 完成付款后自动生成的欠票记录 ID
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        Index("ix_payment_app_user_id", "user_id"),
+        Index("ix_payment_app_status", "status"),
+        Index("ix_payment_app_type", "payment_type"),
+    )
+
+
+# ═════════════════════════════════════════════
 # 成本分类配置（常量，不需要数据库表）
-# ══════════════════════════════════════════════════
+# ═════════════════════════════════════════════════
 
 COST_CATEGORIES = {
     "E-0":   {"name": "折旧摊销", "behavior": "fixed",    "center": "manufacturing_overhead"},

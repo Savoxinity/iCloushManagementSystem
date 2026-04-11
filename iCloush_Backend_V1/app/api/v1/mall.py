@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, require_role
 from app.models.models import MallItem, User, PointLedger
 
 router = APIRouter()
@@ -21,6 +21,98 @@ router = APIRouter()
 class ExchangeRequest(BaseModel):
     item_id: int
 
+
+class MallItemCreate(BaseModel):
+    name: str
+    category: str = "福利"
+    points_cost: int
+    stock: int = 0
+    description: Optional[str] = None
+    icon: Optional[str] = "🎁"
+
+
+class MallItemUpdate(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+    points_cost: Optional[int] = None
+    stock: Optional[int] = None
+    description: Optional[str] = None
+    icon: Optional[str] = None
+
+
+# ═══════════════════════════════════════════════════
+# 管理员 CRUD（仅 role >= 5 可操作）
+# ═══════════════════════════════════════════════════
+
+@router.post("/items")
+async def create_item(
+    req: MallItemCreate,
+    current_user: User = Depends(require_role(5)),
+    db: AsyncSession = Depends(get_db),
+):
+    """[管理员] 创建商城商品"""
+    item = MallItem(
+        name=req.name,
+        category=req.category,
+        points_cost=req.points_cost,
+        stock=req.stock,
+        description=req.description,
+        icon=req.icon,
+    )
+    db.add(item)
+    await db.flush()
+    return {
+        "code": 200,
+        "message": f"商品『{item.name}』创建成功",
+        "data": {
+            "id": item.id, "name": item.name, "category": item.category,
+            "points_cost": item.points_cost, "stock": item.stock,
+            "description": item.description, "icon": item.icon,
+        },
+    }
+
+
+@router.put("/items/{item_id}")
+async def update_item(
+    item_id: int,
+    req: MallItemUpdate,
+    current_user: User = Depends(require_role(5)),
+    db: AsyncSession = Depends(get_db),
+):
+    """[管理员] 更新商城商品"""
+    result = await db.execute(select(MallItem).where(MallItem.id == item_id))
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="商品不存在")
+    if req.name is not None: item.name = req.name
+    if req.category is not None: item.category = req.category
+    if req.points_cost is not None: item.points_cost = req.points_cost
+    if req.stock is not None: item.stock = req.stock
+    if req.description is not None: item.description = req.description
+    if req.icon is not None: item.icon = req.icon
+    await db.flush()
+    return {"code": 200, "message": f"商品『{item.name}』更新成功"}
+
+
+@router.delete("/items/{item_id}")
+async def delete_item(
+    item_id: int,
+    current_user: User = Depends(require_role(5)),
+    db: AsyncSession = Depends(get_db),
+):
+    """[管理员] 删除商城商品"""
+    result = await db.execute(select(MallItem).where(MallItem.id == item_id))
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="商品不存在")
+    await db.delete(item)
+    await db.flush()
+    return {"code": 200, "message": f"商品『{item.name}』已删除"}
+
+
+# ═══════════════════════════════════════════════════
+# 员工端接口
+# ═══════════════════════════════════════════════════
 
 @router.get("/items")
 async def list_items(

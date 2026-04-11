@@ -30,7 +30,7 @@ from app.models.models import (
 # Phase 3: 业财一体化模型（确保建表时包含这些表）
 from app.models.finance import (
     Invoice, ExpenseReport, ManagementCostLedger, MissingInvoiceLedger,
-    MonthlyRevenue,
+    MonthlyRevenue, PaymentApplication,
 )
 # Phase 4: 机动物流中台模型
 from app.models.logistics import (

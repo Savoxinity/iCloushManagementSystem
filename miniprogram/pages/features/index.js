@@ -54,11 +54,7 @@ var ALL_FEATURES = [
     iconBg: 'rgba(201, 168, 76, 0.15)', url: '/pages/mall/index',
     minRole: 1, comingSoon: false, adminOnly: false,
   },
-  {
-    id: 'permission', name: '权限配置', sub: '角色/工区权限', icon: '🔐',
-    iconBg: 'rgba(107, 114, 128, 0.15)', url: '/pages/permission/index',
-    minRole: 9, comingSoon: false, adminOnly: true,
-  },
+  // 权限配置已移除（功能与员工管理标签重叠）
   // ── 机动物流中台（Phase 4）──
   {
     id: 'logistics', name: '物流调度', sub: '车队/排线/出车', icon: '🚛',
@@ -68,6 +64,17 @@ var ALL_FEATURES = [
 
   // ═══ 业财一体化模块 — 入口整理 ═══
 
+  // ★ 付款/报销申请聚合入口（Phase 5.3）
+  {
+    id: 'payment_create', name: '付款申请', sub: '即付即票/先付后票/分期', icon: '💳',
+    iconBg: 'rgba(59, 130, 246, 0.15)', url: '/pages/payment-create/index',
+    minRole: 1, comingSoon: false, adminOnly: false, staffOnly: false,
+  },
+  {
+    id: 'payment_list', name: '付款记录', sub: '查看付款进度', icon: '📊',
+    iconBg: 'rgba(59, 130, 246, 0.15)', url: '/pages/payment-list/index',
+    minRole: 1, comingSoon: false, adminOnly: false, staffOnly: false,
+  },
   // ★ 创建报销：所有权限账号均可使用（包括老板/管理员）
   {
     id: 'expense_create', name: '创建报销', sub: '提交报销单', icon: '📝',
@@ -96,6 +103,18 @@ var ALL_FEATURES = [
   {
     id: 'invoice_admin', name: '发票管理', sub: '全员工发票仓库', icon: '📋',
     iconBg: 'rgba(59, 130, 246, 0.15)', url: '/pages/invoice-manage/index',
+    minRole: 5, comingSoon: false, adminOnly: true,
+  },
+  // 管理员：发票打印管理（Phase 5.3）
+  {
+    id: 'invoice_print', name: '发票打印', sub: '标记已打印/未打印', icon: '🖨️',
+    iconBg: 'rgba(107, 114, 128, 0.15)', url: '/pages/invoice-print/index',
+    minRole: 5, comingSoon: false, adminOnly: true,
+  },
+  // 管理员：付款审批（Phase 5.3）
+  {
+    id: 'payment_review', name: '付款审批', sub: '审批付款申请单', icon: '✅',
+    iconBg: 'rgba(59, 130, 246, 0.15)', url: '/pages/payment-review/index',
     minRole: 5, comingSoon: false, adminOnly: true,
   },
   // 管理员：管理会计入口（欠票看板、成本直录、利润表）

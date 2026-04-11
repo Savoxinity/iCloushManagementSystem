@@ -21,7 +21,7 @@ var AVATAR_LIBRARY = [
   { key: 'female_admin_01', label: '管理员', initial: '女', color: '#A87C2A', colorDark: '#6B4F1A' },
 ];
 
-var ALL_SKILLS = ['洗涤龙', '单机洗烘', '展布机平烫', '平烫后处理', '毛巾折叠', '布草分拣', '衣服分拣', '手工洗涤', '熨烫', '物流驾驶', '跟车小工'];
+var ALL_SKILLS = ['洗涤龙', '单机洗烘', '展布机平烫', '平烫后处理', '毛巾折叠', '布草分拣', '衣服分拣', '手工洗涤', '燨烫', '物流驾驶', '跟车小工', '行政', '管理'];
 
 // 根据 avatar_key 查找颜色
 function getAvatarColors(key) {

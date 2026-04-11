@@ -38,7 +38,11 @@
     "pages/route-create/index",
     "pages/dispatch-create/index",
     "pages/revenue-entry/index",
-    "pages/invoice-manage/index"
+    "pages/invoice-manage/index",
+    "pages/payment-create/index",
+    "pages/payment-list/index",
+    "pages/payment-review/index",
+    "pages/invoice-print/index"
   ],
   "tabBar": {
     "color": "#666666",

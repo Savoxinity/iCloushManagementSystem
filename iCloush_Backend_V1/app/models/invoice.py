@@ -70,6 +70,11 @@ class Invoice(Base):
     # ── 是否已提交报销 ──
     is_submitted: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # ── Phase 5.3: 发票打印管理 ──
+    is_printed: Mapped[bool] = mapped_column(Boolean, default=False)
+    printed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    printed_by: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 

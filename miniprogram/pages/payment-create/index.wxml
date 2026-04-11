@@ -1,0 +1,175 @@
+<!-- 付款申请单 — Type A/B/C 三板斧 -->
+<view class="page-container">
+
+  <!-- 类型选择卡片 -->
+  <view class="type-section">
+    <text class="section-title">选择付款类型</text>
+    <view class="type-cards">
+      <view class="type-card {{paymentType === 'A' ? 'active' : ''}}"
+            data-type="A" bindtap="selectType">
+        <text class="type-icon">⚡</text>
+        <text class="type-name">Type A</text>
+        <text class="type-desc">即付即票</text>
+        <text class="type-hint">当场付款 + 当场取发票</text>
+      </view>
+      <view class="type-card {{paymentType === 'B' ? 'active' : ''}}"
+            data-type="B" bindtap="selectType">
+        <text class="type-icon">📋</text>
+        <text class="type-name">Type B</text>
+        <text class="type-desc">先付后票</text>
+        <text class="type-hint">先付款，约定日期补票</text>
+      </view>
+      <view class="type-card {{paymentType === 'C' ? 'active' : ''}}"
+            data-type="C" bindtap="selectType">
+        <text class="type-icon">📆</text>
+        <text class="type-name">Type C</text>
+        <text class="type-desc">分期付款</text>
+        <text class="type-hint">多笔分期 + 约定开票日</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 表单区域 — 根据类型动态显示 -->
+  <view class="form-section" wx:if="{{paymentType}}">
+
+    <!-- 通用字段 -->
+    <view class="form-item">
+      <text class="label">供应商名称 *</text>
+      <input class="input" placeholder="请输入供应商" value="{{supplierName}}" bindinput="onInput" data-field="supplierName" />
+    </view>
+    <view class="form-item">
+      <text class="label">付款事由 *</text>
+      <input class="input" placeholder="如：原料采购、设备维修" value="{{purpose}}" bindinput="onInput" data-field="purpose" />
+    </view>
+
+    <!-- Type A: 即付即票 — 总金额 + 上传发票 -->
+    <block wx:if="{{paymentType === 'A'}}">
+      <view class="form-item">
+        <text class="label">付款总金额 *</text>
+        <input class="input" type="digit" placeholder="0.00" value="{{totalAmount}}" bindinput="onInput" data-field="totalAmount" />
+      </view>
+      <view class="upload-section">
+        <text class="section-title">上传发票凭证 *</text>
+        <view class="upload-area" bindtap="chooseInvoice">
+          <block wx:if="{{invoiceImage}}">
+            <image src="{{invoiceImage}}" mode="aspectFit" class="preview-img" />
+            <text class="upload-hint">点击更换</text>
+          </block>
+          <block wx:else>
+            <text class="upload-icon">🧾</text>
+            <text class="upload-text">拍照或选择发票</text>
+          </block>
+        </view>
+        <view wx:if="{{uploading}}" class="upload-loading">上传中...</view>
+      </view>
+    </block>
+
+    <!-- Type B: 先付后票 — 总金额 + 预期开票日 + 条件上传 -->
+    <block wx:if="{{paymentType === 'B'}}">
+      <view class="form-item">
+        <text class="label">付款总金额 *</text>
+        <input class="input" type="digit" placeholder="0.00" value="{{totalAmount}}" bindinput="onInput" data-field="totalAmount" />
+      </view>
+      <view class="form-item">
+        <text class="label">预期开票日期 *</text>
+        <picker mode="date" value="{{expectedInvoiceDate}}" bindchange="onDateChange" data-field="expectedInvoiceDate">
+          <text class="input {{expectedInvoiceDate ? '' : 'placeholder'}}">
+            {{expectedInvoiceDate || '请选择日期'}}
+          </text>
+        </picker>
+      </view>
+      <!-- 如果选择了今天，强制上传发票 -->
+      <view wx:if="{{isToday}}" class="today-warning">
+        <text class="warning-text">⚠️ 预期开票日为今天，请立即上传发票</text>
+      </view>
+      <view wx:if="{{isToday}}" class="upload-section">
+        <text class="section-title">上传发票凭证 *</text>
+        <view class="upload-area" bindtap="chooseInvoice">
+          <block wx:if="{{invoiceImage}}">
+            <image src="{{invoiceImage}}" mode="aspectFit" class="preview-img" />
+            <text class="upload-hint">点击更换</text>
+          </block>
+          <block wx:else>
+            <text class="upload-icon">🧾</text>
+            <text class="upload-text">拍照或选择发票</text>
+          </block>
+        </view>
+        <view wx:if="{{uploading}}" class="upload-loading">上传中...</view>
+      </view>
+    </block>
+
+    <!-- Type C: 分期付款 — 分期明细 + 预期开票日 + 条件上传 -->
+    <block wx:if="{{paymentType === 'C'}}">
+      <view class="installment-section">
+        <view class="section-header">
+          <text class="section-title">分期付款明细</text>
+          <view class="add-btn" bindtap="addInstallment">+ 添加一笔</view>
+        </view>
+        <view class="installment-item" wx:for="{{installments}}" wx:key="index">
+          <view class="installment-header">
+            <text class="installment-label">第{{index + 1}}笔</text>
+            <view wx:if="{{installments.length > 1}}" class="remove-btn" data-index="{{index}}" bindtap="removeInstallment">删除</view>
+          </view>
+          <view class="form-item">
+            <text class="label">金额 *</text>
+            <input class="input" type="digit" placeholder="0.00" value="{{item.amount}}" bindinput="onInstallmentInput" data-index="{{index}}" data-field="amount" />
+          </view>
+          <view class="form-item">
+            <text class="label">付款日期 *</text>
+            <picker mode="date" value="{{item.date}}" bindchange="onInstallmentDateChange" data-index="{{index}}">
+              <text class="input {{item.date ? '' : 'placeholder'}}">
+                {{item.date || '请选择日期'}}
+              </text>
+            </picker>
+          </view>
+        </view>
+        <view class="total-row">
+          <text class="total-label">分期合计</text>
+          <text class="total-value">¥{{installmentTotal}}</text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <text class="label">预期开票日期 *</text>
+        <picker mode="date" value="{{expectedInvoiceDate}}" bindchange="onDateChange" data-field="expectedInvoiceDate">
+          <text class="input {{expectedInvoiceDate ? '' : 'placeholder'}}">
+            {{expectedInvoiceDate || '请选择日期'}}
+          </text>
+        </picker>
+      </view>
+      <!-- 如果选择了今天，强制上传发票 -->
+      <view wx:if="{{isToday}}" class="today-warning">
+        <text class="warning-text">⚠️ 预期开票日为今天，请立即上传发票</text>
+      </view>
+      <view wx:if="{{isToday}}" class="upload-section">
+        <text class="section-title">上传发票凭证 *</text>
+        <view class="upload-area" bindtap="chooseInvoice">
+          <block wx:if="{{invoiceImage}}">
+            <image src="{{invoiceImage}}" mode="aspectFit" class="preview-img" />
+            <text class="upload-hint">点击更换</text>
+          </block>
+          <block wx:else>
+            <text class="upload-icon">🧾</text>
+            <text class="upload-text">拍照或选择发票</text>
+          </block>
+        </view>
+        <view wx:if="{{uploading}}" class="upload-loading">上传中...</view>
+      </view>
+    </block>
+
+    <!-- 备注 -->
+    <view class="form-item">
+      <text class="label">备注</text>
+      <input class="input" placeholder="选填" value="{{notes}}" bindinput="onInput" data-field="notes" />
+    </view>
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="btn-area" wx:if="{{paymentType}}">
+    <button class="btn-submit {{!canSubmit || submitting ? 'btn-disabled' : ''}}"
+            disabled="{{!canSubmit || submitting}}"
+            bindtap="submitPayment">
+      {{submitting ? '提交中...' : '提交付款申请'}}
+    </button>
+  </view>
+</view>

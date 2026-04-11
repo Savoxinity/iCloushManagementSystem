@@ -1,0 +1,35 @@
+<!-- 付款记录列表 -->
+<view class="page-container">
+  <!-- 状态筛选 -->
+  <view class="filter-tabs">
+    <view class="tab {{statusFilter === '' ? 'active' : ''}}" data-status="" bindtap="filterByStatus">全部</view>
+    <view class="tab {{statusFilter === 'pending' ? 'active' : ''}}" data-status="pending" bindtap="filterByStatus">待审批</view>
+    <view class="tab {{statusFilter === 'approved' ? 'active' : ''}}" data-status="approved" bindtap="filterByStatus">已批准</view>
+    <view class="tab {{statusFilter === 'completed' ? 'active' : ''}}" data-status="completed" bindtap="filterByStatus">已付款</view>
+    <view class="tab {{statusFilter === 'rejected' ? 'active' : ''}}" data-status="rejected" bindtap="filterByStatus">已驳回</view>
+  </view>
+
+  <!-- 列表 -->
+  <view class="list-container">
+    <view wx:if="{{loading}}" class="loading-hint">加载中...</view>
+    <view wx:elif="{{!payments.length}}" class="empty-hint">暂无付款记录</view>
+    <view wx:else class="payment-card" wx:for="{{payments}}" wx:key="id">
+      <view class="card-header">
+        <view class="type-badge type-{{item.payment_type}}">Type {{item.payment_type}}</view>
+        <view class="status-badge status-{{item.status}}">{{item.statusLabel}}</view>
+      </view>
+      <view class="card-body">
+        <text class="supplier">{{item.supplier_name}}</text>
+        <text class="purpose">{{item.purpose}}</text>
+        <view class="card-meta">
+          <text class="amount">¥{{item.total_amount}}</text>
+          <text class="date">{{item.created_at_display}}</text>
+        </view>
+      </view>
+      <view wx:if="{{item.expected_invoice_date}}" class="card-footer">
+        <text class="invoice-date">预期开票：{{item.expected_invoice_date}}</text>
+        <text wx:if="{{item.invoice_overdue}}" class="overdue-tag">已逾期</text>
+      </view>
+    </view>
+  </view>
+</view>

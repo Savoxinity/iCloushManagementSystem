@@ -15,6 +15,10 @@
   </view>
   <view wx:if="{{activeTab === 'mall'}}" class="mall-grid">
     <view wx:for="{{mallItems}}" wx:key="id" class="mall-card" bindtap="onItemTap" data-item="{{item}}">
+      <!-- 管理员长按删除 -->
+      <view wx:if="{{isAdmin}}" class="admin-badge" catchtap="onDeleteItem" data-item="{{item}}">
+        <text class="admin-badge-text">✕</text>
+      </view>
       <view class="mall-card-icon">{{item.icon}}</view>
       <text class="mall-card-name">{{item.name}}</text>
       <text class="mall-card-desc">{{item.description}}</text>
@@ -29,6 +33,11 @@
       <view wx:if="{{myPoints < item.points_cost}}" class="insufficient-mask">
         <text class="insufficient-text">积分不足</text>
       </view>
+    </view>
+    <!-- 管理员：添加商品卡片 -->
+    <view wx:if="{{isAdmin}}" class="mall-card add-card" bindtap="onAddItem">
+      <view class="add-card-icon"><text>＋</text></view>
+      <text class="add-card-text">添加奖品</text>
     </view>
   </view>
   <view wx:if="{{activeTab === 'ledger'}}" class="ledger-list">
@@ -60,6 +69,8 @@
     </view>
   </view>
 </view>
+
+<!-- 兑换确认弹窗 -->
 <view wx:if="{{showItemModal}}" class="modal-overlay" bindtap="closeModal">
   <view class="item-modal" catchtap="">
     <view class="item-modal-header">
@@ -76,6 +87,47 @@
       <button class="btn-cancel" bindtap="closeModal">取消</button>
       <button class="btn-exchange {{myPoints < currentItem.points_cost || currentItem.stock <= 0 ? 'disabled' : ''}}" bindtap="confirmExchange" disabled="{{myPoints < currentItem.points_cost || currentItem.stock <= 0 || exchanging}}">
         {{exchanging ? '兑换中...' : myPoints < currentItem.points_cost ? '积分不足' : '确认兑换'}}
+      </button>
+    </view>
+  </view>
+</view>
+
+<!-- 管理员：新增/编辑商品弹窗 -->
+<view wx:if="{{showAddModal}}" class="modal-overlay" bindtap="closeAddModal">
+  <view class="add-modal" catchtap="">
+    <view class="add-modal-header">
+      <text class="add-modal-title">{{editingItem ? '编辑奖品' : '新增奖品'}}</text>
+    </view>
+    <view class="add-modal-form">
+      <view class="form-group">
+        <text class="form-label">奖品名称</text>
+        <input class="form-input" placeholder="输入奖品名称" value="{{formData.name}}" bindinput="onFormInput" data-field="name" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">图标 Emoji</text>
+        <input class="form-input" placeholder="输入一个 Emoji 如 🎁" value="{{formData.icon}}" bindinput="onFormInput" data-field="icon" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">分类</text>
+        <input class="form-input" placeholder="如：福利、餐饮、装备" value="{{formData.category}}" bindinput="onFormInput" data-field="category" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">所需积分</text>
+        <input class="form-input" type="number" placeholder="输入积分数" value="{{formData.points_cost}}" bindinput="onFormInput" data-field="points_cost" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">库存数量</text>
+        <input class="form-input" type="number" placeholder="输入库存" value="{{formData.stock}}" bindinput="onFormInput" data-field="stock" />
+      </view>
+      <view class="form-group">
+        <text class="form-label">描述</text>
+        <textarea class="form-textarea" placeholder="输入奖品描述" value="{{formData.description}}" bindinput="onFormInput" data-field="description" />
+      </view>
+    </view>
+    <view class="item-modal-actions">
+      <button class="btn-cancel" bindtap="closeAddModal">取消</button>
+      <button class="btn-exchange" bindtap="submitAddItem" disabled="{{submitting}}">
+        {{submitting ? '提交中...' : editingItem ? '保存修改' : '确认添加'}}
       </button>
     </view>
   </view>

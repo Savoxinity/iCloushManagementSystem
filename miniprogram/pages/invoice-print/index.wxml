@@ -1,0 +1,61 @@
+<!-- 发票打印管理 + 开票覆盖率看板 -->
+<view class="page-container">
+
+  <!-- 开票覆盖率看板 -->
+  <view class="coverage-card">
+    <text class="card-title">本月开票覆盖率</text>
+    <view class="gauge-container">
+      <view class="gauge-ring">
+        <text class="gauge-value">{{coverageRate}}%</text>
+      </view>
+    </view>
+    <view class="coverage-detail">
+      <view class="detail-item">
+        <text class="detail-label">已核验发票总额</text>
+        <text class="detail-value positive">¥{{invoiceTotal}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">实际总成本</text>
+        <text class="detail-value">¥{{costTotal}}</text>
+      </view>
+      <view class="detail-item highlight">
+        <text class="detail-label">价税现金差额</text>
+        <text class="detail-value negative">¥{{taxGap}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 打印状态筛选 -->
+  <view class="filter-tabs">
+    <view class="tab {{printFilter === '' ? 'active' : ''}}" data-filter="" bindtap="filterByPrint">全部</view>
+    <view class="tab {{printFilter === 'unprinted' ? 'active' : ''}}" data-filter="unprinted" bindtap="filterByPrint">未打印</view>
+    <view class="tab {{printFilter === 'printed' ? 'active' : ''}}" data-filter="printed" bindtap="filterByPrint">已打印</view>
+  </view>
+
+  <!-- 发票列表 -->
+  <view class="list-container">
+    <view wx:if="{{loading}}" class="loading-hint">加载中...</view>
+    <view wx:elif="{{!invoices.length}}" class="empty-hint">暂无发票</view>
+    <view wx:else class="invoice-card" wx:for="{{invoices}}" wx:key="id">
+      <view class="card-header">
+        <text class="invoice-code">{{item.invoice_code || '无票号'}}</text>
+        <view class="print-badge {{item.is_printed ? 'printed' : 'unprinted'}}">
+          {{item.is_printed ? '已打印' : '未打印'}}
+        </view>
+      </view>
+      <view class="card-body">
+        <text class="invoice-amount">¥{{item.amount}}</text>
+        <text class="invoice-date">{{item.created_at_display}}</text>
+        <text class="invoice-uploader">上传人：{{item.uploader_name || '未知'}}</text>
+      </view>
+      <view class="action-bar">
+        <button wx:if="{{!item.is_printed}}" class="btn-print" data-id="{{item.id}}" bindtap="markPrinted">
+          🖨️ 标记已打印
+        </button>
+        <button wx:else class="btn-unprint" data-id="{{item.id}}" bindtap="markUnprinted">
+          撤销打印标记
+        </button>
+      </view>
+    </view>
+  </view>
+</view>
