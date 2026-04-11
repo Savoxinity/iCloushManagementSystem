@@ -35,10 +35,17 @@ async def database_bootstrap(
     """
     try:
         # 检查是否已有用户表（如果有，说明已经初始化过）
+        # 使用 information_schema 查询，兼容 Supabase Transaction Pooler
         try:
-            result = await db.execute(text("SELECT COUNT(*) FROM users"))
-            count = result.scalar()
-            if count is not None:
+            check_sql = text(
+                "SELECT EXISTS ("
+                "  SELECT 1 FROM information_schema.tables "
+                "  WHERE table_schema = 'public' AND table_name = 'users'"
+                ")"
+            )
+            result = await db.execute(check_sql)
+            table_exists = result.scalar()
+            if table_exists:
                 raise HTTPException(
                     status_code=403,
                     detail="数据库已初始化，请使用 /db-init 接口（需超级管理员权限）"
@@ -46,7 +53,7 @@ async def database_bootstrap(
         except HTTPException:
             raise
         except Exception:
-            # 表不存在，说明是全新数据库，允许继续
+            # 查询失败也允许继续（可能是全新数据库）
             pass
 
         await init_db()

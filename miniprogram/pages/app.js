@@ -2,8 +2,8 @@
 // iCloush 智慧工厂 — 全局 App
 // ============================================
 
-var BASE_URL = 'https://api.icloush.com'; // 后端地址（生产环境替换）
-var WS_URL = 'wss://api.icloush.com/ws/iot';
+var BASE_URL = 'https://icloush-api-245189-5-1302632520.sh.run.tcloudbase.com'; // 微信云托管域名
+var WS_URL = 'wss://icloush-api-245189-5-1302632520.sh.run.tcloudbase.com/ws/iot';
 
 // Mock 数据模块（解耦：仅在 useMock=true 时使用）
 var mockData = require('./utils/mockData');
