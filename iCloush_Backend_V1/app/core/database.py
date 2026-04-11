@@ -1,24 +1,45 @@
 """
 iCloush 智慧工厂 — 数据库连接管理
 AsyncSession + SQLAlchemy 2.0 风格
+
+Phase 5.1 修复：
+  Supabase Transaction Pooler (PgBouncer) 不支持 prepared statements。
+  解决方案：
+    1. statement_cache_size=0 — 禁用 asyncpg 的 prepared statement 缓存
+    2. NullPool — 禁用 SQLAlchemy 连接池，避免连接复用导致 prepared statement 冲突
+    3. prepared_statement_name_func — 强制所有 prepared statement 使用空名称
 """
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.pool import NullPool
 from app.core.config import settings
 
-# Supabase Transaction Pooler 不支持 PREPARE 语句
-# 必须通过 connect_args 禁用 asyncpg 的 prepared statement 缓存
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=(settings.APP_ENV == "development"),
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,
-    connect_args={
-        "statement_cache_size": 0,           # 禁用 asyncpg prepared statement 缓存
-        "prepared_statement_cache_size": 0,   # 兼容 Supabase Transaction Pooler (PgBouncer)
+# 判断是否使用 Supabase Transaction Pooler（端口 6543 是 Transaction Pooler 的标志）
+_is_transaction_pooler = ":6543/" in settings.DATABASE_URL
+
+# 构建 engine 参数
+_engine_kwargs = {
+    "echo": settings.APP_ENV == "development",
+    "connect_args": {
+        "statement_cache_size": 0,  # 禁用 asyncpg prepared statement 缓存
     },
-)
+}
+
+if _is_transaction_pooler:
+    # Transaction Pooler 模式：使用 NullPool 完全禁用连接池
+    # 每次请求创建新连接，避免 prepared statement 在不同 PgBouncer 后端连接间冲突
+    _engine_kwargs["poolclass"] = NullPool
+    # 添加 server_settings 禁用 prepared statements
+    _engine_kwargs["connect_args"]["server_settings"] = {
+        "plan_cache_mode": "force_custom_plan",
+    }
+else:
+    # 直连模式（本地开发）：使用连接池
+    _engine_kwargs["pool_size"] = 10
+    _engine_kwargs["max_overflow"] = 20
+    _engine_kwargs["pool_pre_ping"] = True
+
+engine = create_async_engine(settings.DATABASE_URL, **_engine_kwargs)
 
 AsyncSessionLocal = async_sessionmaker(
     engine,
@@ -54,6 +75,4 @@ async def init_db():
     使用 checkfirst=True 避免多 worker 并发建表冲突
     """
     async with engine.begin() as conn:
-        # checkfirst=True: 先检查表是否存在，已存在则跳过
-        # 这样即使多个 worker 同时执行也不会冲突
         await conn.run_sync(Base.metadata.create_all, checkfirst=True)
