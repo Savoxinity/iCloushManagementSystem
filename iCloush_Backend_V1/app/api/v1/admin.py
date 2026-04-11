@@ -73,6 +73,70 @@ async def database_bootstrap(
 
 
 # ═══════════════════════════════════════════════════
+# POST /seed-admin — 创建初始超级管理员（无需认证，仅在 users 表为空时可用）
+# ═══════════════════════════════════════════════════
+
+from pydantic import BaseModel
+
+class SeedAdminRequest(BaseModel):
+    username: str
+    password: str
+    name: str = "超级管理员"
+
+
+@router.post("/seed-admin")
+async def seed_admin(
+    req: SeedAdminRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    创建初始超级管理员账号（无需认证）
+    安全机制：仅当 users 表中没有任何用户时才允许调用
+    创建后此接口自动失效
+    """
+    try:
+        # 检查是否已有用户
+        count_result = await db.execute(text("SELECT COUNT(*) FROM users"))
+        user_count = count_result.scalar()
+        if user_count > 0:
+            raise HTTPException(
+                status_code=403,
+                detail=f"系统中已有 {user_count} 个用户，初始管理员接口已锁定"
+            )
+
+        # 创建超级管理员
+        admin = User(
+            username=req.username,
+            password_hash=req.password,  # 开发阶段明文存储，后续可改为 bcrypt
+            name=req.name,
+            role=9,
+            is_active=True,
+            skill_tags=[],
+            current_zones=[],
+        )
+        db.add(admin)
+        await db.flush()
+
+        logger.info(f"[系统] 初始超级管理员创建成功: {admin.username} (id={admin.id})")
+        return {
+            "code": 200,
+            "message": "初始超级管理员创建成功",
+            "data": {
+                "id": admin.id,
+                "username": admin.username,
+                "name": admin.name,
+                "role": admin.role,
+                "note": "请使用此账号登录小程序，此接口已自动失效"
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[系统] 创建初始管理员失败: {e}")
+        raise HTTPException(status_code=500, detail=f"创建失败: {str(e)}")
+
+
+# ═══════════════════════════════════════════════════
 # POST /db-init — 一键建表（仅超级管理员）
 # ═══════════════════════════════════════════════════
 
