@@ -21,6 +21,51 @@ logger = logging.getLogger("icloush.admin")
 
 
 # ═══════════════════════════════════════════════════
+# POST /db-bootstrap — 首次初始化（无需认证，仅在数据库为空时可用）
+# ═══════════════════════════════════════════════════
+
+@router.post("/db-bootstrap")
+async def database_bootstrap(
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    首次冷启动建表接口（无需认证）
+    安全机制：仅当数据库中没有任何用户表时才允许调用
+    建表完成后此接口自动失效
+    """
+    try:
+        # 检查是否已有用户表（如果有，说明已经初始化过）
+        try:
+            result = await db.execute(text("SELECT COUNT(*) FROM users"))
+            count = result.scalar()
+            if count is not None:
+                raise HTTPException(
+                    status_code=403,
+                    detail="数据库已初始化，请使用 /db-init 接口（需超级管理员权限）"
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            # 表不存在，说明是全新数据库，允许继续
+            pass
+
+        await init_db()
+        logger.info("[系统] 首次冷启动建表完成")
+        return {
+            "code": 200,
+            "message": "数据库表初始化成功（首次冷启动）",
+            "data": {
+                "note": "请通过微信小程序登录创建第一个用户，然后在 Supabase 中将该用户 role 改为 9 即为超级管理员"
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[系统] 首次建表失败: {e}")
+        raise HTTPException(status_code=500, detail=f"数据库初始化失败: {str(e)}")
+
+
+# ═══════════════════════════════════════════════════
 # POST /db-init — 一键建表（仅超级管理员）
 # ═══════════════════════════════════════════════════
 

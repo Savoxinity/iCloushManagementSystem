@@ -22,18 +22,28 @@
 
 var USE_MOCK = false;  // 【开关】true=Mock模式, false=真实后端
 
-// 本地联调时，将下面的 IP 替换为你电脑的局域网 IPv4 地址
-// Windows: cmd → ipconfig → 无线局域网适配器 WLAN → IPv4 地址
-// Mac: ifconfig → en0 → inet
-var LOCAL_IP = '192.168.1.4';  // ← 替换为你的 IP
+// ═══════════════════════════════════════════════════
+// 【环境切换】— 切换 ENV 即可，不需要手动改 URL
+// 'local'  → 本地联调（需改 LOCAL_IP）
+// 'cloud'  → 微信云托管（生产环境）
+// ═══════════════════════════════════════════════════
+var ENV = 'cloud';  // ← 当前环境：'local' 或 'cloud'
 
-// 根据模式自动选择地址
-var BASE_URL = USE_MOCK ? '' : ('http://' + LOCAL_IP + ':8000');
-var WS_URL = USE_MOCK ? '' : ('ws://' + LOCAL_IP + ':8000/ws/iot');
+var LOCAL_IP = '192.168.1.4';  // 本地联调 IP
+var CLOUD_URL = 'https://icloush-api-245189-5-1302632520.sh.run.tcloudbase.com';  // 微信云托管域名
 
-// 生产环境地址（部署时取消注释，注释掉上面两行）
-// var BASE_URL = 'https://api.icloush.com';
-// var WS_URL = 'wss://api.icloush.com/ws/iot';
+// 根据环境自动选择地址
+var BASE_URL, WS_URL;
+if (USE_MOCK) {
+  BASE_URL = '';
+  WS_URL = '';
+} else if (ENV === 'cloud') {
+  BASE_URL = CLOUD_URL;
+  WS_URL = CLOUD_URL.replace('https://', 'wss://') + '/ws/iot';
+} else {
+  BASE_URL = 'http://' + LOCAL_IP + ':8000';
+  WS_URL = 'ws://' + LOCAL_IP + ':8000/ws/iot';
+}
 
 // Mock 数据模块（解耦：仅在 useMock=true 时使用）
 var mockData = require('./utils/mockData');
