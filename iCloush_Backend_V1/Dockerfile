@@ -1,16 +1,9 @@
 # ═══════════════════════════════════════════════════
 # iCloush 智慧工厂后端 — Dockerfile
-# 适配微信云托管 (WeChat Cloud Run)
+# Phase 5.1: 微信云托管 (WeChat CloudRun) 适配
 # ═══════════════════════════════════════════════════
 
 # ── 基础镜像 ──
-# 如果 Docker Hub 拉取超时，依次尝试以下国内镜像源：
-#   方案A（推荐）：Docker Desktop → Settings → Docker Engine → 添加：
-#     "registry-mirrors": ["https://docker.1ms.run", "https://docker.xuanyuan.me"]
-#
-#   方案B：直接使用阿里云镜像（取消注释下面一行，注释掉 FROM python:3.11-slim）
-# FROM registry.cn-shanghai.aliyuncs.com/library/python:3.11-slim
-
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -22,17 +15,20 @@ RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.li
     gcc libpq-dev curl \
     && rm -rf /var/lib/apt/lists/*
 
-# 升级 pip 避免旧版兼容问题
+# 升级 pip
 RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade pip setuptools wheel
 
-# Python 依赖（使用清华 pip 源加速）
+# Python 依赖（分层缓存：requirements.txt 不变则不重装）
 COPY requirements.txt .
 RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
 
 # 应用代码
 COPY . .
 
-# 微信云托管要求监听 80 端口
+# 创建上传目录（本地降级用，生产环境应使用 COS）
+RUN mkdir -p /app/uploads
+
+# ── 环境变量（微信云托管通过控制台注入，这里仅设默认值） ──
 ENV APP_PORT=80
 ENV APP_HOST=0.0.0.0
 ENV APP_ENV=production
@@ -43,5 +39,5 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD curl -f http://localhost:80/health || exit 1
 
-# 启动命令
+# 启动命令（2 workers，微信云托管最小实例 0.25C/0.5G 建议 1-2 workers）
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80", "--workers", "2"]

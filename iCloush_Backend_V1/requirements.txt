@@ -1,5 +1,6 @@
 # ═══════════════════════════════════════════════════
 # iCloush 智慧工厂后端 — Python 依赖
+# Phase 5.1: 云端迁移适配
 # ═══════════════════════════════════════════════════
 
 # Web 框架
@@ -22,14 +23,14 @@ PyJWT==2.9.0
 # HTTP 客户端
 httpx==0.27.2
 
-# Redis（纯 Python 版，避免 hiredis C 扩展在 slim 镜像上 Segfault）
+# Redis（可选，未配置时自动降级为内存存储）
 redis==5.1.1
 
-# 腾讯云 COS STS（可选）
-# qcloud-python-sts==3.1.6
-
-# 工具
-orjson==3.10.7
+# 腾讯云 COS 对象存储（Phase 5.1 新增）
+cos-python-sdk-v5>=1.9.30
 
 # 腾讯云 OCR 发票识别（Phase 3 Hotfix）
 tencentcloud-sdk-python>=3.0.1000
+
+# 工具
+orjson==3.10.7

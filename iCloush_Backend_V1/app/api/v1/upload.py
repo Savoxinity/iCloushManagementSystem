@@ -1,25 +1,18 @@
 """
 上传路由 — 文件上传中转 + 腾讯云 COS
 ═══════════════════════════════════════════════════
-修复内容：
-  1. 新增 POST /task-photo  — 任务拍照上传（watermark.js 调用）
-  2. 新增 POST /image       — 通用图片上传（发票/收据等）
-  3. 保留 GET  /sts         — COS STS 临时密钥（原有）
-
-上传策略：
-  - 优先尝试转存到腾讯云 COS（生产环境）
-  - COS 不可用时降级为本地存储（开发环境）
-  - 返回统一格式 { code: 200, data: { url: "..." } }
+Phase 5.1: 云端迁移适配
+  - 使用 cos-python-sdk-v5 官方 SDK 上传
+  - COS 未配置时降级为本地存储（仅开发环境）
+  - 生产环境强制使用 COS，本地存储会在容器重启后丢失
 """
 import os
 import time
 import uuid
-import hashlib
-import hmac
-import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
+from io import BytesIO
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from app.core.config import settings
@@ -29,11 +22,39 @@ from app.models.models import User
 router = APIRouter()
 logger = logging.getLogger("icloush.upload")
 
-# ── 本地存储目录（COS 不可用时的降级方案）──
-# 与 main.py 中 StaticFiles("/uploads") 挂载的目录保持一致
-# Docker 内 app 目录为 /app，所以 uploads 目录在 /app/uploads
+# ── 本地存储目录（COS 不可用时的降级方案，仅开发环境使用）──
 UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# ── COS 客户端（延迟初始化）──
+_cos_client = None
+
+
+def _get_cos_client():
+    """延迟初始化 COS 客户端，避免未配置时报错"""
+    global _cos_client
+    if _cos_client is not None:
+        return _cos_client
+
+    if not settings.cos_configured:
+        return None
+
+    try:
+        from qcloud_cos import CosConfig, CosS3Client
+
+        config = CosConfig(
+            Region=settings.COS_REGION,
+            SecretId=settings.effective_cos_secret_id,
+            SecretKey=settings.effective_cos_secret_key,
+            Token=None,
+            Scheme="https",
+        )
+        _cos_client = CosS3Client(config)
+        logger.info(f"[COS] 客户端初始化成功: bucket={settings.COS_BUCKET}, region={settings.COS_REGION}")
+        return _cos_client
+    except Exception as e:
+        logger.error(f"[COS] 客户端初始化失败: {e}")
+        return None
 
 
 def _generate_filename(prefix: str, original_name: str) -> str:
@@ -47,55 +68,29 @@ def _generate_filename(prefix: str, original_name: str) -> str:
 async def _upload_to_cos(file_bytes: bytes, file_key: str, content_type: str) -> str:
     """
     上传到腾讯云 COS，返回公网 URL
-    如果 COS 未配置或上传失败，抛出异常
+    使用 cos-python-sdk-v5 官方 SDK
     """
-    if not getattr(settings, 'COS_SECRET_ID', None) or not getattr(settings, 'COS_SECRET_KEY', None):
-        raise RuntimeError("COS 未配置")
+    client = _get_cos_client()
+    if client is None:
+        raise RuntimeError("COS 未配置或初始化失败")
 
-    import httpx
-
-    bucket = getattr(settings, 'COS_BUCKET', '')
-    region = getattr(settings, 'COS_REGION', 'ap-shanghai')
-    host = f"{bucket}.cos.{region}.myqcloud.com"
-    url = f"https://{host}/{file_key}"
-
-    # 简化签名（使用 PUT Object）
-    now = int(time.time())
-    expire = now + 300
-    key_time = f"{now};{expire}"
-
-    sign_key = hmac.new(
-        settings.COS_SECRET_KEY.encode(), key_time.encode(), hashlib.sha1
-    ).hexdigest()
-
-    http_string = f"put\n/{file_key}\n\nhost={host}\n"
-    sha1_http = hashlib.sha1(http_string.encode()).hexdigest()
-    string_to_sign = f"sha1\n{key_time}\n{sha1_http}\n"
-    signature = hmac.new(sign_key.encode(), string_to_sign.encode(), hashlib.sha1).hexdigest()
-
-    authorization = (
-        f"q-sign-algorithm=sha1&q-ak={settings.COS_SECRET_ID}"
-        f"&q-sign-time={key_time}&q-key-time={key_time}"
-        f"&q-header-list=host&q-url-param-list=&q-signature={signature}"
-    )
-
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.put(
-            url,
-            content=file_bytes,
-            headers={
-                "Host": host,
-                "Authorization": authorization,
-                "Content-Type": content_type,
-            },
+    try:
+        response = client.put_object(
+            Bucket=settings.COS_BUCKET,
+            Body=BytesIO(file_bytes),
+            Key=file_key,
+            ContentType=content_type,
+            StorageClass="STANDARD",
         )
-        if resp.status_code in (200, 204):
-            return url
-        else:
-            raise RuntimeError(f"COS 上传失败: {resp.status_code} {resp.text[:200]}")
+        # 返回公网 URL
+        cos_url = f"https://{settings.COS_BUCKET}.cos.{settings.COS_REGION}.myqcloud.com/{file_key}"
+        logger.info(f"[COS] 上传成功: {file_key} → {cos_url}")
+        return cos_url
+    except Exception as e:
+        raise RuntimeError(f"COS 上传失败: {e}")
 
 
-async def _save_file(file: UploadFile, prefix: str, base_url: str) -> str:
+async def _save_file(file: UploadFile, prefix: str) -> str:
     """
     保存上传文件，优先 COS，降级本地
     返回公网可访问的 URL
@@ -107,10 +102,14 @@ async def _save_file(file: UploadFile, prefix: str, base_url: str) -> str:
     # 尝试 COS
     try:
         cos_url = await _upload_to_cos(file_bytes, file_key, content_type)
-        logger.info(f"[上传] COS 成功: {file_key}")
         return cos_url
     except Exception as e:
-        logger.warning(f"[上传] COS 不可用，降级本地存储: {e}")
+        if settings.APP_ENV == "production":
+            logger.error(f"[上传] 生产环境 COS 上传失败: {e}")
+            # 生产环境仍然降级到本地，但记录严重警告
+            logger.warning("[上传] 生产环境降级到本地存储，容器重启后文件将丢失！")
+        else:
+            logger.info(f"[上传] 开发环境 COS 不可用，使用本地存储: {e}")
 
     # 降级：本地存储
     local_path = UPLOAD_DIR / file_key
@@ -118,7 +117,8 @@ async def _save_file(file: UploadFile, prefix: str, base_url: str) -> str:
     with open(local_path, "wb") as f:
         f.write(file_bytes)
 
-    # 返回可访问的 URL（通过后端静态文件服务）
+    # 返回可访问的 URL
+    base_url = settings.effective_base_url
     public_url = f"{base_url}/uploads/{file_key}"
     logger.info(f"[上传] 本地存储: {local_path} → {public_url}")
     return public_url
@@ -149,8 +149,7 @@ async def upload_task_photo(
     # 重置文件指针
     await file.seek(0)
 
-    base_url = getattr(settings, 'BASE_URL', '') or 'http://localhost:8000'
-    public_url = await _save_file(file, f"task-photos/{task_id}", base_url)
+    public_url = await _save_file(file, f"task-photos/{task_id}")
 
     return {
         "code": 200,
@@ -182,9 +181,8 @@ async def upload_image(
         raise HTTPException(status_code=413, detail="文件大小不能超过 10MB")
     await file.seek(0)
 
-    base_url = getattr(settings, 'BASE_URL', '') or 'http://localhost:8000'
     prefix = f"images/{category}/{current_user.id}"
-    public_url = await _save_file(file, prefix, base_url)
+    public_url = await _save_file(file, prefix)
 
     return {
         "code": 200,
@@ -205,9 +203,7 @@ async def get_sts_token(
     获取腾讯云 COS 临时密钥（STS）
     前端拿到凭证后直接上传图片到 COS，后端不处理图片字节流
     """
-    cos_id = getattr(settings, 'COS_SECRET_ID', None)
-    cos_key = getattr(settings, 'COS_SECRET_KEY', None)
-    if not cos_id or not cos_key:
+    if not settings.cos_configured:
         raise HTTPException(status_code=500, detail="COS 配置未设置")
     try:
         from sts.sts import Sts
@@ -215,10 +211,10 @@ async def get_sts_token(
             "url": "https://sts.tencentcloudapi.com/",
             "domain": "sts.tencentcloudapi.com",
             "duration_seconds": 1800,
-            "secret_id": cos_id,
-            "secret_key": cos_key,
-            "bucket": getattr(settings, 'COS_BUCKET', ''),
-            "region": getattr(settings, 'COS_REGION', 'ap-shanghai'),
+            "secret_id": settings.effective_cos_secret_id,
+            "secret_key": settings.effective_cos_secret_key,
+            "bucket": settings.COS_BUCKET,
+            "region": settings.COS_REGION,
             "allow_prefix": f"tasks/{current_user.id}/*",
             "allow_actions": [
                 "name/cos:PutObject",
@@ -238,8 +234,8 @@ async def get_sts_token(
                 "credentials": response["credentials"],
                 "startTime": response["startTime"],
                 "expiredTime": response["expiredTime"],
-                "bucket": getattr(settings, 'COS_BUCKET', ''),
-                "region": getattr(settings, 'COS_REGION', 'ap-shanghai'),
+                "bucket": settings.COS_BUCKET,
+                "region": settings.COS_REGION,
                 "prefix": f"tasks/{current_user.id}/",
             },
         }
@@ -254,8 +250,8 @@ async def get_sts_token(
                 },
                 "startTime": int(time.time()),
                 "expiredTime": int(time.time()) + 1800,
-                "bucket": getattr(settings, 'COS_BUCKET', '') or "mock-bucket",
-                "region": getattr(settings, 'COS_REGION', 'ap-shanghai'),
+                "bucket": settings.COS_BUCKET or "mock-bucket",
+                "region": settings.COS_REGION,
                 "prefix": f"tasks/{current_user.id}/",
             },
             "message": "开发模式：STS SDK 未安装，返回模拟凭证",

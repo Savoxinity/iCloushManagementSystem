@@ -1,0 +1,20 @@
+# ═══════════════════════════════════════════════════
+# Docker 构建忽略文件
+# ═══════════════════════════════════════════════════
+__pycache__
+*.pyc
+*.pyo
+.env
+.env.local
+.git
+.gitignore
+docker-compose.yml
+docker-compose.*.yml
+README.md
+*.md
+.vscode
+.idea
+uploads/
+backups/
+tests/
+*.log

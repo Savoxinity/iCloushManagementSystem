@@ -82,9 +82,20 @@ def _get_ocr_client():
 # 工具函数：将本地 URL 转为 Base64
 # ═══════════════════════════════════════════════════
 
+def _is_cos_url(url: str) -> bool:
+    """判断是否是腾讯云 COS 的公网 URL（可被腾讯云直接访问）"""
+    if not url:
+        return False
+    cos_indicators = ['.cos.', '.myqcloud.com', '.file.myqcloud.com']
+    return any(indicator in url for indicator in cos_indicators)
+
+
 def _is_local_url(url: str) -> bool:
     """判断是否是本地存储的 URL（无法被腾讯云访问）"""
     if not url:
+        return False
+    # COS URL 不是本地 URL
+    if _is_cos_url(url):
         return False
     local_indicators = [
         'localhost', '127.0.0.1', '192.168.', '10.0.', '172.16.',

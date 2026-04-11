@@ -21,6 +21,8 @@ from app.api.v1 import auth, tasks, zones, users, schedule, iot, upload, reports
 from app.api.v1 import invoice, expense, accounting, missing_invoice
 # ── Phase 4: 机动物流中台 ──
 from app.api.v1 import vehicles
+# ── Phase 5.1: 管理员工具 ──
+from app.api.v1 import admin
 
 from app.ws.iot_ws import router as ws_router
 
@@ -82,6 +84,9 @@ app.include_router(missing_invoice.router, prefix="/api/v1/missing-invoices", ta
 
 # ── Phase 4: 机动物流中台 ──
 app.include_router(vehicles.router, prefix="/api/v1/vehicles", tags=["物流车辆"])
+
+# ── Phase 5.1: 管理员工具 ──
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["管理员"])
 
 # ── WebSocket ──
 app.include_router(ws_router)
