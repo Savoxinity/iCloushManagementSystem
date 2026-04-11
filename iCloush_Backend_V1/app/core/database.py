@@ -6,12 +6,18 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.orm import DeclarativeBase
 from app.core.config import settings
 
+# Supabase Transaction Pooler 不支持 PREPARE 语句
+# 必须通过 connect_args 禁用 asyncpg 的 prepared statement 缓存
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=(settings.APP_ENV == "development"),
     pool_size=10,
     max_overflow=20,
     pool_pre_ping=True,
+    connect_args={
+        "statement_cache_size": 0,           # 禁用 asyncpg prepared statement 缓存
+        "prepared_statement_cache_size": 0,   # 兼容 Supabase Transaction Pooler (PgBouncer)
+    },
 )
 
 AsyncSessionLocal = async_sessionmaker(
