@@ -1,0 +1,43 @@
+<!-- 报账&发票审核入口页 — BI看板 + 全屏长条卡片 -->
+<view class="page-container">
+  <view class="page-title">报账&发票审核</view>
+
+  <!-- ★ BI 看板：开票覆盖率 -->
+  <view wx:if="{{coverageData}}" class="bi-dashboard">
+    <view class="bi-gauge-section">
+      <text class="bi-title">本月开票覆盖率</text>
+      <view class="bi-gauge-ring">
+        <text class="bi-gauge-value">{{coverageData.rate}}%</text>
+      </view>
+      <view class="bi-stats">
+        <view class="bi-stat-row">
+          <text class="bi-stat-label">已核验发票总额</text>
+          <text class="bi-stat-value bi-positive">¥{{coverageData.invoiceTotal}}</text>
+        </view>
+        <view class="bi-stat-row">
+          <text class="bi-stat-label">实际总成本</text>
+          <text class="bi-stat-value">¥{{coverageData.costTotal}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="bi-gap-section">
+      <text class="bi-gap-label">价税现金差额</text>
+      <text class="bi-gap-value">¥{{coverageData.taxGap}}</text>
+      <text class="bi-gap-hint">未取得发票的成本金额（税务敞口）</text>
+    </view>
+  </view>
+
+  <!-- 功能列表 -->
+  <view class="menu-list">
+    <view class="menu-card" wx:for="{{menuItems}}" wx:key="id" data-url="{{item.url}}" bindtap="goPage">
+      <view class="card-left">
+        <text class="menu-icon">{{item.icon}}</text>
+        <view class="card-text">
+          <text class="menu-title">{{item.title}}</text>
+          <text class="menu-desc">{{item.desc}}</text>
+        </view>
+      </view>
+      <text class="card-arrow">›</text>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,72 @@
+/* 快捷报账入口页 — 全屏长条卡片（与管理会计一致） */
+
+.page-container {
+  padding: 32rpx 24rpx;
+  background: #0a0a0a;
+  min-height: 100vh;
+}
+
+.page-title {
+  font-size: 40rpx;
+  color: #fff;
+  font-weight: bold;
+  margin-bottom: 32rpx;
+}
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.menu-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border-radius: 20rpx;
+  padding: 32rpx 28rpx;
+  border: 1rpx solid rgba(201,168,76,0.15);
+  box-sizing: border-box;
+}
+
+.menu-card:active {
+  background: rgba(201,168,76,0.08);
+}
+
+.card-left {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  flex: 1;
+}
+
+.menu-icon {
+  font-size: 48rpx;
+  flex-shrink: 0;
+}
+
+.card-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-title {
+  font-size: 32rpx;
+  color: #fff;
+  font-weight: 700;
+  margin-bottom: 6rpx;
+}
+
+.menu-desc {
+  font-size: 24rpx;
+  color: #888;
+  line-height: 1.4;
+}
+
+.card-arrow {
+  font-size: 40rpx;
+  color: rgba(201,168,76,0.5);
+  flex-shrink: 0;
+}

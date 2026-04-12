@@ -42,7 +42,9 @@
     "pages/payment-create/index",
     "pages/payment-list/index",
     "pages/payment-review/index",
-    "pages/invoice-print/index"
+    "pages/invoice-print/index",
+    "pages/quick-reimbursement/index",
+    "pages/finance-review-hub/index"
   ],
   "tabBar": {
     "color": "#666666",
