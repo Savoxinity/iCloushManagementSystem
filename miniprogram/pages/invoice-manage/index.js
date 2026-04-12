@@ -1,5 +1,5 @@
 // ============================================
-// 管理员发票管理页 — 全员工发票仓库
+// 管理员发票/票据池 — 全员工票据统一管理
 // ★ 管理员专属：查看所有员工的发票
 // ★ 支持日期筛选、核验状态筛选、关键词搜索
 // ★ 默认近90天，20条/页
@@ -35,7 +35,7 @@ Page({
   },
 
   onLoad: function () {
-    wx.setNavigationBarTitle({ title: '发票管理' });
+    wx.setNavigationBarTitle({ title: '发票/票据池' });
     // 设置默认日期范围（近90天）
     var now = new Date();
     var from = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);

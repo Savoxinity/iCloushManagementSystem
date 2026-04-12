@@ -118,7 +118,7 @@ Page({
     app.request({
       url: '/api/v1/invoices/ocr',
       method: 'POST',
-      data: { image_url: imageUrl },
+      data: { image_url: imageUrl, source: 'invoice_upload' },
       success: function (res) {
         self.setData({ ocrLoading: false });
         if (res.code === 200 && res.data) {

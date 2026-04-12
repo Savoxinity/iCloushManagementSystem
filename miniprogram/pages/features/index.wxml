@@ -1,5 +1,5 @@
 <!-- ============================================
-     功能金刚区页面
+     功能金刚区页面 V5.4.1 — 折叠集成卡片入口
      ============================================ -->
 <view class="page-container">
 
@@ -14,10 +14,85 @@
     </view>
   </view>
 
-  <!-- 2×4 金刚区网格 -->
+  <!-- ═══ 折叠集成卡片区域 ═══ -->
+  <view class="group-section">
+    <view wx:for="{{groupCards}}" wx:key="id" class="group-card-wrapper">
+
+      <!-- 非折叠卡片（如"我的发票"直接跳转） -->
+      <view wx:if="{{!item.isGroup}}" class="group-card group-card-single"
+            bindtap="onGroupCardTap" data-card="{{item}}">
+        <view class="group-card-header">
+          <view class="group-icon-wrap" style="background:{{item.iconBg}};">
+            <text class="group-icon">{{item.icon}}</text>
+          </view>
+          <view class="group-card-text">
+            <text class="group-card-name">{{item.name}}</text>
+            <text class="group-card-sub">{{item.sub}}</text>
+          </view>
+          <text class="group-arrow">›</text>
+        </view>
+      </view>
+
+      <!-- 折叠卡片（如"快捷报账"、"报账&发票审核"） -->
+      <view wx:else class="group-card {{expandedGroups[item.id] ? 'expanded' : ''}}">
+        <view class="group-card-header" bindtap="toggleGroup" data-group-id="{{item.id}}">
+          <view class="group-icon-wrap" style="background:{{item.iconBg}};">
+            <text class="group-icon">{{item.icon}}</text>
+          </view>
+          <view class="group-card-text">
+            <text class="group-card-name">{{item.name}}</text>
+            <text class="group-card-sub">{{item.sub}}</text>
+          </view>
+          <text class="group-expand-icon {{expandedGroups[item.id] ? 'rotated' : ''}}">▾</text>
+        </view>
+
+        <!-- 展开的子功能列表 -->
+        <view wx:if="{{expandedGroups[item.id]}}" class="group-children">
+
+          <!-- ★ BI 看板（仅报账&发票审核卡片展示） -->
+          <view wx:if="{{item.id === 'admin_review' && coverageData}}" class="bi-dashboard">
+            <view class="bi-gauge-section">
+              <text class="bi-title">本月开票覆盖率</text>
+              <view class="bi-gauge-ring">
+                <text class="bi-gauge-value">{{coverageData.rate}}%</text>
+              </view>
+              <view class="bi-stats">
+                <view class="bi-stat-row">
+                  <text class="bi-stat-label">已核验发票总额</text>
+                  <text class="bi-stat-value bi-positive">¥{{coverageData.invoiceTotal}}</text>
+                </view>
+                <view class="bi-stat-row">
+                  <text class="bi-stat-label">实际总成本</text>
+                  <text class="bi-stat-value">¥{{coverageData.costTotal}}</text>
+                </view>
+              </view>
+            </view>
+            <view class="bi-gap-section">
+              <text class="bi-gap-label">价税现金差额</text>
+              <text class="bi-gap-value">¥{{coverageData.taxGap}}</text>
+              <text class="bi-gap-hint">未取得发票的成本金额（税务敞口）</text>
+            </view>
+          </view>
+
+          <view class="child-item" wx:for="{{item.children}}" wx:for-item="child" wx:key="id"
+                bindtap="onChildTap" data-url="{{child.url}}">
+            <text class="child-icon">{{child.icon}}</text>
+            <view class="child-text">
+              <text class="child-name">{{child.name}}</text>
+              <text class="child-sub">{{child.sub}}</text>
+            </view>
+            <text class="child-arrow">›</text>
+          </view>
+        </view>
+      </view>
+
+    </view>
+  </view>
+
+  <!-- ═══ 独立功能卡片网格 ═══ -->
   <view class="grid-container">
     <view
-      wx:for="{{features}}"
+      wx:for="{{standaloneFeatures}}"
       wx:key="id"
       class="grid-item {{item.disabled ? 'disabled' : ''}} {{item.hasAlert ? 'has-alert' : ''}}"
       bindtap="onFeatureTap"
@@ -46,7 +121,7 @@
 
   <!-- 版本信息 -->
   <view class="version-info">
-    <text class="version-text">iCloush 智慧工厂 v1.0</text>
+    <text class="version-text">iCloush 智慧工厂 v5.4.1</text>
   </view>
 
   <view class="safe-bottom" />

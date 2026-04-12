@@ -1,14 +1,11 @@
 // ============================================
-// 功能金刚区页面 V9 — 权限修复 + 入口整理
+// 功能金刚区页面 V5.4.1 — 折叠集成卡片入口
 // ============================================
 var app = getApp();
 var util = require('../../utils/util');
 
-// 功能模块配置
-// adminOnly: true 的功能仅管理员可见
-// staffOnly: true 的功能仅员工可见（管理员不显示）
-// 无 adminOnly/staffOnly 的功能所有人可见
-var ALL_FEATURES = [
+// ── 一级功能卡片（非折叠） ──
+var STANDALONE_FEATURES = [
   {
     id: 'task_hall', name: '任务大厅', sub: '领任务 / 报工', icon: '🎯',
     iconBg: 'rgba(201, 168, 76, 0.2)', url: '/pages/task-list/index',
@@ -54,70 +51,12 @@ var ALL_FEATURES = [
     iconBg: 'rgba(201, 168, 76, 0.15)', url: '/pages/mall/index',
     minRole: 1, comingSoon: false, adminOnly: false,
   },
-  // 权限配置已移除（功能与员工管理标签重叠）
-  // ── 机动物流中台（Phase 4）──
   {
     id: 'logistics', name: '物流调度', sub: '车队/排线/出车', icon: '🚛',
     iconBg: 'rgba(59, 130, 246, 0.15)', url: '/pages/logistics-dashboard/index',
     minRole: 5, comingSoon: false, adminOnly: true,
   },
-
-  // ═══ 业财一体化模块 — 入口整理 ═══
-
-  // ★ 付款/报销申请聚合入口（Phase 5.3）
-  {
-    id: 'payment_create', name: '付款申请', sub: '即付即票/先付后票/分期', icon: '💳',
-    iconBg: 'rgba(59, 130, 246, 0.15)', url: '/pages/payment-create/index',
-    minRole: 1, comingSoon: false, adminOnly: false, staffOnly: false,
-  },
-  {
-    id: 'payment_list', name: '付款记录', sub: '查看付款进度', icon: '📊',
-    iconBg: 'rgba(59, 130, 246, 0.15)', url: '/pages/payment-list/index',
-    minRole: 1, comingSoon: false, adminOnly: false, staffOnly: false,
-  },
-  // ★ 创建报销：所有权限账号均可使用（包括老板/管理员）
-  {
-    id: 'expense_create', name: '创建报销', sub: '提交报销单', icon: '📝',
-    iconBg: 'rgba(251, 191, 36, 0.15)', url: '/pages/expense-create/index',
-    minRole: 1, comingSoon: false, adminOnly: false, staffOnly: false,
-  },
-  // 报销记录：所有人可查看自己的报销
-  {
-    id: 'expense_list', name: '报销记录', sub: '查看报销进度', icon: '💰',
-    iconBg: 'rgba(251, 191, 36, 0.15)', url: '/pages/expense-list/index',
-    minRole: 1, comingSoon: false, adminOnly: false, staffOnly: false,
-  },
-  // ★ 发票夹（我的发票）：所有人可查看和上传自己的发票
-  {
-    id: 'invoice_manage', name: '我的发票', sub: '发票夹/OCR识别', icon: '🧾',
-    iconBg: 'rgba(16, 185, 129, 0.15)', url: '/pages/invoice-list/index',
-    minRole: 1, comingSoon: false, adminOnly: false, staffOnly: false,
-  },
-  // 管理员：报销审核（三按钮审核）
-  {
-    id: 'expense_review', name: '报销审核', sub: '驳回/小票/发票通过', icon: '✅',
-    iconBg: 'rgba(251, 191, 36, 0.15)', url: '/pages/expense-review/index',
-    minRole: 5, comingSoon: false, adminOnly: true,
-  },
-  // 管理员：发票管理（全员工发票仓库）
-  {
-    id: 'invoice_admin', name: '发票管理', sub: '全员工发票仓库', icon: '📋',
-    iconBg: 'rgba(59, 130, 246, 0.15)', url: '/pages/invoice-manage/index',
-    minRole: 5, comingSoon: false, adminOnly: true,
-  },
-  // 管理员：发票打印管理（Phase 5.3）
-  {
-    id: 'invoice_print', name: '发票打印', sub: '标记已打印/未打印', icon: '🖨️',
-    iconBg: 'rgba(107, 114, 128, 0.15)', url: '/pages/invoice-print/index',
-    minRole: 5, comingSoon: false, adminOnly: true,
-  },
-  // 管理员：付款审批（Phase 5.3）
-  {
-    id: 'payment_review', name: '付款审批', sub: '审批付款申请单', icon: '✅',
-    iconBg: 'rgba(59, 130, 246, 0.15)', url: '/pages/payment-review/index',
-    minRole: 5, comingSoon: false, adminOnly: true,
-  },
-  // 管理员：管理会计入口（欠票看板、成本直录、利润表）
+  // 管理会计入口
   {
     id: 'accounting', name: '管理会计', sub: '利润表/成本/欠票', icon: '📈',
     iconBg: 'rgba(239, 68, 68, 0.15)', url: '/pages/management-accounting/index',
@@ -125,15 +64,90 @@ var ALL_FEATURES = [
   },
 ];
 
+// ── 折叠集成卡片配置 ──
+
+// 「快捷报账」— 员工和管理员共用
+var QUICK_EXPENSE_CARD = {
+  id: 'quick_expense',
+  name: '快捷报账',
+  sub: '付款/报销/记录',
+  icon: '💳',
+  iconBg: 'rgba(251, 191, 36, 0.15)',
+  isGroup: true,
+  children: [
+    { id: 'payment_create', name: '付款/采购申请', sub: '即付即票/先付后票/分批付款', icon: '💳', url: '/pages/payment-create/index' },
+    { id: 'payment_list', name: '付款记录', sub: '查看付款进度', icon: '📊', url: '/pages/payment-list/index' },
+    { id: 'expense_create', name: '报销申请', sub: '提交报销单', icon: '📝', url: '/pages/expense-create/index' },
+    { id: 'expense_list', name: '报销记录', sub: '全部/付款/报销/驳回', icon: '💰', url: '/pages/expense-list/index' },
+  ],
+};
+
+// 「我的发票」— 员工和管理员共用（一级直达）
+var MY_INVOICE_CARD = {
+  id: 'invoice_manage',
+  name: '我的发票',
+  sub: '发票夹/OCR识别',
+  icon: '🧾',
+  iconBg: 'rgba(16, 185, 129, 0.15)',
+  isGroup: false,
+  url: '/pages/invoice-list/index',
+};
+
+// 「报账&发票审核」— 仅管理员
+var ADMIN_REVIEW_CARD = {
+  id: 'admin_review',
+  name: '报账&发票审核',
+  sub: '审批/审核/票据/打印',
+  icon: '✅',
+  iconBg: 'rgba(59, 130, 246, 0.15)',
+  isGroup: true,
+  adminOnly: true,
+  children: [
+    { id: 'payment_review', name: '付款审批', sub: '审批付款申请单', icon: '✅', url: '/pages/payment-review/index' },
+    { id: 'expense_review', name: '报销审核', sub: '驳回/小票/发票通过', icon: '📋', url: '/pages/expense-review/index' },
+    { id: 'invoice_admin', name: '发票/票据池', sub: '全员工票据仓库', icon: '🧾', url: '/pages/invoice-manage/index' },
+    { id: 'invoice_print', name: '发票打印', sub: '标记已打印/未打印', icon: '🖨️', url: '/pages/invoice-print/index' },
+  ],
+};
+
 Page({
   data: {
-    features: [],
+    standaloneFeatures: [],
+    groupCards: [],
     userRoleLabel: '加载中...',
     isAdmin: true,
+    expandedGroups: {},
   },
 
   onLoad: function () { this.buildFeatureList(); },
-  onShow: function () { this.buildFeatureList(); },
+  onShow: function () {
+    this.buildFeatureList();
+    this.loadCoverageData();
+  },
+
+  // ── 加载开票覆盖率 BI 数据 ──
+  loadCoverageData: function () {
+    var self = this;
+    var isAdmin = app.globalData.accountRole === 'admin';
+    if (!isAdmin) return;
+
+    app.request({
+      url: '/api/v1/payments/invoice-coverage',
+      success: function (res) {
+        if (res.code === 200 && res.data) {
+          var d = res.data;
+          self.setData({
+            coverageData: {
+              rate: (d.coverage_rate || 0).toFixed(1),
+              invoiceTotal: (d.invoice_total || 0).toFixed(2),
+              costTotal: (d.cost_total || 0).toFixed(2),
+              taxGap: (d.tax_gap || 0).toFixed(2),
+            },
+          });
+        }
+      },
+    });
+  },
 
   buildFeatureList: function () {
     var userInfo = app.globalData.userInfo;
@@ -141,16 +155,12 @@ Page({
     var userRoleLabel = util.getRoleLabel(userRole);
     var isAdmin = app.globalData.accountRole === 'admin';
 
-    // 按角色过滤功能列表
-    var features = [];
-    for (var i = 0; i < ALL_FEATURES.length; i++) {
-      var f = ALL_FEATURES[i];
-
-      // 管理员专属功能：员工版不显示
+    // 过滤独立功能卡片
+    var standaloneFeatures = [];
+    for (var i = 0; i < STANDALONE_FEATURES.length; i++) {
+      var f = STANDALONE_FEATURES[i];
       if (f.adminOnly && !isAdmin) continue;
-      // 员工专属功能：管理员版不显示
       if (f.staffOnly && isAdmin) continue;
-      // 物流驾驶员专属功能
       if (f.logisticsOnly) {
         var tags = (userInfo && userInfo.tags) || [];
         var hasLogisticsTag = false;
@@ -159,8 +169,7 @@ Page({
         }
         if (userRole < 5 && !hasLogisticsTag) continue;
       }
-
-      features.push({
+      standaloneFeatures.push({
         id: f.id, name: f.name, sub: f.sub, icon: f.icon,
         iconBg: f.iconBg, url: f.url, minRole: f.minRole,
         comingSoon: f.comingSoon,
@@ -169,8 +178,27 @@ Page({
       });
     }
 
+    // 构建折叠集成卡片列表
+    var groupCards = [];
+
+    // 1. 快捷报账（所有人可见）
+    groupCards.push(QUICK_EXPENSE_CARD);
+
+    // 2. 我的发票（所有人可见）
+    groupCards.push(MY_INVOICE_CARD);
+
+    // 3. 报账&发票审核（仅管理员）
+    if (isAdmin) {
+      groupCards.push(ADMIN_REVIEW_CARD);
+    }
+
     var self = this;
-    this.setData({ features: features, userRoleLabel: userRoleLabel, isAdmin: isAdmin });
+    this.setData({
+      standaloneFeatures: standaloneFeatures,
+      groupCards: groupCards,
+      userRoleLabel: userRoleLabel,
+      isAdmin: isAdmin,
+    });
 
     // 管理员版：设置 IoT 告警数
     if (isAdmin) {
@@ -180,8 +208,8 @@ Page({
           if (res.code !== 200) return;
           var alertNum = (res.data && res.data.alert) || 0;
           var updatedFeatures = [];
-          for (var j = 0; j < self.data.features.length; j++) {
-            var feat = self.data.features[j];
+          for (var j = 0; j < self.data.standaloneFeatures.length; j++) {
+            var feat = self.data.standaloneFeatures[j];
             if (feat.id === 'iot') {
               var copy = {};
               var keys = Object.keys(feat);
@@ -193,12 +221,29 @@ Page({
               updatedFeatures.push(feat);
             }
           }
-          self.setData({ features: updatedFeatures });
+          self.setData({ standaloneFeatures: updatedFeatures });
         },
       });
     }
   },
 
+  // ── 折叠卡片展开/收起 ──
+  toggleGroup: function (e) {
+    var groupId = e.currentTarget.dataset.groupId;
+    var key = 'expandedGroups.' + groupId;
+    var current = this.data.expandedGroups[groupId] || false;
+    this.setData({ [key]: !current });
+  },
+
+  // ── 子功能点击 ──
+  onChildTap: function (e) {
+    var url = e.currentTarget.dataset.url;
+    if (url) {
+      wx.navigateTo({ url: url });
+    }
+  },
+
+  // ── 独立功能卡片点击 ──
   onFeatureTap: function (e) {
     var feature = e.currentTarget.dataset.feature;
     var userInfo = app.globalData.userInfo;
@@ -215,5 +260,13 @@ Page({
     }
 
     wx.navigateTo({ url: feature.url });
+  },
+
+  // ── 非折叠集成卡片直接跳转 ──
+  onGroupCardTap: function (e) {
+    var card = e.currentTarget.dataset.card;
+    if (card && !card.isGroup && card.url) {
+      wx.navigateTo({ url: card.url });
+    }
   },
 });

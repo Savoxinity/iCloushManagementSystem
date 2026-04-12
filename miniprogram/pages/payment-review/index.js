@@ -1,5 +1,7 @@
 // ============================================
-// 付款审批 — 管理员
+// 付款审批 — 管理员 V5.4.1
+// ★ 标记已付款时选择成本分类 → 自动入成本明细
+// ★ Type B/C 完成后自动注入欠票倒计时追踪
 // ============================================
 var app = getApp();
 
@@ -10,11 +12,25 @@ var STATUS_LABELS = {
   rejected: '已驳回',
 };
 
+// 成本分类（与 management-accounting 一致）
+var COST_CATEGORIES = [
+  '人工成本', '材料成本', '设备折旧', '运输费用',
+  '水电费', '办公费', '差旅费', '维修费',
+  '外包服务', '税费', '其他',
+];
+
 Page({
   data: {
     payments: [],
     statusFilter: 'pending',
     loading: false,
+
+    // 成本分类弹窗
+    showCostPicker: false,
+    costCategories: COST_CATEGORIES,
+    selectedCostCategory: '',
+    pendingCompleteId: null,
+    pendingCompleteItem: null,
   },
 
   onShow: function () { this.loadPayments(); },
@@ -79,16 +95,90 @@ Page({
     });
   },
 
+  // ── 标记已付款 → 弹出成本分类选择 ──
   completePayment: function (e) {
+    var id = e.currentTarget.dataset.id;
+    // 找到对应的 payment item
+    var item = null;
+    for (var i = 0; i < this.data.payments.length; i++) {
+      if (this.data.payments[i].id === id) {
+        item = this.data.payments[i];
+        break;
+      }
+    }
+    this.setData({
+      showCostPicker: true,
+      pendingCompleteId: id,
+      pendingCompleteItem: item,
+      selectedCostCategory: '',
+    });
+  },
+
+  // ── 选择成本分类 ──
+  selectCostCategory: function (e) {
+    var cat = e.currentTarget.dataset.category;
+    this.setData({ selectedCostCategory: cat });
+  },
+
+  // ── 取消成本分类弹窗 ──
+  cancelCostPicker: function () {
+    this.setData({
+      showCostPicker: false,
+      pendingCompleteId: null,
+      pendingCompleteItem: null,
+      selectedCostCategory: '',
+    });
+  },
+
+  // ── 确认已付款 + 选定成本分类 ──
+  confirmComplete: function () {
     var self = this;
-    wx.showModal({
-      title: '确认已付款',
-      content: '标记为已付款后，系统将自动生成成本流水。',
+    if (!self.data.selectedCostCategory) {
+      wx.showToast({ title: '请选择成本分类', icon: 'none' });
+      return;
+    }
+
+    var id = self.data.pendingCompleteId;
+    var item = self.data.pendingCompleteItem;
+    var costCategory = self.data.selectedCostCategory;
+
+    self.setData({ showCostPicker: false });
+
+    // 发送 completed 状态 + 成本分类
+    app.request({
+      url: '/api/v1/payments/' + id + '/status',
+      method: 'PUT',
+      data: {
+        status: 'completed',
+        cost_category: costCategory,
+      },
       success: function (res) {
-        if (res.confirm) {
-          self.updateStatus(e.currentTarget.dataset.id, 'completed');
+        if (res.code === 200) {
+          var msg = '已付款，成本已计入「' + costCategory + '」';
+
+          // 后端应自动处理：
+          // 1. 向 ManagementCostLedger 插入成本流水
+          // 2. Type B/C 注入欠票倒计时追踪
+          // 前端提示
+          if (item && (item.payment_type === 'B' || item.payment_type === 'C')) {
+            msg += '（欠票追踪已启动）';
+          }
+
+          wx.showToast({ title: msg, icon: 'success', duration: 2500 });
+          self.loadPayments();
+        } else {
+          wx.showToast({ title: res.message || '操作失败', icon: 'none' });
         }
       },
+      fail: function () {
+        wx.showToast({ title: '网络错误', icon: 'none' });
+      },
+    });
+
+    self.setData({
+      pendingCompleteId: null,
+      pendingCompleteItem: null,
+      selectedCostCategory: '',
     });
   },
 

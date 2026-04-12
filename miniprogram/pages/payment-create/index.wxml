@@ -1,4 +1,4 @@
-<!-- 付款申请单 — Type A/B/C 三板斧 -->
+<!-- 付款申请单 V5.4.1 — 即付即票/先付后票/分批付款 -->
 <view class="page-container">
 
   <!-- 类型选择卡片 -->
@@ -8,22 +8,19 @@
       <view class="type-card {{paymentType === 'A' ? 'active' : ''}}"
             data-type="A" bindtap="selectType">
         <text class="type-icon">⚡</text>
-        <text class="type-name">Type A</text>
-        <text class="type-desc">即付即票</text>
+        <text class="type-name-big">即付即票</text>
         <text class="type-hint">当场付款 + 当场取发票</text>
       </view>
       <view class="type-card {{paymentType === 'B' ? 'active' : ''}}"
             data-type="B" bindtap="selectType">
         <text class="type-icon">📋</text>
-        <text class="type-name">Type B</text>
-        <text class="type-desc">先付后票</text>
+        <text class="type-name-big">先付后票</text>
         <text class="type-hint">先付款，约定日期补票</text>
       </view>
       <view class="type-card {{paymentType === 'C' ? 'active' : ''}}"
             data-type="C" bindtap="selectType">
         <text class="type-icon">📆</text>
-        <text class="type-name">Type C</text>
-        <text class="type-desc">分期付款</text>
+        <text class="type-name-big">分批付款</text>
         <text class="type-hint">多笔分期 + 约定开票日</text>
       </view>
     </view>
@@ -49,7 +46,7 @@
         <input class="input" type="digit" placeholder="0.00" value="{{totalAmount}}" bindinput="onInput" data-field="totalAmount" />
       </view>
       <view class="upload-section">
-        <text class="section-title">上传发票凭证 *</text>
+        <text class="section-title">上传发票凭证 *（自动OCR识别）</text>
         <view class="upload-area" bindtap="chooseInvoice">
           <block wx:if="{{invoiceImage}}">
             <image src="{{invoiceImage}}" mode="aspectFit" class="preview-img" />
@@ -61,6 +58,23 @@
           </block>
         </view>
         <view wx:if="{{uploading}}" class="upload-loading">上传中...</view>
+        <view wx:if="{{ocrLoading}}" class="upload-loading">OCR 识别中...</view>
+        <!-- OCR 识别结果展示 -->
+        <view wx:if="{{ocrResult}}" class="ocr-result">
+          <text class="ocr-title">OCR 识别结果</text>
+          <view class="ocr-row" wx:if="{{ocrResult.seller_name}}">
+            <text class="ocr-label">销方</text>
+            <text class="ocr-value">{{ocrResult.seller_name}}</text>
+          </view>
+          <view class="ocr-row" wx:if="{{ocrResult.total_amount}}">
+            <text class="ocr-label">金额</text>
+            <text class="ocr-value">¥{{ocrResult.total_amount}}</text>
+          </view>
+          <view class="ocr-row" wx:if="{{ocrResult.invoice_number}}">
+            <text class="ocr-label">票号</text>
+            <text class="ocr-value">{{ocrResult.invoice_number}}</text>
+          </view>
+        </view>
       </view>
     </block>
 
@@ -83,7 +97,7 @@
         <text class="warning-text">⚠️ 预期开票日为今天，请立即上传发票</text>
       </view>
       <view wx:if="{{isToday}}" class="upload-section">
-        <text class="section-title">上传发票凭证 *</text>
+        <text class="section-title">上传发票凭证 *（自动OCR识别）</text>
         <view class="upload-area" bindtap="chooseInvoice">
           <block wx:if="{{invoiceImage}}">
             <image src="{{invoiceImage}}" mode="aspectFit" class="preview-img" />
@@ -95,6 +109,7 @@
           </block>
         </view>
         <view wx:if="{{uploading}}" class="upload-loading">上传中...</view>
+        <view wx:if="{{ocrLoading}}" class="upload-loading">OCR 识别中...</view>
       </view>
     </block>
 
@@ -142,7 +157,7 @@
         <text class="warning-text">⚠️ 预期开票日为今天，请立即上传发票</text>
       </view>
       <view wx:if="{{isToday}}" class="upload-section">
-        <text class="section-title">上传发票凭证 *</text>
+        <text class="section-title">上传发票凭证 *（自动OCR识别）</text>
         <view class="upload-area" bindtap="chooseInvoice">
           <block wx:if="{{invoiceImage}}">
             <image src="{{invoiceImage}}" mode="aspectFit" class="preview-img" />
@@ -154,6 +169,7 @@
           </block>
         </view>
         <view wx:if="{{uploading}}" class="upload-loading">上传中...</view>
+        <view wx:if="{{ocrLoading}}" class="upload-loading">OCR 识别中...</view>
       </view>
     </block>
 

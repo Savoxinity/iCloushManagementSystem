@@ -22,7 +22,8 @@
     <text class="empty-text">加载中...</text>
   </view>
 
-  <view wx:elif="{{expenses.length === 0}}" class="empty-state">
+  <block wx:else>
+  <view wx:if="{{expenses.length === 0}}" class="empty-state">
     <text class="empty-icon">✅</text>
     <text class="empty-text">暂无{{currentTabLabel}}报销单</text>
   </view>
@@ -35,12 +36,12 @@
         <view class="card-header">
           <text class="emp-name">{{item.user_name || '员工#' + item.user_id}}</text>
           <view class="header-badges">
-            <!-- 审核状态标签 -->
+            <!-- 审核状态标签 — 用独立 wx:if 实现互斥 -->
             <text wx:if="{{item.status === 'approved' && item.points_delta > 0}}" class="status-badge badge-invoice-pass">发票通过</text>
-            <text wx:elif="{{item.status === 'approved' && item.points_delta < 0}}" class="status-badge badge-receipt-pass">小票通过</text>
-            <text wx:elif="{{item.status === 'approved'}}" class="status-badge badge-approved">已通过</text>
-            <text wx:elif="{{item.status === 'rejected'}}" class="status-badge badge-rejected">已驳回</text>
-            <text wx:elif="{{item.status === 'pending' || item.status === 'manual_review'}}" class="status-badge badge-pending">待审核</text>
+            <text wx:if="{{item.status === 'approved' && item.points_delta < 0}}" class="status-badge badge-receipt-pass">小票通过</text>
+            <text wx:if="{{item.status === 'approved' && (item.points_delta === 0 || item.points_delta === undefined)}}" class="status-badge badge-approved">已通过</text>
+            <text wx:if="{{item.status === 'rejected'}}" class="status-badge badge-rejected">已驳回</text>
+            <text wx:if="{{item.status === 'pending' || item.status === 'manual_review'}}" class="status-badge badge-pending">待审核</text>
             <!-- 凭证类型 -->
             <text class="voucher-badge {{item.voucher_type}}">{{item.voucher_type === 'invoice' ? '有票' : '无票'}}</text>
           </view>
@@ -90,6 +91,7 @@
       </view>
     </view>
   </view>
+  </block>
 
   <!-- ═══ 详情弹窗 ═══ -->
   <view wx:if="{{showDetailPanel}}" class="review-mask" bindtap="closeDetail">
@@ -151,7 +153,7 @@
         </view>
 
         <!-- 收据图片 -->
-        <view wx:elif="{{currentExpense.receipt_image_url}}" class="detail-group">
+        <view wx:if="{{!currentExpense.invoice_info && currentExpense.receipt_image_url}}" class="detail-group">
           <view class="group-subtitle">收据图片</view>
           <image
             src="{{currentExpense.receipt_image_url}}"

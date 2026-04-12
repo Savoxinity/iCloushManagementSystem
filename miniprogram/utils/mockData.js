@@ -541,6 +541,228 @@ function getMockResponse(url, method, data) {
     return { code: 200, data: entry, message: '产能数据录入成功' };
   }
 
+  // ═══ 付款申请 Mock ═══
+  if (url.indexOf('/api/v1/payments/') !== -1 && method === 'POST') {
+    var paymentId = 'pay_' + Date.now();
+    return {
+      code: 200,
+      data: {
+        id: paymentId,
+        payment_type: (data && data.payment_type) || 'A',
+        supplier_name: (data && data.supplier_name) || '',
+        purpose: (data && data.purpose) || '',
+        total_amount: (data && data.total_amount) || 0,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+      },
+      message: '付款申请提交成功',
+    };
+  }
+
+  // 付款记录列表
+  if (url.indexOf('/api/v1/payments/my') !== -1 && method === 'GET') {
+    return {
+      code: 200,
+      data: [
+        { id: 'pay_001', payment_type: 'A', supplier_name: '海尔', purpose: '家用小洗衣机采购', total_amount: 900, status: 'pending', created_at: '2026-04-12T08:00:00Z', statusLabel: '待审批' },
+        { id: 'pay_002', payment_type: 'B', supplier_name: '格力', purpose: '空调采购', total_amount: 5600, status: 'completed', created_at: '2026-04-10T10:00:00Z', statusLabel: '已完成' },
+      ],
+      message: '成功',
+    };
+  }
+
+  // 付款审批列表
+  if (url.indexOf('/api/v1/payments/pending') !== -1 && method === 'GET') {
+    return {
+      code: 200,
+      data: [
+        { id: 'pay_001', payment_type: 'A', supplier_name: '海尔', purpose: '家用小洗衣机采购', total_amount: 900, status: 'pending', applicant_name: '程建平', created_at: '2026-04-12T08:00:00Z' },
+      ],
+      message: '成功',
+    };
+  }
+
+  // 付款审批操作
+  if (url.match(/\/api\/v1\/payments\/[^/]+\/review/) && method === 'POST') {
+    return { code: 200, data: { status: 'approved' }, message: '审批成功' };
+  }
+
+  // 发票 OCR 识别
+  if (url.indexOf('/api/v1/invoices/ocr') !== -1 && method === 'POST') {
+    return {
+      code: 200,
+      data: {
+        ocr_available: true,
+        parsed: {
+          invoice_type: 'vat_normal',
+          invoice_type_label: '增值税普通发票',
+          invoice_code: '3100224130',
+          invoice_number: '08965432',
+          invoice_date: '2026-04-12',
+          total_amount: '900.00',
+          pre_tax_amount: '849.06',
+          tax_amount: '50.94',
+          seller_name: '上海海尔电器有限公司',
+          seller_tax_id: '91310000MA1FLG2X3P',
+          buyer_name: 'iCloush 智慧工厂',
+          buyer_tax_id: '91310115MA1K4L8X0J',
+          check_code: '12345678901234567890',
+          goods_name_summary: '家用洗衣机',
+        },
+        items: [{ name: '家用洗衣机', quantity: 1, unit_price: 849.06, amount: 849.06, tax_rate: '6%', tax: 50.94 }],
+      },
+      message: '成功',
+    };
+  }
+
+  // 发票上传（入发票/票据池）
+  if (url.indexOf('/api/v1/invoices/upload') !== -1 && method === 'POST') {
+    return {
+      code: 200,
+      data: {
+        id: 'inv_' + Date.now(),
+        is_duplicate: false,
+        auto_resolved: [],
+      },
+      message: '发票上传成功',
+    };
+  }
+
+  // 发票列表（我的发票）
+  if (url.indexOf('/api/v1/invoices/my') !== -1 && method === 'GET') {
+    return {
+      code: 200,
+      data: [
+        { id: 'inv_001', seller_name: '上海康智电子商务有限公司', total_amount: 6628.88, invoice_date: '2026-02-25', status: 'pending', uploader_name: '程建平' },
+      ],
+      message: '成功',
+    };
+  }
+
+  // 发票管理（全员票据池）
+  if (url.indexOf('/api/v1/invoices/all') !== -1 && method === 'GET') {
+    return {
+      code: 200,
+      data: {
+        total: 1,
+        invoices: [
+          { id: 'inv_001', seller_name: '上海康智电子商务有限公司', total_amount: 6628.88, invoice_date: '2026-02-25', status: 'pending', uploader_name: '程建平', source: 'invoice_upload' },
+        ],
+      },
+      message: '成功',
+    };
+  }
+
+  // 发票打印状态列表
+  if (url.indexOf('/api/v1/payments/invoices/print-status') !== -1 && method === 'GET') {
+    return {
+      code: 200,
+      data: [
+        { id: 'inv_001', invoice_code: '3100224130', invoice_number: '08965432', seller_name: '上海康智电子商务有限公司', total_amount: 6628.88, is_printed: false, created_at: '2026-02-25T10:00:00Z' },
+      ],
+      message: '成功',
+    };
+  }
+
+  // 发票打印标记
+  if (url.match(/\/api\/v1\/payments\/invoices\/[^/]+\/print/) && method === 'PUT') {
+    return { code: 200, data: {}, message: '操作成功' };
+  }
+
+  // 开票覆盖率
+  if (url.indexOf('/api/v1/payments/invoice-coverage') !== -1 && method === 'GET') {
+    return {
+      code: 200,
+      data: {
+        coverage_rate: 72.5,
+        invoice_total: 48650.00,
+        cost_total: 67100.00,
+        tax_gap: 18450.00,
+      },
+      message: '成功',
+    };
+  }
+
+  // 报销相关
+  if (url.indexOf('/api/v1/expenses/my') !== -1 && method === 'GET') {
+    return {
+      code: 200,
+      data: [
+        { id: 'exp_001', reason: '餐费99.2', amount: 99.2, voucher_type: 'invoice', status: 'pending', created_at: '2026-04-12T08:20:09Z' },
+      ],
+      message: '成功',
+    };
+  }
+
+  if (url.indexOf('/api/v1/expenses/pending') !== -1 && method === 'GET') {
+    return {
+      code: 200,
+      data: [
+        { id: 'exp_001', reason: '餐费99.2', amount: 99.2, voucher_type: 'invoice', status: 'pending', applicant_name: '程建平', created_at: '2026-04-12T08:20:09Z' },
+      ],
+      message: '成功',
+    };
+  }
+
+  if (url.match(/\/api\/v1\/expenses\/[^/]+\/review/) && method === 'POST') {
+    return { code: 200, data: { status: 'approved' }, message: '审核成功' };
+  }
+
+  if (url.match(/\/api\/v1\/expenses\/[^/]+$/) && method === 'GET') {
+    return {
+      code: 200,
+      data: {
+        id: 'exp_001', reason: '餐费99.2', amount: 99.2, voucher_type: 'invoice',
+        status: 'pending', applicant_name: '程建平',
+        created_at: '2026-04-12T08:20:09Z',
+        voucher_url: 'https://mock.icloush.com/photo/receipt.jpg',
+      },
+      message: '成功',
+    };
+  }
+
+  if (url.indexOf('/api/v1/expenses') !== -1 && method === 'POST') {
+    return {
+      code: 200,
+      data: { id: 'exp_' + Date.now(), status: 'pending' },
+      message: '报销提交成功',
+    };
+  }
+
+  // 付款状态更新（审批 + 已付款自动入成本）
+  if (url.match(/\/api\/v1\/payments\/[^/]+\/status/) && method === 'PUT') {
+    return { code: 200, data: { status: (data && data.status) || 'approved', cost_category: (data && data.cost_category) || '' }, message: '操作成功' };
+  }
+
+  // 付款列表（管理员全部）
+  if (url.indexOf('/api/v1/payments/') !== -1 && method === 'GET' && url.indexOf('invoice-coverage') === -1 && url.indexOf('invoices') === -1 && url.indexOf('/my') === -1 && url.indexOf('/pending') === -1) {
+    return {
+      code: 200,
+      data: [
+        { id: 'pay_001', payment_type: 'A', supplier_name: '海尔', purpose: '家用小洗衣机采购', total_amount: 900, status: 'pending', applicant_name: '程建平', created_at: '2026-04-12T08:00:00Z' },
+        { id: 'pay_002', payment_type: 'B', supplier_name: '格力', purpose: '空调采购', total_amount: 5600, status: 'completed', applicant_name: '张三', created_at: '2026-04-10T10:00:00Z', cost_category: '设备折旧' },
+      ],
+      message: '成功',
+    };
+  }
+
+  // 成本分类
+  if (url.indexOf('/api/v1/accounting/categories') !== -1 && method === 'GET') {
+    return {
+      code: 200,
+      data: [
+        { code: 'raw_material', name: '原材料' },
+        { code: 'equipment', name: '设备维修' },
+        { code: 'logistics', name: '物流运输' },
+        { code: 'utilities', name: '水电气' },
+        { code: 'labor', name: '人工成本' },
+        { code: 'office', name: '办公行政' },
+        { code: 'other', name: '其他' },
+      ],
+      message: '成功',
+    };
+  }
+
   // 默认
   return { code: 200, data: {}, message: '成功' };
 }

@@ -1,4 +1,4 @@
-<!-- 报销单创建页 — 员工极简三项 -->
+<!-- 报销单创建页 V5.4.1 — 统一 OCR 链路 -->
 <view class="page-container">
 
   <!-- 凭证类型切换 -->
@@ -13,7 +13,7 @@
     </view>
   </view>
 
-  <!-- 凭证图片上传 -->
+  <!-- 凭证图片上传 — 发票 -->
   <view class="upload-area" wx:if="{{voucherType === 'invoice'}}">
     <block wx:if="{{tempInvoicePath || invoiceImage}}">
       <image src="{{invoiceImage || tempInvoicePath}}" mode="aspectFit" class="preview-img" bindtap="previewInvoice" />
@@ -22,12 +22,35 @@
     <block wx:else>
       <view class="upload-placeholder" bindtap="chooseInvoice">
         <text class="upload-icon">📄</text>
-        <text class="upload-text">拍照或选择发票</text>
+        <text class="upload-text">拍照或选择发票（自动 OCR）</text>
       </view>
     </block>
     <view wx:if="{{uploading}}" class="upload-loading">上传中...</view>
+    <view wx:if="{{ocrLoading}}" class="upload-loading">OCR 识别中...</view>
   </view>
 
+  <!-- OCR 识别结果展示 -->
+  <view wx:if="{{ocrResult && voucherType === 'invoice'}}" class="ocr-result">
+    <text class="ocr-title">发票识别结果（已入票据池）</text>
+    <view wx:if="{{ocrResult.seller_name}}" class="ocr-row">
+      <text class="ocr-label">销方名称</text>
+      <text class="ocr-value">{{ocrResult.seller_name}}</text>
+    </view>
+    <view wx:if="{{ocrResult.total_amount}}" class="ocr-row">
+      <text class="ocr-label">发票金额</text>
+      <text class="ocr-value">¥{{ocrResult.total_amount}}</text>
+    </view>
+    <view wx:if="{{ocrResult.invoice_date}}" class="ocr-row">
+      <text class="ocr-label">开票日期</text>
+      <text class="ocr-value">{{ocrResult.invoice_date}}</text>
+    </view>
+    <view wx:if="{{ocrResult.invoice_type_label}}" class="ocr-row">
+      <text class="ocr-label">发票类型</text>
+      <text class="ocr-value">{{ocrResult.invoice_type_label}}</text>
+    </view>
+  </view>
+
+  <!-- 凭证图片上传 — 收据 -->
   <view class="upload-area" wx:if="{{voucherType === 'receipt'}}">
     <block wx:if="{{tempReceiptPath || receiptImage}}">
       <image src="{{receiptImage || tempReceiptPath}}" mode="aspectFit" class="preview-img" bindtap="previewReceipt" />
@@ -42,7 +65,7 @@
     <view wx:if="{{uploading}}" class="upload-loading">上传中...</view>
   </view>
 
-  <!-- 表单区域 — 只有事由和金额 -->
+  <!-- 表单区域 -->
   <view class="form-section">
     <view class="form-item">
       <text class="label">报销用途</text>

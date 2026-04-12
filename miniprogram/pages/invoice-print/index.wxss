@@ -22,8 +22,10 @@
 
 /* 发票卡片 */
 .invoice-card { background: rgba(255,255,255,0.05); border-radius: 16rpx; padding: 24rpx; margin-bottom: 16rpx; }
-.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx; }
-.invoice-code { font-size: 28rpx; color: #fff; font-weight: bold; }
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12rpx; }
+.header-left { flex: 1; overflow: hidden; }
+.invoice-seller { font-size: 28rpx; color: #fff; font-weight: bold; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.invoice-code { font-size: 22rpx; color: #666; display: block; margin-top: 4rpx; }
 .print-badge { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 6rpx; }
 .print-badge.printed { background: rgba(16,185,129,0.2); color: #10B981; }
 .print-badge.unprinted { background: rgba(245,158,11,0.2); color: #F59E0B; }

@@ -1,5 +1,5 @@
 /* ============================================
-   功能金刚区样式
+   功能金刚区样式 V5.4.1 — 折叠集成卡片
    ============================================ */
 
 .page-container {
@@ -44,12 +44,151 @@
   color: #C9A84C;
 }
 
-/* ===== 2×4 网格 ===== */
+/* ═══════════════════════════════════════
+   折叠集成卡片区域
+   ═══════════════════════════════════════ */
+
+.group-section {
+  padding: 24rpx 24rpx 0;
+}
+
+.group-card-wrapper {
+  margin-bottom: 20rpx;
+}
+
+.group-card {
+  background: #141414;
+  border-radius: 20rpx;
+  border: 1rpx solid #1E1E1E;
+  overflow: hidden;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.4);
+}
+
+.group-card.expanded {
+  border-color: rgba(201, 168, 76, 0.3);
+}
+
+.group-card-single {
+  background: #141414;
+  border-radius: 20rpx;
+  border: 1rpx solid #1E1E1E;
+  overflow: hidden;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.4);
+}
+
+.group-card-header {
+  display: flex;
+  align-items: center;
+  padding: 28rpx 24rpx;
+  gap: 20rpx;
+}
+
+.group-icon-wrap {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.group-icon {
+  font-size: 40rpx;
+}
+
+.group-card-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.group-card-name {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #F0F0F0;
+}
+
+.group-card-sub {
+  font-size: 22rpx;
+  color: #888888;
+}
+
+.group-arrow {
+  font-size: 36rpx;
+  color: #555;
+  flex-shrink: 0;
+}
+
+.group-expand-icon {
+  font-size: 28rpx;
+  color: #888;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.group-expand-icon.rotated {
+  transform: rotate(180deg);
+}
+
+/* ── 展开的子功能列表 ── */
+.group-children {
+  border-top: 1rpx solid rgba(255, 255, 255, 0.06);
+  padding: 8rpx 0;
+}
+
+.child-item {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 32rpx 24rpx 44rpx;
+  gap: 20rpx;
+}
+
+.child-item:active {
+  background: rgba(201, 168, 76, 0.08);
+}
+
+.child-icon {
+  font-size: 32rpx;
+  flex-shrink: 0;
+  width: 48rpx;
+  text-align: center;
+}
+
+.child-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2rpx;
+}
+
+.child-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #E0E0E0;
+}
+
+.child-sub {
+  font-size: 20rpx;
+  color: #777;
+}
+
+.child-arrow {
+  font-size: 28rpx;
+  color: #555;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════
+   独立功能卡片 2×N 网格
+   ═══════════════════════════════════════ */
+
 .grid-container {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20rpx;
-  padding: 32rpx 24rpx;
+  padding: 24rpx 24rpx 0;
 }
 
 .grid-item {
@@ -63,7 +202,6 @@
   align-items: flex-start;
   gap: 10rpx;
   overflow: hidden;
-  /* 轻微投影 */
   box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.4);
 }
 
@@ -135,6 +273,101 @@
 .coming-soon-tag text {
   font-size: 18rpx;
   color: #666666;
+}
+
+/* ═══════════════════════════════════════
+   BI 看板（报账&发票审核卡片内）
+   ═══════════════════════════════════════ */
+
+.bi-dashboard {
+  margin: 16rpx 24rpx;
+  background: linear-gradient(135deg, rgba(201,168,76,0.1), rgba(59,130,246,0.06));
+  border: 1rpx solid rgba(201,168,76,0.2);
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.bi-gauge-section {
+  padding: 24rpx 24rpx 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.bi-title {
+  font-size: 24rpx;
+  color: #aaa;
+  margin-bottom: 16rpx;
+}
+
+.bi-gauge-ring {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  border: 10rpx solid rgba(201,168,76,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16rpx;
+}
+
+.bi-gauge-value {
+  font-size: 40rpx;
+  color: #C9A84C;
+  font-weight: 700;
+}
+
+.bi-stats {
+  width: 100%;
+}
+
+.bi-stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6rpx 0;
+}
+
+.bi-stat-label {
+  font-size: 22rpx;
+  color: #888;
+}
+
+.bi-stat-value {
+  font-size: 24rpx;
+  color: #E0E0E0;
+  font-weight: 600;
+}
+
+.bi-stat-value.bi-positive {
+  color: #10B981;
+}
+
+.bi-gap-section {
+  background: rgba(239,68,68,0.06);
+  border-top: 1rpx solid rgba(239,68,68,0.15);
+  padding: 20rpx 24rpx;
+  text-align: center;
+}
+
+.bi-gap-label {
+  font-size: 22rpx;
+  color: #aaa;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.bi-gap-value {
+  font-size: 48rpx;
+  color: #EF4444;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 6rpx;
+}
+
+.bi-gap-hint {
+  font-size: 20rpx;
+  color: #666;
+  display: block;
 }
 
 /* 版本信息 */

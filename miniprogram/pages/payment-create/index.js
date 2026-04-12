@@ -1,6 +1,7 @@
 // ============================================
-// 付款申请单 — Type A/B/C 三板斧
-// Phase 5.3
+// 付款申请单 V5.4.1 — 即付即票/先付后票/分批付款
+// ★ Type A 发票自动走 OCR → 进发票/票据池
+// ★ 修复提交失败问题
 // ============================================
 var app = getApp();
 
@@ -14,6 +15,8 @@ Page({
     isToday: false,
     invoiceImage: '',
     uploading: false,
+    ocrLoading: false,
+    ocrResult: null,
     submitting: false,
     notes: '',
     canSubmit: false,
@@ -31,6 +34,8 @@ Page({
       expectedInvoiceDate: '',
       isToday: false,
       invoiceImage: '',
+      ocrResult: null,
+      ocrLoading: false,
       installments: [{ amount: '', date: '' }],
       installmentTotal: '0.00',
     });
@@ -107,7 +112,7 @@ Page({
     this.setData({ installmentTotal: total.toFixed(2) });
   },
 
-  // ── 发票上传 ──
+  // ── 发票上传（统一走 OCR 链路） ──
   chooseInvoice: function () {
     var self = this;
     wx.chooseMedia({
@@ -116,47 +121,97 @@ Page({
       sourceType: ['album', 'camera'],
       success: function (res) {
         var tempPath = res.tempFiles[0].tempFilePath;
-        self.setData({ uploading: true });
-        self.uploadFile(tempPath, function (url) {
-          self.setData({ invoiceImage: url, uploading: false });
-          self.checkCanSubmit();
-        });
+        self.setData({ uploading: true, ocrResult: null });
+        self.uploadAndOCR(tempPath);
       },
     });
   },
 
-  uploadFile: function (filePath, cb) {
+  // ★ 统一上传 + OCR 链路：上传图片 → 调用 OCR → 结果入发票/票据池
+  uploadAndOCR: function (tempPath) {
     var self = this;
-    app.request({
-      url: '/api/v1/upload/token',
-      success: function (res) {
-        if (res.code !== 200) {
-          self.setData({ uploading: false });
-          wx.showToast({ title: '获取上传凭证失败', icon: 'none' });
-          return;
+    var baseUrl = app.globalData.baseUrl || '';
+
+    // 如果是 Mock 模式，直接使用本地路径
+    if (app.globalData.useMock) {
+      self.setData({
+        uploading: false,
+        invoiceImage: tempPath,
+        ocrResult: {
+          seller_name: '（Mock）供应商',
+          total_amount: self.data.totalAmount || '0.00',
+          invoice_number: 'MOCK' + Date.now(),
+        },
+      });
+      self.checkCanSubmit();
+      wx.showToast({ title: '图片已选择', icon: 'success' });
+      return;
+    }
+
+    // 真实模式：上传图片
+    wx.uploadFile({
+      url: baseUrl + '/api/v1/upload/image',
+      filePath: tempPath,
+      name: 'file',
+      formData: { category: 'invoice' },
+      header: {
+        'Authorization': 'Bearer ' + (app.globalData.token || ''),
+      },
+      success: function (uploadRes) {
+        self.setData({ uploading: false });
+        try {
+          var data = JSON.parse(uploadRes.data);
+          if (data.code === 200 && data.data && data.data.url) {
+            var imageUrl = data.data.url;
+            self.setData({ invoiceImage: imageUrl });
+            self.checkCanSubmit();
+            // ★ 自动调用 OCR 识别 → 结果进发票/票据池
+            self.runOCR(imageUrl);
+          } else {
+            // 上传失败但不阻塞流程，使用本地路径
+            self.setData({ invoiceImage: tempPath });
+            self.checkCanSubmit();
+            wx.showToast({ title: data.message || '上传失败，使用本地图片', icon: 'none' });
+          }
+        } catch (e) {
+          self.setData({ invoiceImage: tempPath });
+          self.checkCanSubmit();
         }
-        wx.uploadFile({
-          url: res.data.upload_url,
-          filePath: filePath,
-          name: 'file',
-          formData: res.data.form_data || {},
-          success: function (uploadRes) {
-            try {
-              var data = JSON.parse(uploadRes.data);
-              cb(data.url || data.file_url || filePath);
-            } catch (err) {
-              cb(filePath);
-            }
-          },
-          fail: function () {
-            self.setData({ uploading: false });
-            wx.showToast({ title: '上传失败', icon: 'none' });
-          },
-        });
       },
       fail: function () {
-        self.setData({ uploading: false });
-        wx.showToast({ title: '网络错误', icon: 'none' });
+        self.setData({ uploading: false, invoiceImage: tempPath });
+        self.checkCanSubmit();
+        wx.showToast({ title: '上传失败，使用本地图片', icon: 'none' });
+      },
+    });
+  },
+
+  // ★ 调用后端 OCR 识别 → 自动入发票/票据池
+  runOCR: function (imageUrl) {
+    var self = this;
+    self.setData({ ocrLoading: true });
+
+    app.request({
+      url: '/api/v1/invoices/ocr',
+      method: 'POST',
+      data: { image_url: imageUrl, source: 'payment_create' },
+      success: function (res) {
+        self.setData({ ocrLoading: false });
+        if (res.code === 200 && res.data) {
+          if (res.data.ocr_available && res.data.parsed) {
+            self.setData({ ocrResult: res.data.parsed });
+            wx.showToast({ title: 'OCR 识别成功', icon: 'success' });
+          } else {
+            wx.showToast({
+              title: 'OCR 不可用，请手动确认',
+              icon: 'none',
+              duration: 2000,
+            });
+          }
+        }
+      },
+      fail: function () {
+        self.setData({ ocrLoading: false });
       },
     });
   },
@@ -178,7 +233,6 @@ Page({
       if (d.isToday) ok = ok && !!d.invoiceImage;
     } else if (d.paymentType === 'C') {
       ok = !!d.expectedInvoiceDate;
-      // 每笔分期都必须有金额和日期
       var allFilled = true;
       for (var i = 0; i < d.installments.length; i++) {
         if (!d.installments[i].amount || !d.installments[i].date) {
@@ -209,11 +263,16 @@ Page({
     if (d.paymentType === 'A') {
       payload.total_amount = parseFloat(d.totalAmount);
       payload.invoice_image_url = d.invoiceImage;
+      // 附带 OCR 结果
+      if (d.ocrResult) {
+        payload.ocr_data = d.ocrResult;
+      }
     } else if (d.paymentType === 'B') {
       payload.total_amount = parseFloat(d.totalAmount);
       payload.expected_invoice_date = d.expectedInvoiceDate;
       if (d.isToday && d.invoiceImage) {
         payload.invoice_image_url = d.invoiceImage;
+        if (d.ocrResult) payload.ocr_data = d.ocrResult;
       }
     } else if (d.paymentType === 'C') {
       payload.total_amount = parseFloat(d.installmentTotal);
@@ -223,6 +282,7 @@ Page({
       });
       if (d.isToday && d.invoiceImage) {
         payload.invoice_image_url = d.invoiceImage;
+        if (d.ocrResult) payload.ocr_data = d.ocrResult;
       }
     }
 

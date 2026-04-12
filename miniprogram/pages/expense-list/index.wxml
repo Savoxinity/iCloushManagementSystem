@@ -1,15 +1,18 @@
-<!-- 报销列表页 -->
+<!-- 报销记录页 V5.4.1 — 全部/付款采购/报销/被驳回 -->
 <view class="page-container">
   <view class="header-bar">
     <text class="page-title">报销记录</text>
-    <view class="btn-create" bindtap="goCreate">+ 新建报销</view>
+    <view class="header-actions">
+      <view class="btn-create" bindtap="goCreateExpense">+ 报销</view>
+      <view class="btn-create btn-create-alt" bindtap="goCreatePayment">+ 付款</view>
+    </view>
   </view>
 
-  <!-- 状态筛选 -->
+  <!-- 四Tab筛选 -->
   <view class="filter-bar">
-    <view wx:for="{{statusOptions}}" wx:key="value"
-          class="filter-item {{statusFilter === item.value ? 'active' : ''}}"
-          data-status="{{item.value}}" bindtap="switchFilter">
+    <view wx:for="{{tabs}}" wx:key="key"
+          class="filter-item {{activeTab === item.key ? 'active' : ''}}"
+          data-tab="{{item.key}}" bindtap="switchTab">
       {{item.label}}
     </view>
   </view>
@@ -18,30 +21,103 @@
     <text class="empty-text">加载中...</text>
   </view>
 
-  <block wx:else>
-  <view wx:if="{{expenses.length === 0}}" class="empty-state">
-    <text class="empty-icon">📋</text>
-    <text class="empty-text">暂无报销记录</text>
-    <view class="btn-action" bindtap="goCreate">去创建报销单</view>
-  </view>
+  <block wx:if="{{!loading}}">
+    <view wx:if="{{records.length === 0}}" class="empty-state">
+      <text class="empty-icon">📋</text>
+      <text class="empty-text">暂无记录</text>
+    </view>
 
-  <view wx:else class="expense-list">
-    <view class="expense-card" wx:for="{{expenses}}" wx:key="id">
-      <view class="card-top">
-        <text class="exp-purpose">{{item.purpose}}</text>
-        <text class="exp-status {{item.statusClass}}">{{item.statusLabel}}</text>
+    <view wx:if="{{records.length > 0}}" class="record-list">
+      <view class="record-card" wx:for="{{records}}" wx:key="id"
+            bindtap="viewDetail" data-id="{{item.id}}">
+        <view class="card-top">
+          <view class="card-top-left">
+            <text class="record-type-tag {{item.record_type === 'payment' ? 'tag-payment' : 'tag-expense'}}">{{item.record_type_label}}</text>
+            <text class="record-reason">{{item.display_reason}}</text>
+          </view>
+          <text class="exp-status {{item.statusClass}}">{{item.statusLabel}}</text>
+        </view>
+        <view class="card-body">
+          <text class="exp-amount">¥ {{item.display_amount}}</text>
+          <block wx:if="{{item.record_type === 'payment'}}">
+            <text class="exp-type">{{item.payment_type_label}}</text>
+          </block>
+          <block wx:if="{{item.record_type === 'expense'}}">
+            <text class="exp-type">{{item.voucher_type === 'invoice' ? '发票' : '收据'}}</text>
+          </block>
+        </view>
+        <view class="card-bottom">
+          <text class="exp-date">{{item.created_at}}</text>
+          <text wx:if="{{item.points_delta}}" class="exp-points {{item.points_delta > 0 ? 'positive' : 'negative'}}">
+            积分 {{item.points_delta > 0 ? '+' : ''}}{{item.points_delta}}
+          </text>
+        </view>
       </view>
-      <view class="card-body">
-        <text class="exp-amount">¥ {{item.claimed_amount}}</text>
-        <text class="exp-type">{{item.voucher_type === 'invoice' ? '发票' : '收据'}}</text>
+    </view>
+  </block>
+
+  <!-- ═══ 详情弹窗（同管理员报销审核样式） ═══ -->
+  <view wx:if="{{showDetail}}" class="detail-overlay" bindtap="closeDetail">
+    <view class="detail-panel" catchtap="stopPropagation">
+      <text class="detail-title">{{currentRecord.record_type === 'payment' ? '付款申请详情' : '报销单详情'}}</text>
+
+      <view class="detail-row">
+        <text class="detail-label">类型</text>
+        <text class="detail-value">{{currentRecord.record_type_label}}{{currentRecord.payment_type_label ? ' · ' + currentRecord.payment_type_label : ''}}</text>
       </view>
-      <view class="card-bottom">
-        <text class="exp-date">{{item.created_at}}</text>
-        <text wx:if="{{item.points_delta}}" class="exp-points {{item.points_delta > 0 ? 'positive' : 'negative'}}">
-          积分 {{item.points_delta > 0 ? '+' : ''}}{{item.points_delta}}
-        </text>
+
+      <view wx:if="{{currentRecord.record_type === 'expense'}}" class="detail-row">
+        <text class="detail-label">事由</text>
+        <text class="detail-value">{{currentRecord.reason || currentRecord.purpose || '-'}}</text>
+      </view>
+
+      <view wx:if="{{currentRecord.record_type === 'payment'}}" class="detail-row">
+        <text class="detail-label">供应商</text>
+        <text class="detail-value">{{currentRecord.supplier_name || '-'}}</text>
+      </view>
+
+      <view wx:if="{{currentRecord.record_type === 'payment'}}" class="detail-row">
+        <text class="detail-label">付款事由</text>
+        <text class="detail-value">{{currentRecord.purpose || '-'}}</text>
+      </view>
+
+      <view class="detail-row">
+        <text class="detail-label">金额</text>
+        <text class="detail-value amount-value">¥ {{currentRecord.display_amount}}</text>
+      </view>
+
+      <view wx:if="{{currentRecord.voucher_type}}" class="detail-row">
+        <text class="detail-label">凭证类型</text>
+        <text class="detail-value">{{currentRecord.voucher_type === 'invoice' ? '发票' : '收据'}}</text>
+      </view>
+
+      <view class="detail-row">
+        <text class="detail-label">提交时间</text>
+        <text class="detail-value">{{currentRecord.created_at}}</text>
+      </view>
+
+      <view class="detail-row">
+        <text class="detail-label">状态</text>
+        <text class="detail-value {{currentRecord.statusClass}}">{{currentRecord.statusLabel}}</text>
+      </view>
+
+      <view wx:if="{{currentRecord.review_note}}" class="detail-row">
+        <text class="detail-label">审核备注</text>
+        <text class="detail-value">{{currentRecord.review_note}}</text>
+      </view>
+
+      <!-- 凭证图片 -->
+      <view wx:if="{{currentRecord.voucher_url}}" class="detail-voucher">
+        <text class="voucher-label">收据图片</text>
+        <image src="{{currentRecord.voucher_url}}" mode="aspectFit" class="voucher-img"
+               bindtap="previewVoucher" data-url="{{currentRecord.voucher_url}}" />
+      </view>
+
+      <!-- 操作按钮 -->
+      <view class="detail-actions">
+        <view class="btn-close" bindtap="closeDetail">关闭</view>
+        <view wx:if="{{currentRecord.status === 'rejected'}}" class="btn-edit" bindtap="editRejected">修改重提</view>
       </view>
     </view>
   </view>
-  </block>
 </view>

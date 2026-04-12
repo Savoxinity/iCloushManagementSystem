@@ -1,4 +1,4 @@
-<!-- 付款审批 — 管理员 -->
+<!-- 付款审批 — 管理员 V5.4.1 -->
 <view class="page-container">
   <!-- 状态筛选 -->
   <view class="filter-tabs">
@@ -11,12 +11,16 @@
   <!-- 列表 -->
   <view class="list-container">
     <view wx:if="{{loading}}" class="loading-hint">加载中...</view>
-    <block wx:else>
+    <block wx:if="{{!loading}}">
       <view wx:if="{{!payments.length}}" class="empty-hint">暂无申请单</view>
-      <block wx:else>
+      <block wx:if="{{payments.length > 0}}">
         <view class="payment-card" wx:for="{{payments}}" wx:key="id">
           <view class="card-header">
-            <view class="type-badge type-{{item.payment_type}}">Type {{item.payment_type}}</view>
+            <view class="type-badge type-{{item.payment_type}}">
+              <text wx:if="{{item.payment_type === 'A'}}">即付即票</text>
+              <text wx:if="{{item.payment_type === 'B'}}">先付后票</text>
+              <text wx:if="{{item.payment_type === 'C'}}">分批付款</text>
+            </view>
             <view class="status-badge status-{{item.status}}">{{item.statusLabel}}</view>
           </view>
           <view class="card-body">
@@ -36,6 +40,10 @@
             <view wx:if="{{item.expected_invoice_date}}" class="invoice-info">
               <text>预期开票：{{item.expected_invoice_date}}</text>
             </view>
+            <!-- 成本分类（已付款的显示） -->
+            <view wx:if="{{item.cost_category}}" class="cost-category-tag">
+              <text>成本分类：{{item.cost_category}}</text>
+            </view>
             <!-- 发票图片 -->
             <view wx:if="{{item.invoice_image_url}}" class="invoice-preview">
               <image src="{{item.invoice_image_url}}" mode="aspectFit" class="invoice-img" bindtap="previewImage" data-url="{{item.invoice_image_url}}" />
@@ -53,5 +61,34 @@
         </view>
       </block>
     </block>
+  </view>
+
+  <!-- ═══ 成本分类选择弹窗 ═══ -->
+  <view wx:if="{{showCostPicker}}" class="modal-overlay" bindtap="cancelCostPicker">
+    <view class="modal-content" catchtap="">
+      <text class="modal-title">选择成本分类</text>
+      <text class="modal-subtitle">标记已付款后，系统将自动计入成本明细</text>
+
+      <view class="cost-category-grid">
+        <view wx:for="{{costCategories}}" wx:key="*this"
+              class="cost-cat-item {{selectedCostCategory === item ? 'selected' : ''}}"
+              data-category="{{item}}" bindtap="selectCostCategory">
+          <text>{{item}}</text>
+        </view>
+      </view>
+
+      <!-- Type B/C 提示 -->
+      <view wx:if="{{pendingCompleteItem && (pendingCompleteItem.payment_type === 'B' || pendingCompleteItem.payment_type === 'C')}}" class="owes-invoice-hint">
+        <text class="hint-icon">⚠️</text>
+        <text class="hint-text">此为{{pendingCompleteItem.payment_type === 'B' ? '先付后票' : '分批付款'}}申请，确认后将自动启动欠票倒计时追踪</text>
+      </view>
+
+      <view class="modal-actions">
+        <button class="btn-cancel" bindtap="cancelCostPicker">取消</button>
+        <button class="btn-confirm {{!selectedCostCategory ? 'btn-disabled' : ''}}"
+                disabled="{{!selectedCostCategory}}"
+                bindtap="confirmComplete">确认已付款</button>
+      </view>
+    </view>
   </view>
 </view>

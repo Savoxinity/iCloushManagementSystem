@@ -1,7 +1,7 @@
 // ============================================
-// 报销单创建页 — Phase 3B 极简三项
-// 员工只需填写：事由、金额、凭证
-// ★ 无成本分类选择器（成本分类由管理员审核时填写）
+// 报销单创建页 V5.4.1 — 统一 OCR 链路
+// ★ 发票凭证上传后自动走 OCR → 进发票/票据池
+// ★ 收据图片也统一上传（但不走 OCR）
 // ============================================
 
 console.log('=== expense-create loaded ===');
@@ -12,11 +12,13 @@ Page({
     purpose: '',
     claimedAmount: '',
     voucherType: 'invoice',  // invoice / receipt
-    invoiceImage: '',        // 发票图片URL（上传后）
-    receiptImage: '',        // 收据图片URL（上传后）
-    tempInvoicePath: '',     // 本地临时路径
+    invoiceImage: '',
+    receiptImage: '',
+    tempInvoicePath: '',
     tempReceiptPath: '',
     invoiceId: null,
+    ocrLoading: false,
+    ocrResult: null,
     pointsHint: '积分将在审核后发放',
     canSubmit: false,
     submitting: false,
@@ -49,7 +51,7 @@ Page({
     this._checkCanSubmit();
   },
 
-  // ── 拍照/选择发票 ──
+  // ── 拍照/选择发票（★ 走 OCR 链路） ──
   chooseInvoice: function () {
     var self = this;
     if (self.data.uploading) return;
@@ -59,11 +61,8 @@ Page({
       sourceType: ['album', 'camera'],
       success: function (res) {
         var tempPath = res.tempFiles[0].tempFilePath;
-        self.setData({ tempInvoicePath: tempPath });
-        self._uploadImage(tempPath, 'invoice', function (url) {
-          self.setData({ invoiceImage: url });
-          self._checkCanSubmit();
-        });
+        self.setData({ tempInvoicePath: tempPath, ocrResult: null });
+        self._uploadAndOCR(tempPath, 'invoice');
       },
     });
   },
@@ -87,20 +86,108 @@ Page({
     });
   },
 
-  // ── 通用图片上传 ──
+  // ★ 统一上传 + OCR 链路
+  _uploadAndOCR: function (tempPath, category) {
+    var self = this;
+    self.setData({ uploading: true });
+
+    // Mock 模式
+    if (app.globalData.useMock) {
+      self.setData({
+        uploading: false,
+        invoiceImage: tempPath,
+        ocrResult: { seller_name: '（Mock）供应商', total_amount: self.data.claimedAmount || '0' },
+      });
+      self._checkCanSubmit();
+      wx.showToast({ title: '图片已选择', icon: 'success' });
+      return;
+    }
+
+    var baseUrl = app.globalData.baseUrl || '';
+    wx.uploadFile({
+      url: baseUrl + '/api/v1/upload/image',
+      filePath: tempPath,
+      name: 'file',
+      formData: { category: category },
+      header: { 'Authorization': 'Bearer ' + (app.globalData.token || '') },
+      success: function (uploadRes) {
+        self.setData({ uploading: false });
+        try {
+          var data = JSON.parse(uploadRes.data);
+          if (data.code === 200 && data.data && data.data.url) {
+            var imageUrl = data.data.url;
+            self.setData({ invoiceImage: imageUrl });
+            self._checkCanSubmit();
+            // ★ 自动调用 OCR → 进发票/票据池
+            self._runOCR(imageUrl);
+          } else {
+            self.setData({ invoiceImage: tempPath });
+            self._checkCanSubmit();
+            wx.showToast({ title: data.message || '上传失败', icon: 'none' });
+          }
+        } catch (e) {
+          self.setData({ invoiceImage: tempPath });
+          self._checkCanSubmit();
+        }
+      },
+      fail: function () {
+        self.setData({ uploading: false, invoiceImage: tempPath });
+        self._checkCanSubmit();
+        wx.showToast({ title: '上传失败，使用本地图片', icon: 'none' });
+      },
+    });
+  },
+
+  // ★ 调用后端 OCR 识别 → 自动入发票/票据池
+  _runOCR: function (imageUrl) {
+    var self = this;
+    self.setData({ ocrLoading: true });
+
+    app.request({
+      url: '/api/v1/invoices/ocr',
+      method: 'POST',
+      data: { image_url: imageUrl, source: 'expense_create' },
+      success: function (res) {
+        self.setData({ ocrLoading: false });
+        if (res.code === 200 && res.data) {
+          if (res.data.ocr_available && res.data.parsed) {
+            self.setData({ ocrResult: res.data.parsed });
+            // 如果 OCR 返回了发票 ID，关联
+            if (res.data.invoice_id) {
+              self.setData({ invoiceId: res.data.invoice_id });
+            }
+            wx.showToast({ title: 'OCR 识别成功', icon: 'success' });
+          } else {
+            wx.showToast({ title: 'OCR 不可用，请手动确认', icon: 'none', duration: 2000 });
+          }
+        }
+      },
+      fail: function () {
+        self.setData({ ocrLoading: false });
+      },
+    });
+  },
+
+  // ── 通用图片上传（收据用） ──
   _uploadImage: function (tempPath, category, callback) {
     var self = this;
     self.setData({ uploading: true });
     var baseUrl = app.globalData.baseUrl || '';
+
+    // Mock 模式
+    if (app.globalData.useMock) {
+      self.setData({ uploading: false });
+      callback(tempPath);
+      wx.showToast({ title: '图片已选择', icon: 'success' });
+      return;
+    }
 
     wx.uploadFile({
       url: baseUrl + '/api/v1/upload/image',
       filePath: tempPath,
       name: 'file',
       formData: { category: category },
-      header: {
-        'Authorization': 'Bearer ' + (app.globalData.token || ''),
-      },
+      header: { 'Authorization': 'Bearer ' + (app.globalData.token || '') },
       success: function (uploadRes) {
         self.setData({ uploading: false });
         try {
@@ -157,9 +244,12 @@ Page({
     if (self.data.voucherType === 'receipt' && self.data.receiptImage) {
       payload.receipt_image_url = self.data.receiptImage;
     }
-    // 发票报销也传图片URL（无论是否有 invoice_id）
     if (self.data.voucherType === 'invoice' && self.data.invoiceImage && !self.data.invoiceId) {
       payload.receipt_image_url = self.data.invoiceImage;
+    }
+    // 附带 OCR 结果
+    if (self.data.ocrResult) {
+      payload.ocr_data = self.data.ocrResult;
     }
 
     app.request({
