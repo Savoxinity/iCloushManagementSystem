@@ -35,27 +35,31 @@
   <!-- 发票列表 -->
   <view class="list-container">
     <view wx:if="{{loading}}" class="loading-hint">加载中...</view>
-    <view wx:elif="{{!invoices.length}}" class="empty-hint">暂无发票</view>
-    <view wx:else class="invoice-card" wx:for="{{invoices}}" wx:key="id">
-      <view class="card-header">
-        <text class="invoice-code">{{item.invoice_code || '无票号'}}</text>
-        <view class="print-badge {{item.is_printed ? 'printed' : 'unprinted'}}">
-          {{item.is_printed ? '已打印' : '未打印'}}
+    <block wx:else>
+      <view wx:if="{{!invoices.length}}" class="empty-hint">暂无发票</view>
+      <block wx:else>
+        <view class="invoice-card" wx:for="{{invoices}}" wx:key="id">
+          <view class="card-header">
+            <text class="invoice-code">{{item.invoice_code || '无票号'}}</text>
+            <view class="print-badge {{item.is_printed ? 'printed' : 'unprinted'}}">
+              {{item.is_printed ? '已打印' : '未打印'}}
+            </view>
+          </view>
+          <view class="card-body">
+            <text class="invoice-amount">¥{{item.amount}}</text>
+            <text class="invoice-date">{{item.created_at_display}}</text>
+            <text class="invoice-uploader">上传人：{{item.uploader_name || '未知'}}</text>
+          </view>
+          <view class="action-bar">
+            <button wx:if="{{!item.is_printed}}" class="btn-print" data-id="{{item.id}}" bindtap="markPrinted">
+              🖨️ 标记已打印
+            </button>
+            <button wx:else class="btn-unprint" data-id="{{item.id}}" bindtap="markUnprinted">
+              撤销打印标记
+            </button>
+          </view>
         </view>
-      </view>
-      <view class="card-body">
-        <text class="invoice-amount">¥{{item.amount}}</text>
-        <text class="invoice-date">{{item.created_at_display}}</text>
-        <text class="invoice-uploader">上传人：{{item.uploader_name || '未知'}}</text>
-      </view>
-      <view class="action-bar">
-        <button wx:if="{{!item.is_printed}}" class="btn-print" data-id="{{item.id}}" bindtap="markPrinted">
-          🖨️ 标记已打印
-        </button>
-        <button wx:else class="btn-unprint" data-id="{{item.id}}" bindtap="markUnprinted">
-          撤销打印标记
-        </button>
-      </view>
-    </view>
+      </block>
+    </block>
   </view>
 </view>

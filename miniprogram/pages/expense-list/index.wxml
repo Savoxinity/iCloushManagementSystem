@@ -18,7 +18,8 @@
     <text class="empty-text">加载中...</text>
   </view>
 
-  <view wx:elif="{{expenses.length === 0}}" class="empty-state">
+  <block wx:else>
+  <view wx:if="{{expenses.length === 0}}" class="empty-state">
     <text class="empty-icon">📋</text>
     <text class="empty-text">暂无报销记录</text>
     <view class="btn-action" bindtap="goCreate">去创建报销单</view>
@@ -42,4 +43,5 @@
       </view>
     </view>
   </view>
+  </block>
 </view>

@@ -30,7 +30,8 @@
       <text>加载中...</text>
     </view>
 
-    <view wx:elif="{{vehicleList.length === 0}}" class="empty-box">
+    <block wx:else>
+    <view wx:if="{{vehicleList.length === 0}}" class="empty-box">
       <image src="/images/empty.png" mode="aspectFit" class="empty-icon"></image>
       <text>暂无车辆数据</text>
     </view>
@@ -72,6 +73,7 @@
         </view>
       </view>
     </view>
+    </block>
   </view>
 
   <!-- 预警中心 -->
@@ -88,7 +90,8 @@
       <text>加载预警数据...</text>
     </view>
 
-    <view wx:elif="{{alertList.length === 0}}" class="empty-box">
+    <block wx:else>
+    <view wx:if="{{alertList.length === 0}}" class="empty-box">
       <image src="/images/safe.png" mode="aspectFit" class="empty-icon"></image>
       <text>太棒了！暂无预警</text>
     </view>
@@ -103,8 +106,10 @@
           <view wx:for="{{item.alerts}}" wx:for-item="a" wx:key="type" class="alert-item alert-item-{{a.level}}">
             <view class="alert-icon">
               <text wx:if="{{a.level === 'expired'}}">🔴</text>
-              <text wx:elif="{{a.level === 'urgent'}}">🟡</text>
-              <text wx:else>🟢</text>
+              <block wx:else>
+                <text wx:if="{{a.level === 'urgent'}}">🟡</text>
+                <text wx:else>🟢</text>
+              </block>
             </view>
             <view class="alert-info">
               <text class="alert-name">{{a.label}}</text>
@@ -112,13 +117,16 @@
             </view>
             <view class="alert-days {{a.level}}">
               <text wx:if="{{a.remaining_days < 0}}">已过期 {{-a.remaining_days}} 天</text>
-              <text wx:elif="{{a.remaining_days === 0}}">今天到期</text>
-              <text wx:else>剩余 {{a.remaining_days}} 天</text>
+              <block wx:else>
+                <text wx:if="{{a.remaining_days === 0}}">今天到期</text>
+                <text wx:else>剩余 {{a.remaining_days}} 天</text>
+              </block>
             </view>
           </view>
         </view>
       </view>
     </view>
+    </block>
   </view>
 
   <!-- 底部操作栏（管理员可见） -->

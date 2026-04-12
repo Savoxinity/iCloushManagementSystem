@@ -45,7 +45,8 @@
     <text>加载中...</text>
   </view>
 
-  <view wx:elif="{{dispatchList.length === 0}}" class="empty-box">
+  <block wx:else>
+  <view wx:if="{{dispatchList.length === 0}}" class="empty-box">
     <text class="empty-text">{{selectedDate}} 暂无调度单</text>
   </view>
 
@@ -101,6 +102,7 @@
       </view>
     </view>
   </view>
+  </block>
 
   <!-- 底部操作栏（管理员可见） -->
   <view wx:if="{{isAdmin}}" class="bottom-bar">

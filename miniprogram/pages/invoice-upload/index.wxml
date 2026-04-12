@@ -22,7 +22,7 @@
     <text class="ocr-icon">🔍</text>
     <text>正在识别发票信息...</text>
   </view>
-  <view wx:elif="{{ocrAvailable}}" class="ocr-status ocr-success">
+  <view wx:if="{{!ocrLoading && ocrAvailable}}" class="ocr-status ocr-success">
     <text class="ocr-icon">✅</text>
     <text>OCR 识别完成，请确认以下信息</text>
   </view>

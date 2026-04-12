@@ -6,14 +6,16 @@
     <text class="loading-text">加载中...</text>
   </view>
 
+  <block wx:else>
   <!-- 错误状态 -->
-  <view wx:elif="{{error}}" class="error-state">
+  <view wx:if="{{error}}" class="error-state">
     <text class="error-text">{{error}}</text>
     <view class="btn-back" bindtap="goBack">返回</view>
   </view>
 
   <!-- 发票详情 -->
-  <view wx:elif="{{invoice}}" class="detail-content">
+  <block wx:else>
+  <view wx:if="{{invoice}}" class="detail-content">
 
     <!-- ═══ 上部 30%：发票图片区 ═══ -->
     <view class="image-section" bindtap="previewImage">
@@ -35,16 +37,16 @@
         <view wx:if="{{invoice.verify_status === 'verified'}}" class="status-badge badge-verified">
           <text>已核验</text>
         </view>
-        <view wx:elif="{{invoice.verify_status === 'pending'}}" class="status-badge badge-pending">
+        <view wx:if="{{invoice.verify_status === 'pending'}}" class="status-badge badge-pending">
           <text>待核验</text>
         </view>
-        <view wx:elif="{{invoice.verify_status === 'failed'}}" class="status-badge badge-failed">
+        <view wx:if="{{invoice.verify_status === 'failed'}}" class="status-badge badge-failed">
           <text>核验失败</text>
         </view>
-        <view wx:elif="{{invoice.verify_status === 'manual_review'}}" class="status-badge badge-manual-review">
+        <view wx:if="{{invoice.verify_status === 'manual_review'}}" class="status-badge badge-manual-review">
           <text>待人工复核</text>
         </view>
-        <view wx:elif="{{invoice.verify_status === 'duplicate'}}" class="status-badge badge-duplicate">
+        <view wx:if="{{invoice.verify_status === 'duplicate'}}" class="status-badge badge-duplicate">
           <text>重复发票</text>
         </view>
         <view wx:if="{{invoice.is_duplicate && invoice.verify_status !== 'duplicate'}}" class="status-badge badge-duplicate">
@@ -262,4 +264,6 @@
       <view style="height: 60rpx;"></view>
     </view>
   </view>
+  </block>
+  </block>
 </view>

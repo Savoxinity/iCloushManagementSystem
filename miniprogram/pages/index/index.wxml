@@ -313,9 +313,10 @@
         </view>
         <!-- ★ 物流区特殊标记 -->
         <text wx:if="{{item.zone_code === 'zone_f'}}" class="move-opt-badge dispatch-badge">🚛 派车</text>
-        <text wx:elif="{{item.zone_id === moveSourceZoneId}}" class="move-opt-badge current-badge">当前</text>
-
-        <text wx:else class="move-opt-arrow">›</text>
+        <block wx:else>
+          <text wx:if="{{item.zone_id === moveSourceZoneId}}" class="move-opt-badge current-badge">当前</text>
+          <text wx:else class="move-opt-arrow">›</text>
+        </block>
       </view>
     </scroll-view>
   </view>

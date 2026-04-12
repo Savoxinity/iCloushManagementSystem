@@ -96,19 +96,21 @@
             </view>
           </view>
           <!-- ★ 已接单任务：显示负责人 -->
-          <view wx:elif="{{item.assigneeName}}" class="task-assignee">
+          <block wx:else>
+          <view wx:if="{{item.assigneeName}}" class="task-assignee">
             <view class="assignee-avatar" style="background:{{item.assigneeColor}};">
               <text class="assignee-initial">{{item.assigneeInitial}}</text>
             </view>
             <text class="assignee-name">{{item.assigneeName}}</text>
           </view>
-          <!-- 未分配（兜底） -->
+          <!-- 未分配（兆底） -->
           <view wx:else class="task-assignee">
             <view class="assignee-avatar unassigned">
               <text class="assignee-initial">?</text>
             </view>
             <text class="assignee-name unassigned-text">未分配</text>
           </view>
+          </block>
           <view class="task-points-wrap">
             <text class="task-points">+{{item.points_reward}}</text>
             <text class="task-points-unit">分</text>

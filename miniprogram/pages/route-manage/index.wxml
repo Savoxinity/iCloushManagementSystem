@@ -14,7 +14,8 @@
     <text>加载中...</text>
   </view>
 
-  <view wx:elif="{{routeList.length === 0}}" class="empty-box">
+  <block wx:else>
+  <view wx:if="{{routeList.length === 0}}" class="empty-box">
     <text>暂无排线数据</text>
     <text class="empty-hint">点击下方按钮创建第一条排线</text>
   </view>
@@ -57,6 +58,7 @@
       </view>
     </view>
   </view>
+  </block>
 
   <!-- 底部操作栏（管理员可见） -->
   <view wx:if="{{isAdmin}}" class="bottom-bar">

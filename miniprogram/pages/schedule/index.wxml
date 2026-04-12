@@ -133,8 +133,10 @@
             <text class="move-opt-count">{{item.assigned.length}}/{{item.capacity}}人</text>
           </view>
           <text wx:if="{{item.zone_id === moveSourceZoneId}}" class="move-opt-badge current-badge">当前</text>
-          <text wx:elif="{{item.assigned.length >= item.capacity}}" class="move-opt-badge full-badge">已满</text>
-          <text wx:else class="move-opt-arrow">›</text>
+          <block wx:else>
+            <text wx:if="{{item.assigned.length >= item.capacity}}" class="move-opt-badge full-badge">已满</text>
+            <text wx:else class="move-opt-arrow">›</text>
+          </block>
         </view>
       </scroll-view>
     </view>

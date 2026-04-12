@@ -13,7 +13,8 @@
     <text class="loading-text">加载中...</text>
   </view>
 
-  <view wx:elif="{{!statement}}" class="empty-state">
+  <block wx:else>
+  <view wx:if="{{!statement}}" class="empty-state">
     <text class="empty-text">暂无数据，请先录入成本和营收</text>
   </view>
 
@@ -114,4 +115,5 @@
       </view>
     </view>
   </view>
+  </block>
 </view>

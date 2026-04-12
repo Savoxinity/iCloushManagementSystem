@@ -9,7 +9,8 @@
     <text class="loading-text">加载中...</text>
   </view>
 
-  <block wx:elif="{{vehicle}}">
+  <block wx:else>
+  <block wx:if="{{vehicle}}">
     <!-- 车辆头部卡片 -->
     <view class="hero-card">
       <view class="hero-top">
@@ -60,8 +61,10 @@
         </view>
         <view class="ins-days ins-days-{{item.level}}">
           <text wx:if="{{item.remaining_days < 0}}">已过期 {{-item.remaining_days}} 天</text>
-          <text wx:elif="{{item.remaining_days === 0}}">今天到期</text>
-          <text wx:else>剩余 {{item.remaining_days}} 天</text>
+          <block wx:else>
+            <text wx:if="{{item.remaining_days === 0}}">今天到期</text>
+            <text wx:else>剩余 {{item.remaining_days}} 天</text>
+          </block>
         </view>
       </view>
     </view>
@@ -100,32 +103,34 @@
         <view wx:if="{{dayDetailLoading}}" class="day-detail-loading">
           <text>查询中...</text>
         </view>
-        <block wx:elif="{{dayDetail}}">
-          <view wx:if="{{!dayDetail.hasData}}" class="day-detail-empty">
-            <text>当日无调度记录</text>
-          </view>
-          <view wx:else class="dispatch-list">
-            <view wx:for="{{dayDetail.dispatches}}" wx:key="id" class="dispatch-item">
-              <view class="dispatch-row">
-                <text class="dispatch-label">调度单号</text>
-                <text class="dispatch-value">#{{item.id}}</text>
-              </view>
-              <view class="dispatch-row">
-                <text class="dispatch-label">司机</text>
-                <text class="dispatch-value">{{item.driver_name || '-'}}</text>
-              </view>
-              <view class="dispatch-row">
-                <text class="dispatch-label">路线</text>
-                <text class="dispatch-value">{{item.route_name || '-'}}</text>
-              </view>
-              <view class="dispatch-row">
-                <text class="dispatch-label">状态</text>
-                <text class="dispatch-value dispatch-status-{{item.status}}">
-                  {{item.status === 'pending' ? '待出发' : item.status === 'departed' ? '已出发' : item.status === 'completed' ? '已完成' : item.status === 'cancelled' ? '已取消' : item.status}}
-                </text>
+        <block wx:else>
+          <block wx:if="{{dayDetail}}">
+            <view wx:if="{{!dayDetail.hasData}}" class="day-detail-empty">
+              <text>当日无调度记录</text>
+            </view>
+            <view wx:else class="dispatch-list">
+              <view wx:for="{{dayDetail.dispatches}}" wx:key="id" class="dispatch-item">
+                <view class="dispatch-row">
+                  <text class="dispatch-label">调度单号</text>
+                  <text class="dispatch-value">#{{item.id}}</text>
+                </view>
+                <view class="dispatch-row">
+                  <text class="dispatch-label">司机</text>
+                  <text class="dispatch-value">{{item.driver_name || '-'}}</text>
+                </view>
+                <view class="dispatch-row">
+                  <text class="dispatch-label">路线</text>
+                  <text class="dispatch-value">{{item.route_name || '-'}}</text>
+                </view>
+                <view class="dispatch-row">
+                  <text class="dispatch-label">状态</text>
+                  <text class="dispatch-value dispatch-status-{{item.status}}">
+                    {{item.status === 'pending' ? '待出发' : item.status === 'departed' ? '已出发' : item.status === 'completed' ? '已完成' : item.status === 'cancelled' ? '已取消' : item.status}}
+                  </text>
+                </view>
               </view>
             </view>
-          </view>
+          </block>
         </block>
       </view>
     </view>
@@ -135,5 +140,6 @@
       <button class="btn-edit" bindtap="goEdit">编辑车辆</button>
       <button class="btn-delete" bindtap="onDelete">删除车辆</button>
     </view>
+  </block>
   </block>
 </view>

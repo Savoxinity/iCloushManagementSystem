@@ -73,7 +73,7 @@
     <view wx:if="{{loading}}" class="loading-more">
       <text>加载中...</text>
     </view>
-    <view wx:elif="{{!hasMore && items.length > 0}}" class="no-more">
+    <view wx:if="{{!loading && !hasMore && items.length > 0}}" class="no-more">
       <text>— 已加载全部 —</text>
     </view>
   </view>
