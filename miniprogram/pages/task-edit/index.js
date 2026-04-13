@@ -22,6 +22,7 @@ Page({
     target: '',
     unit: '件',
     pointsReward: 10,
+    intervalDays: '',          // 周期任务间隔天数
 
     // 选择器数据
     taskTypes: [
@@ -161,6 +162,7 @@ Page({
           unit: raw.unit || '件',
           pointsReward: raw.points_reward || 10,
           taskStatus: raw.status || 0,
+          intervalDays: raw.interval_days || '',
         });
 
         wx.setNavigationBarTitle({ title: '编辑: ' + (raw.title || '').slice(0, 8) });
@@ -213,6 +215,8 @@ Page({
   onTargetInput: function (e) { this.setData({ target: e.detail.value }); },
   onUnitSelect: function (e) { this.setData({ unit: this.data.units[e.detail.value] }); },
   onPointsInput: function (e) { this.setData({ pointsReward: Number(e.detail.value) || 0 }); },
+  onIntervalInput: function (e) { this.setData({ intervalDays: Number(e.detail.value) || '' }); },
+  onPresetInterval: function (e) { this.setData({ intervalDays: Number(e.currentTarget.dataset.days) }); },
 
   // ── 员工选择器 ──────────────────────────────────────────
   openStaffPicker: function () { this.setData({ showStaffPicker: true }); },
@@ -265,6 +269,10 @@ Page({
     if (!data.title.trim()) { util.showError('请输入任务标题'); return; }
     if (!data.zoneId) { util.showError('请选择工区'); return; }
     if (!data.deadline) { util.showError('请选择截止时间'); return; }
+    if (data.taskType === 'periodic' && (!data.intervalDays || data.intervalDays < 1)) {
+      util.showError('周期任务请设置间隔天数（至少1天）');
+      return;
+    }
 
     self.setData({ submitting: true });
 
@@ -285,6 +293,8 @@ Page({
       unit: data.unit,
       points_reward: data.pointsReward,
       assigned_to: assignedTo,
+      interval_days: data.taskType === 'periodic' ? (Number(data.intervalDays) || 0) : 0,
+      is_recurring: data.taskType === 'periodic',
     };
 
     app.request({

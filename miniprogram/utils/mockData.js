@@ -53,7 +53,8 @@ var ZONES = [
 // ─── 任务数据 ───────────────────────────────────────────────────
 var TASKS = [
   { id: 't001', title: '洗涤龙日常计件', task_type: 'routine', zone_id: 1, zone_name: '洗涤龙工区', status: 2, priority: 2, points_reward: 50, progress: 68, target: 120, unit: '套', requires_photo: false, description: '按标准操作规程运行洗涤龙，每完成一批次记录件数。', deadline: null, assigned_to: 'u003' },
-  { id: 't002', title: '8滚烫平机设备巡检', task_type: 'periodic', zone_id: 3, zone_name: '展布平烫A(8滚)', status: 1, priority: 3, points_reward: 80, progress: 0, target: 1, unit: '次', requires_photo: true, description: '对8滚高速烫平机进行例行巡检，检查加热管、传送带、安全装置，拍照存档。', deadline: Date.now() + 3600000, assigned_to: 'u004' },
+  { id: 't002', title: '8滚烫平机设备巡检', task_type: 'periodic', zone_id: 3, zone_name: '展布平烫A(8滚)', status: 1, priority: 3, points_reward: 80, progress: 0, target: 1, unit: '次', requires_photo: true, description: '对8滚高速烫平机进行例行巡检，检查加热管、传送带、安全装置，拍照存档。', deadline: Date.now() + 3600000, assigned_to: 'u004', is_recurring: true, interval_days: 14, next_publish_date: '2026-04-27' },
+  { id: 't005', title: '烘干机清理绒毛', task_type: 'periodic', zone_id: 2, zone_name: '单机洗烘区', status: 2, priority: 3, points_reward: 60, progress: 0, target: 1, unit: '次', requires_photo: true, description: '清理贯通烘干机内部绒毛筛网，防止堵塞影响烘干效率。', deadline: Date.now() + 86400000 * 7, assigned_to: 'u003', is_recurring: true, interval_days: 7, next_publish_date: '2026-04-20' },
   { id: 't003', title: '客户专属制服交付', task_type: 'specific', zone_id: 12, zone_name: '熨烫区', status: 0, priority: 4, points_reward: 120, progress: 0, target: 1, unit: '批', requires_photo: true, description: '某酒店50套制服洗烫完成后，拍照确认质量，联系司机安排配送。', deadline: Date.now() + 7200000, assigned_to: null },
   { id: 't004', title: '单机洗烘日常计件', task_type: 'routine', zone_id: 2, zone_name: '单机洗烘区', status: 4, priority: 2, points_reward: 40, progress: 85, target: 85, unit: '套', requires_photo: false, description: '5台水洗单机+2台贯通烘干机日常计件任务。', deadline: null, assigned_to: 'u003' },
 ];
@@ -523,6 +524,10 @@ function getMockResponse(url, method, data) {
       newTask.assigned_to = null;
       newTask.status = 0;  // 待认领（公域任务）
     }
+    // 周期任务字段默认值
+    if (!newTask.is_recurring) newTask.is_recurring = false;
+    if (!newTask.interval_days) newTask.interval_days = 0;
+    if (!newTask.next_publish_date) newTask.next_publish_date = '';
     TASKS.push(newTask);
     return { code: 200, data: newTask, message: '任务发布成功' };
   }

@@ -183,6 +183,54 @@
   color: var(--color-text-muted);
 }
 
+/* 间隔周期 */
+.interval-box {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.interval-label {
+  font-size: 28rpx;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.interval-input {
+  width: 160rpx;
+  flex: none;
+}
+
+.interval-presets {
+  display: flex;
+  gap: 12rpx;
+  flex-wrap: wrap;
+  margin-bottom: 12rpx;
+}
+
+.preset-chip {
+  padding: 12rpx 24rpx;
+  background: var(--color-bg-card);
+  border: 1rpx solid var(--color-border);
+  border-radius: 40rpx;
+  font-size: 24rpx;
+  color: var(--color-text-secondary);
+}
+
+.preset-chip.active {
+  border-color: var(--color-gold);
+  color: var(--color-gold);
+  background: var(--color-gold-dim);
+}
+
+.interval-hint {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-text-muted);
+  margin-top: 4rpx;
+}
+
 /* 行组合 */
 .row-group {
   display: flex;

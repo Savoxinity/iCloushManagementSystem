@@ -23,6 +23,7 @@ Page({
     target: '',
     unit: '件',
     pointsReward: 10,
+    intervalDays: '',          // 周期任务间隔天数
 
     // 选择器数据
     taskTypes: [
@@ -171,6 +172,16 @@ Page({
     this.setData({ pointsReward: Number(e.detail.value) || 0 });
   },
 
+  onIntervalInput: function (e) {
+    var val = Number(e.detail.value) || '';
+    this.setData({ intervalDays: val });
+  },
+
+  onPresetInterval: function (e) {
+    var days = Number(e.currentTarget.dataset.days);
+    this.setData({ intervalDays: days });
+  },
+
   // ── 员工选择器 ──────────────────────────────────────────
   openStaffPicker: function () {
     this.setData({ showStaffPicker: true });
@@ -252,6 +263,10 @@ Page({
       util.showError('请选择截止时间');
       return;
     }
+    if (data.taskType === 'periodic' && (!data.intervalDays || data.intervalDays < 1)) {
+      util.showError('周期任务请设置间隔天数（至少1天）');
+      return;
+    }
 
     self.setData({ submitting: true });
 
@@ -272,6 +287,9 @@ Page({
       unit: data.unit,
       points_reward: data.pointsReward,
       assigned_to: assignedTo,
+      interval_days: data.taskType === 'periodic' ? (Number(data.intervalDays) || 0) : 0,
+      is_recurring: data.taskType === 'periodic',
+      next_publish_date: data.taskType === 'periodic' ? this._calcNextPublishDate(data.deadline, data.intervalDays) : '',
     };
 
     app.request({
@@ -281,7 +299,11 @@ Page({
       success: function (res) {
         self.setData({ submitting: false });
         if (res.code === 200) {
-          wx.showToast({ title: '任务发布成功', icon: 'success' });
+          var msg = '任务发布成功';
+          if (data.taskType === 'periodic') {
+            msg = '周期任务已发布，每' + data.intervalDays + '天自动重复';
+          }
+          wx.showToast({ title: msg, icon: 'success', duration: 2000 });
           setTimeout(function () {
             wx.navigateBack();
           }, 1500);
@@ -290,5 +312,16 @@ Page({
         }
       },
     });
+  },
+
+  // 计算下次自动发布日期
+  _calcNextPublishDate: function (deadline, intervalDays) {
+    if (!deadline || !intervalDays) return '';
+    var d = new Date(deadline);
+    d.setDate(d.getDate() + Number(intervalDays));
+    var y = d.getFullYear();
+    var m = (d.getMonth() + 1 < 10 ? '0' : '') + (d.getMonth() + 1);
+    var day = (d.getDate() < 10 ? '0' : '') + d.getDate();
+    return y + '-' + m + '-' + day;
   },
 });

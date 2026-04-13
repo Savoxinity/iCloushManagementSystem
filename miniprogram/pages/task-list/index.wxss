@@ -71,6 +71,15 @@
 .rejected-tag-icon { font-size: 18rpx; }
 .rejected-tag-text { font-size: 20rpx; color: #EF4444; font-weight: 500; }
 
+/* ★ 周期任务标签 */
+.recurring-tag {
+  display: inline-flex; align-items: center; gap: 6rpx;
+  padding: 4rpx 12rpx; border-radius: 20rpx;
+  background: rgba(139,92,246,0.1); margin-bottom: 10rpx;
+}
+.recurring-tag-icon { font-size: 18rpx; }
+.recurring-tag-text { font-size: 20rpx; color: #8B5CF6; font-weight: 500; }
+
 .task-progress { margin-bottom: 10rpx; }
 .task-progress-track { height: 6rpx; background: #1E1E1E; border-radius: 3rpx; margin-bottom: 6rpx; }
 .task-progress-fill { height: 100%; background: linear-gradient(90deg, #C9A84C, #F0C060); border-radius: 3rpx; }

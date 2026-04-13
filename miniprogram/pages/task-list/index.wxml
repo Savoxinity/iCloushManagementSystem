@@ -78,6 +78,12 @@
           <text class="rejected-tag-text">已驳回·需重新提交</text>
         </view>
 
+        <!-- 周期任务标签 -->
+        <view wx:if="{{item.is_recurring && item.interval_days > 0}}" class="recurring-tag">
+          <text class="recurring-tag-icon">🔄</text>
+          <text class="recurring-tag-text">每{{item.interval_days}}天自动重复</text>
+        </view>
+
         <!-- 进度条（计件任务，仅已接单后显示） -->
         <view wx:if="{{item.task_type === 'routine' && item.status >= 2 && item.progress !== undefined}}" class="task-progress">
           <view class="task-progress-track">

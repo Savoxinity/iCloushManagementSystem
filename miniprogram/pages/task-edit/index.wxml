@@ -85,6 +85,28 @@
       </picker>
     </view>
 
+    <!-- 间隔周期（仅周期任务显示） -->
+    <view class="form-section" wx:if="{{taskType === 'periodic'}}">
+      <view class="section-label">
+        <text class="label-icon">◈</text>
+        <text class="label-text">INTERVAL / 间隔周期</text>
+        <text class="label-required">*</text>
+      </view>
+      <view class="interval-box">
+        <text class="interval-label">每</text>
+        <view class="input-box interval-input">
+          <input class="text-input" type="number" placeholder="天数" placeholder-class="input-placeholder" value="{{intervalDays}}" bindinput="onIntervalInput" />
+        </view>
+        <text class="interval-label">天自动重复发布</text>
+      </view>
+      <view class="interval-presets">
+        <view class="preset-chip {{intervalDays === 7 ? 'active' : ''}}" bindtap="onPresetInterval" data-days="7"><text>每周</text></view>
+        <view class="preset-chip {{intervalDays === 14 ? 'active' : ''}}" bindtap="onPresetInterval" data-days="14"><text>每两周</text></view>
+        <view class="preset-chip {{intervalDays === 30 ? 'active' : ''}}" bindtap="onPresetInterval" data-days="30"><text>每月</text></view>
+        <view class="preset-chip {{intervalDays === 90 ? 'active' : ''}}" bindtap="onPresetInterval" data-days="90"><text>每季度</text></view>
+      </view>
+    </view>
+
     <!-- 目标量 & 单位 -->
     <view class="form-section">
       <view class="section-label">

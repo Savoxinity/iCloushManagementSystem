@@ -21,6 +21,11 @@
       <view class="meta-row"><text class="meta-icon">📍</text><text class="meta-text">{{task.zone_name}}</text></view>
       <view wx:if="{{task.deadline}}" class="meta-row"><text class="meta-icon">⏰</text><text class="meta-text deadline">{{task.deadlineText}}</text></view>
       <view class="meta-row"><text class="meta-icon">🏆</text><text class="meta-text gold">+{{task.points_reward}} 积分</text></view>
+      <!-- 周期任务信息 -->
+      <view wx:if="{{task.is_recurring && task.interval_days > 0}}" class="meta-row">
+        <text class="meta-icon">🔄</text>
+        <text class="meta-text recurring">每{{task.interval_days}}天自动重复</text>
+      </view>
       <!-- ★ 负责人信息 -->
       <view class="meta-row">
         <text class="meta-icon">👤</text>
