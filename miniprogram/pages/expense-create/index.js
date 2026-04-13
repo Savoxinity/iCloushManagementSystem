@@ -155,7 +155,16 @@ Page({
         self.setData({ ocrLoading: false });
         if (res.code === 200 && res.data) {
           if (res.data.ocr_available && res.data.parsed) {
-            self.setData({ ocrResult: res.data.parsed });
+            var parsed = res.data.parsed;
+            // ★ V5.5.2 Hotfix: 价税合计 fallback
+            var totalAmt = parsed.total_amount;
+            var preTax = parsed.pre_tax_amount;
+            var taxAmt = parsed.tax_amount;
+            if ((!totalAmt || totalAmt === '' || totalAmt === 'null') && preTax && taxAmt) {
+              parsed.total_amount = (parseFloat(preTax) + parseFloat(taxAmt)).toFixed(2);
+              console.log('[expense-create OCR Fallback] 价税合计:', parsed.total_amount);
+            }
+            self.setData({ ocrResult: parsed });
             // ★ OCR 成功 → 拿到 invoice_id
             if (res.data.invoice_id) {
               self.setData({ invoiceId: res.data.invoice_id });

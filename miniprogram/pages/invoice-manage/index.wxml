@@ -156,12 +156,12 @@
           <text class="tag-text">{{item.source_label}}</text>
         </view>
 
-        <!-- ★ 占用状态 -->
+        <!-- ★ 关联状态（是否已关联到报销单/付款单） -->
         <view wx:if="{{item.is_linked}}" class="tag tag-linked">
           <text class="tag-text">已关联</text>
         </view>
         <view wx:if="{{!item.is_linked && item.verify_status === 'verified'}}" class="tag tag-unlinked">
-          <text class="tag-text">未占用</text>
+          <text class="tag-text">未关联单据</text>
         </view>
 
         <!-- ★ 打印 Toggle -->

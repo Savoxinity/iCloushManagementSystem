@@ -163,6 +163,14 @@ Page({
     if (url) wx.previewImage({ urls: [url] });
   },
 
+  // ★ V5.5.2 Hotfix: 图片加载失败 fallback
+  onInvThumbError: function (e) {
+    console.warn('[expense-review] 发票缩略图加载失败:', e.detail);
+  },
+  onDetailImageError: function (e) {
+    console.warn('[expense-review] 发票详情图加载失败:', e.detail);
+  },
+
   // ── 查看关联发票详情 ──
   viewInvoiceDetail: function () {
     var expense = this.data.currentExpense;

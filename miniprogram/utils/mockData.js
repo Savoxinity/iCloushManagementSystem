@@ -651,6 +651,7 @@ function getMockResponse(url, method, data) {
   }
 
   // 发票 OCR 识别（★ 返回 invoice_id，强制入池）
+  // ★ V5.5.2 Hotfix: total_amount 可能为 null，增加 pre_tax_amount + tax_amount 用于前端 fallback
   if (url.indexOf('/api/v1/invoices/ocr') !== -1 && method === 'POST') {
     return {
       code: 200,
@@ -658,22 +659,23 @@ function getMockResponse(url, method, data) {
         ocr_available: true,
         invoice_id: 'inv_ocr_' + Date.now(),
         parsed: {
-          invoice_type: 'vat_normal',
-          invoice_type_label: '增值税普通发票',
+          invoice_type: 'vat_special',
+          invoice_type_label: '增值税专用发票',
           invoice_code: '3100224130',
-          invoice_number: '08965432',
-          invoice_date: '2026-04-12',
-          total_amount: '900.00',
-          pre_tax_amount: '849.06',
-          tax_amount: '50.94',
-          seller_name: '上海海尔电器有限公司',
-          seller_tax_id: '91310000MA1FLG2X3P',
-          buyer_name: 'iCloush 智慧工厂',
-          buyer_tax_id: '91310115MA1K4L8X0J',
-          check_code: '12345678901234567890',
-          goods_name_summary: '家用洗衣机',
+          invoice_number: '26327000006804323071',
+          invoice_date: '2026-04-13',
+          total_amount: null,
+          pre_tax_amount: '9777.64',
+          tax_amount: '293.33',
+          seller_name: '太仓市自来水有限公司',
+          seller_tax_id: '91320585138087604011',
+          buyer_name: '富朵朵实业(太仓)有限公司',
+          buyer_tax_id: '91320585MA1N5CYG7X',
+          check_code: '',
+          goods_name_summary: '水冰雪*水费',
+          remark: '户号:0519424852 读数:99841-104398 田水量:4557',
         },
-        items: [{ name: '家用洗衣机', quantity: 1, unit_price: 849.06, amount: 849.06, tax_rate: '6%', tax: 50.94 }],
+        items: [{ name: '*水冰雪*水费', spec: '工业、商业、服务业', unit: '吨', quantity: 4557, unit_price: 2.1456310679612, amount: 9777.64, tax_rate: '3%', tax: 293.33 }],
       },
       message: '成功',
     };
@@ -815,6 +817,77 @@ function getMockResponse(url, method, data) {
     return { code: 200, data: { sent_count: 1 }, message: '批量催票已发送' };
   }
 
+  // ★ V5.5.2 Hotfix: 发票单条详情（含 image_url）
+  if (url.match(/\/api\/v1\/invoices\/[^/]+$/) && method === 'GET' && url.indexOf('admin-list') === -1 && url.indexOf('unlinked') === -1 && url.indexOf('/my') === -1 && url.indexOf('/all') === -1) {
+    return {
+      code: 200,
+      data: {
+        id: 'inv_003',
+        invoice_type: 'vat_special',
+        invoice_type_label: '增值税专用发票',
+        invoice_type_code: '专',
+        invoice_code: '',
+        invoice_number: '26327000006804323071',
+        invoice_date: '2026-04-13',
+        total_amount: 10070.97,
+        pre_tax_amount: 9777.64,
+        tax_amount: 293.33,
+        seller_name: '太仓市自来水有限公司',
+        seller_tax_id: '91320585138087604011',
+        buyer_name: '富朵朵实业(太仓)有限公司',
+        buyer_tax_id: '91320585MA1N5CYG7X',
+        check_code: '',
+        goods_name_summary: '水冰雪*水费',
+        remark: '户号:0519424852 读数:99841-104398 田水量:4557',
+        image_url: 'https://mock.icloush.com/invoices/vat_special_water.jpg',
+        verify_status: 'verified',
+        verify_status_label: '已核验',
+        is_duplicate: false,
+        is_printed: false,
+        has_company_seal: true,
+        created_at: '2026-04-13T22:45:00Z',
+        items: [{ name: '*水冰雪*水费', spec: '工业、商业、服务业', unit: '吨', quantity: 4557, unit_price: 2.1456310679612, amount: 9777.64, tax_rate: '3%', tax: 293.33 }],
+        hasItems: true,
+      },
+      message: '成功',
+    };
+  }
+
+  // ★ V5.5.2 Hotfix: 自动核验（发票号码查重 → 自动打标签）
+  if (url.match(/\/api\/v1\/invoices\/[^/]+\/verify/) && method === 'POST') {
+    // 模拟查重逻辑：检查 data.auto_verify 时进行号码查重
+    var isAutoVerify = data && data.auto_verify;
+    if (isAutoVerify) {
+      // 模拟：inv_004 的号码 08965432 与 inv_001 重复
+      var invoiceId = url.split('/invoices/')[1].split('/')[0];
+      var isDuplicate = (invoiceId === 'inv_004');
+      return {
+        code: 200,
+        data: {
+          verify_status: isDuplicate ? 'duplicate' : 'verified',
+          verify_status_label: isDuplicate ? '重复发票' : '已核验',
+          is_duplicate: isDuplicate,
+          duplicate_of: isDuplicate ? 'inv_001' : null,
+          verified_at: new Date().toISOString(),
+        },
+        message: isDuplicate ? '检测到重复发票（与 inv_001 号码相同）' : '核验通过，未发现重复',
+      };
+    }
+    // 手动标记
+    var manualStatus = (data && data.verify_result) || 'verified';
+    var statusLabels = { verified: '已核验', failed: '核验失败', duplicate: '重复发票', manual_review: '待人工复核' };
+    return {
+      code: 200,
+      data: {
+        verify_status: manualStatus,
+        verify_status_label: statusLabels[manualStatus] || manualStatus,
+        is_duplicate: manualStatus === 'duplicate',
+        verified_at: new Date().toISOString(),
+      },
+      message: '标记成功',
+    };
+  }
+
   // ★ 获取未关联发票列表（用于核销选择）
   if (url.indexOf('/api/v1/invoices/unlinked') !== -1 && method === 'GET') {
     return {
@@ -831,17 +904,43 @@ function getMockResponse(url, method, data) {
     return {
       code: 200,
       data: [
-        { id: 'exp_001', reason: '餐费99.2', amount: 99.2, voucher_type: 'invoice', status: 'pending', created_at: '2026-04-12T08:20:09Z' },
+        {
+          id: 'exp_001', purpose: '餐费', claimed_amount: 767, voucher_type: 'invoice',
+          status: 'pending', created_at: '2026-04-13T14:53:59.510789+00:00',
+          invoice_id: 'inv_003',
+          invoice_info: {
+            id: 'inv_003',
+            invoice_type_code: '专',
+            seller_name: '太仓市自来水有限公司',
+            total_amount: 10070.97,
+            image_url: 'https://mock.icloush.com/invoices/vat_special_water.jpg',
+          },
+        },
       ],
       message: '成功',
     };
   }
 
+  // ★ V5.5.2 Hotfix: 报销列表补充 invoice_info（含 image_url），财务审核时可看到发票图片
   if (url.indexOf('/api/v1/expenses/pending') !== -1 && method === 'GET') {
     return {
       code: 200,
       data: [
-        { id: 'exp_001', reason: '餐费99.2', amount: 99.2, voucher_type: 'invoice', status: 'pending', applicant_name: '程建平', created_at: '2026-04-12T08:20:09Z' },
+        {
+          id: 'exp_001', purpose: '餐费', claimed_amount: 767, voucher_type: 'invoice',
+          status: 'pending', user_name: 'Savox', user_id: 'u001',
+          created_at: '2026-04-13T14:53:59.510789+00:00',
+          points_delta: 0,
+          invoice_id: 'inv_003',
+          invoice_info: {
+            id: 'inv_003',
+            invoice_type_code: '专',
+            seller_name: '太仓市自来水有限公司',
+            total_amount: 10070.97,
+            invoice_number: '26327000006804323071',
+            image_url: 'https://mock.icloush.com/invoices/vat_special_water.jpg',
+          },
+        },
       ],
       message: '成功',
     };
@@ -851,14 +950,26 @@ function getMockResponse(url, method, data) {
     return { code: 200, data: { status: 'approved' }, message: '审核成功' };
   }
 
+  // ★ V5.5.2 Hotfix: 报销单详情补充 invoice_info + voucher_type_label
   if (url.match(/\/api\/v1\/expenses\/[^/]+$/) && method === 'GET') {
     return {
       code: 200,
       data: {
-        id: 'exp_001', reason: '餐费99.2', amount: 99.2, voucher_type: 'invoice',
-        status: 'pending', applicant_name: '程建平',
-        created_at: '2026-04-12T08:20:09Z',
-        voucher_url: 'https://mock.icloush.com/photo/receipt.jpg',
+        id: 'exp_001', purpose: '餐费', claimed_amount: 767, voucher_type: 'invoice',
+        voucher_type_label: '发票',
+        status: 'pending', status_label: '待审核',
+        user_name: 'Savox', user_id: 'u001',
+        created_at: '2026-04-13T14:53:59.510789+00:00',
+        invoice_id: 'inv_003',
+        invoice_info: {
+          id: 'inv_003',
+          invoice_type_code: '专',
+          seller_name: '太仓市自来水有限公司',
+          total_amount: 10070.97,
+          invoice_number: '26327000006804323071',
+          image_url: 'https://mock.icloush.com/invoices/vat_special_water.jpg',
+        },
+        receipt_image_url: null,
       },
       message: '成功',
     };

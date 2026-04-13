@@ -136,6 +136,25 @@ Page({
             });
             self.setData({ ocrFields: fields });
 
+            // ★ V5.5.2 Hotfix: 价税合计 fallback
+            // 如果 OCR 未识别出 total_amount，则自动计算 = pre_tax_amount + tax_amount
+            var totalAmt = parsed.total_amount;
+            var preTax = parsed.pre_tax_amount;
+            var taxAmt = parsed.tax_amount;
+            if ((!totalAmt || totalAmt === '' || totalAmt === 'null') && preTax && taxAmt) {
+              var computed = (parseFloat(preTax) + parseFloat(taxAmt)).toFixed(2);
+              parsed.total_amount = computed;
+              console.log('[OCR Fallback] 价税合计自动计算:', preTax, '+', taxAmt, '=', computed);
+              // 同步更新 fields 中的 total_amount
+              fields = fields.map(function (f) {
+                if (f.key === 'total_amount') {
+                  return Object.assign({}, f, { value: computed });
+                }
+                return f;
+              });
+            }
+            self.setData({ ocrFields: fields });
+
             // 保存明细条目
             var items = res.data.items || [];
             self.setData({ ocrItems: items });

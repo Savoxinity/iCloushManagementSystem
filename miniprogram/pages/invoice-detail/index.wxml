@@ -19,11 +19,13 @@
 
     <!-- ═══ 上部 30%：发票图片区 ═══ -->
     <view class="image-section" bindtap="previewImage">
+      <!-- ★ V5.5.2 Hotfix: 图片源多级 fallback，解决黑屏问题 -->
       <image
-        wx:if="{{invoice.image_url}}"
-        src="{{invoice.image_url}}"
+        wx:if="{{invoice.image_url || invoice.temp_image_path || invoice.imageUrl}}"
+        src="{{invoice.image_url || invoice.temp_image_path || invoice.imageUrl}}"
         class="invoice-image"
         mode="aspectFit"
+        binderror="onImageError"
       />
       <view wx:else class="no-image">
         <text class="no-image-text">暂无发票图片</text>

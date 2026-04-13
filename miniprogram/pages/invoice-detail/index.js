@@ -14,7 +14,9 @@ Page({
 
   onLoad: function (options) {
     if (options.id) {
-      this.setData({ invoiceId: parseInt(options.id) });
+      // ★ V5.5.2 Hotfix: invoiceId 可能是字符串（如 inv_003），不强制 parseInt
+      var id = options.id;
+      this.setData({ invoiceId: id });
       this.loadDetail();
     } else {
       this.setData({ error: '缺少发票ID', loading: false });
@@ -37,6 +39,11 @@ Page({
           } else {
             invoice.hasItems = false;
           }
+          // ★ V5.5.2 Hotfix: 价税合计 fallback
+          if ((!invoice.total_amount || invoice.total_amount === 0) && invoice.pre_tax_amount && invoice.tax_amount) {
+            invoice.total_amount = parseFloat(invoice.pre_tax_amount) + parseFloat(invoice.tax_amount);
+            console.log('[invoice-detail] 价税合计 fallback:', invoice.total_amount);
+          }
           self.setData({ invoice: invoice });
           wx.setNavigationBarTitle({
             title: invoice.goods_name_summary || invoice.seller_name || '发票详情'
@@ -51,11 +58,26 @@ Page({
     });
   },
 
-  // 预览发票图片
+  // ★ V5.5.2 Hotfix: 图片加载失败处理
+  onImageError: function (e) {
+    console.error('[invoice-detail] 图片加载失败:', e.detail);
+    // 图片加载失败时，尝试使用本地临时路径
+    var inv = this.data.invoice;
+    if (inv && inv.temp_image_path && inv.image_url !== inv.temp_image_path) {
+      this.setData({ 'invoice.image_url': inv.temp_image_path });
+    }
+  },
+
+  // ★ V5.5.2 Hotfix: 预览发票图片 — 增加 fallback 到本地临时路径
   previewImage: function () {
-    var url = this.data.invoice && this.data.invoice.image_url;
+    var inv = this.data.invoice;
+    if (!inv) return;
+    // 优先使用服务器 URL，fallback 到本地临时路径
+    var url = inv.image_url || inv.temp_image_path || inv.imageUrl;
     if (url) {
       wx.previewImage({ urls: [url], current: url });
+    } else {
+      wx.showToast({ title: '图片加载失败', icon: 'none' });
     }
   },
 
@@ -85,36 +107,51 @@ Page({
     }
   },
 
-  // ── 自动核验（调用腾讯云核验API） ──
+  // ── ★ V5.5.2 Hotfix: 自动核验重构 — 发票号码查重 + 自动标签 ──
+  // 核验逻辑：
+  //   1. 检查发票号码/代码是否已存在于发票池中（查重）
+  //   2. 如果重复 → 自动打上“重复”标签
+  //   3. 如果不重复 + 金额字段完整 → 自动标记“已核验”
+  //   4. 如果不重复 + 金额字段缺失 → 标记“待人工复核”
   onAutoVerify: function () {
     var self = this;
     var inv = self.data.invoice;
     if (!inv || self.data.verifying) return;
 
-    if (!inv.invoice_code && !inv.invoice_number) {
-      wx.showToast({ title: '缺少发票代码或号码，无法自动核验', icon: 'none', duration: 2500 });
+    if (!inv.invoice_number && !inv.invoice_code) {
+      wx.showToast({ title: '缺少发票号码或代码，无法自动核验', icon: 'none', duration: 2500 });
       return;
     }
 
     wx.showModal({
       title: '自动核验',
-      content: '将调用国税局接口核验发票真伪，确认继续？',
-      success: function (res) {
-        if (res.confirm) {
+      content: '将自动检查发票号码是否重复，并根据字段完整性自动标记状态。确认继续？',
+      success: function (modalRes) {
+        if (modalRes.confirm) {
           self.setData({ verifying: true });
           app.request({
             url: '/api/v1/invoices/' + inv.id + '/verify',
             method: 'POST',
-            data: { auto_verify: true },
+            data: {
+              auto_verify: true,
+              invoice_number: inv.invoice_number || '',
+              invoice_code: inv.invoice_code || '',
+            },
             success: function (res) {
               self.setData({ verifying: false });
-              if (res.code === 200) {
-                wx.showToast({
-                  title: res.message || '核验完成',
-                  icon: res.data && res.data.verify_status === 'verified' ? 'success' : 'none',
-                  duration: 2000,
-                });
-                // 刷新详情
+              if (res.code === 200 && res.data) {
+                var d = res.data;
+                var msg = '';
+                if (d.is_duplicate) {
+                  msg = '⚠️ 检测到重复发票！已自动标记';
+                } else if (d.verify_status === 'verified') {
+                  msg = '✅ 核验通过，字段完整';
+                } else if (d.verify_status === 'manual_review') {
+                  msg = 'ℹ️ 关键字段缺失，已标记待人工复核';
+                } else {
+                  msg = res.message || '核验完成';
+                }
+                wx.showToast({ title: msg, icon: 'none', duration: 3000 });
                 self.loadDetail();
               } else {
                 wx.showToast({ title: res.message || '核验失败', icon: 'none' });

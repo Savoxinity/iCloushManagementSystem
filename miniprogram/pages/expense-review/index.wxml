@@ -67,15 +67,29 @@
             </text>
           </view>
         </view>
-        <!-- 发票缩略图 -->
+        <!-- ★ V5.5.2 Hotfix: 发票缩略图 + 图片加载失败 fallback -->
         <view wx:if="{{item.invoice_info}}" class="invoice-preview">
-          <image src="{{item.invoice_info.image_url}}" class="inv-thumb" mode="aspectFill" />
+          <image
+            src="{{item.invoice_info.image_url || item.invoice_image_url || ''}}"
+            class="inv-thumb"
+            mode="aspectFill"
+            binderror="onInvThumbError"
+            data-idx="{{index}}"
+          />
           <view class="inv-preview-info">
             <text class="inv-preview-type">
               <text class="type-mini {{item.invoice_info.invoice_type_code === '专' ? 'mini-special' : 'mini-general'}}">{{item.invoice_info.invoice_type_code || '普'}}</text>
               {{item.invoice_info.seller_name || '发票'}}
             </text>
             <text class="inv-preview-amount">¥{{item.invoice_info.total_amount || '--'}}</text>
+          </view>
+        </view>
+        <!-- 无发票信息但有上传图片时显示 -->
+        <view wx:elif="{{item.invoice_image_url || item.receipt_image_url}}" class="invoice-preview">
+          <image src="{{item.invoice_image_url || item.receipt_image_url}}" class="inv-thumb" mode="aspectFill" />
+          <view class="inv-preview-info">
+            <text class="inv-preview-type">已上传票据</text>
+            <text class="inv-preview-amount">¥{{item.claimed_amount || '--'}}</text>
           </view>
         </view>
       </view>
@@ -126,17 +140,21 @@
           </view>
         </view>
 
-        <!-- 关联发票信息 -->
+        <!-- ★ V5.5.2 Hotfix: 关联发票信息 + 图片 fallback -->
         <view wx:if="{{currentExpense.invoice_info}}" class="detail-group">
           <view class="group-subtitle">关联发票</view>
           <image
-            wx:if="{{currentExpense.invoice_info.image_url}}"
-            src="{{currentExpense.invoice_info.image_url}}"
+            wx:if="{{currentExpense.invoice_info.image_url || currentExpense.invoice_image_url}}"
+            src="{{currentExpense.invoice_info.image_url || currentExpense.invoice_image_url}}"
             class="detail-invoice-image"
             mode="aspectFit"
             bindtap="previewVoucher"
-            data-url="{{currentExpense.invoice_info.image_url}}"
+            data-url="{{currentExpense.invoice_info.image_url || currentExpense.invoice_image_url}}"
+            binderror="onDetailImageError"
           />
+          <view wx:else class="detail-invoice-placeholder">
+            <text class="placeholder-text">发票图片加载失败</text>
+          </view>
           <view class="detail-row">
             <text class="detail-label">发票号码</text>
             <text class="detail-value">{{currentExpense.invoice_info.invoice_number || '--'}}</text>
