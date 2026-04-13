@@ -654,8 +654,8 @@ function getMockResponse(url, method, data) {
     return { code: 200, data: { status: 'approved' }, message: '审批成功' };
   }
 
-  // 发票 OCR 识别（★ 返回 invoice_id，强制入池）
-  // ★ V5.5.2 Hotfix: total_amount 可能为 null，增加 pre_tax_amount + tax_amount 用于前端 fallback
+  // 发票 OCR 识别（★ V5.6.2 字段归一化引擎升级）
+  // 返回完整的归一化字段 + match_stats 调试信息
   if (url.indexOf('/api/v1/invoices/ocr') !== -1 && method === 'POST') {
     return {
       code: 200,
@@ -663,23 +663,48 @@ function getMockResponse(url, method, data) {
         ocr_available: true,
         invoice_id: 'inv_ocr_' + Date.now(),
         parsed: {
-          invoice_type: 'vat_special',
-          invoice_type_label: '增值税专用发票',
-          invoice_code: '3100224130',
+          invoice_type: 'special_vat',
+          invoice_type_label: '电子发票(增值税专用发票)',
+          invoice_code: '',
           invoice_number: '26327000006804323071',
           invoice_date: '2026-04-13',
-          total_amount: null,
-          pre_tax_amount: '9777.64',
-          tax_amount: '293.33',
-          seller_name: '太仓市自来水有限公司',
-          seller_tax_id: '91320585138087604011',
+          total_amount: 10070.97,
+          pre_tax_amount: 9777.64,
+          tax_amount: 293.33,
+          total_amount_cn: '壹万零柒拾元九角七分',
+          check_code: '',
+          check_code_last6: '',
+          machine_number: '',
+          // 购方信息
           buyer_name: '富朵朵实业(太仓)有限公司',
           buyer_tax_id: '91320585MA1N5CYG7X',
-          check_code: '',
+          buyer_address_phone: '',
+          buyer_bank_account: '',
+          // 销方信息
+          seller_name: '太仓市自来水有限公司',
+          seller_tax_id: '9132058513808760401',
+          seller_address_phone: '',
+          seller_bank_account: '',
+          // 人员信息
+          drawer: '盛恩恩',
+          payee: '',
+          reviewer: '',
+          // 其他
           goods_name_summary: '水冰雪*水费',
-          remark: '户号:0519424852 读数:99841-104398 田水量:4557',
+          remark: '户号:0519424852,读数:99841-104398,用水量:4557',
+          has_company_seal: true,
+          province: '',
+          city: '',
         },
-        items: [{ name: '*水冰雪*水费', spec: '工业、商业、服务业', unit: '吨', quantity: 4557, unit_price: 2.1456310679612, amount: 9777.64, tax_rate: '3%', tax: 293.33 }],
+        items: [
+          { name: '*水冰雪*水费', spec: '工业、商业、服务业', unit: '吨', quantity: '4557', unit_price: '2.1456310679612', amount_without_tax: '9777.64', tax_rate: '3%', tax_amount: '293.33' },
+        ],
+        match_stats: {
+          total_alias_fields: 32,
+          matched_fields: 14,
+          ocr_returned_fields: 22,
+          unmatched_ocr_keys: [],
+        },
       },
       message: '成功',
     };
@@ -837,12 +862,21 @@ function getMockResponse(url, method, data) {
         pre_tax_amount: 9777.64,
         tax_amount: 293.33,
         seller_name: '太仓市自来水有限公司',
-        seller_tax_id: '91320585138087604011',
+        seller_tax_id: '9132058513808760401',
+        seller_address_phone: '',
+        seller_bank_account: '',
         buyer_name: '富朵朵实业(太仓)有限公司',
         buyer_tax_id: '91320585MA1N5CYG7X',
+        buyer_address_phone: '',
+        buyer_bank_account: '',
         check_code: '',
+        check_code_last6: '',
+        machine_number: '',
+        drawer: '盛恩恩',
+        payee: '',
+        reviewer: '',
         goods_name_summary: '水冰雪*水费',
-        remark: '户号:0519424852 读数:99841-104398 田水量:4557',
+        remark: '户号:0519424852,读数:99841-104398,用水量:4557',
         image_url: 'https://mock.icloush.com/invoices/vat_special_water.jpg',
         verify_status: 'verified',
         verify_status_label: '已核验',
