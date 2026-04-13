@@ -1,4 +1,4 @@
-<!-- 报销记录页 V5.4.1 — 全部/付款采购/报销/被驳回 -->
+<!-- 报销记录页 V5.6.3 — 详情弹窗三段式布局重做 -->
 <view class="page-container">
   <view class="header-bar">
     <text class="page-title">报销记录</text>
@@ -56,67 +56,158 @@
     </view>
   </block>
 
-  <!-- ═══ 详情弹窗（同管理员报销审核样式） ═══ -->
+  <!-- ═══ 详情弹窗 V5.6.3 三段式布局 ═══ -->
   <view wx:if="{{showDetail}}" class="detail-overlay" bindtap="closeDetail">
-    <view class="detail-panel" catchtap="stopPropagation">
-      <text class="detail-title">{{currentRecord.record_type === 'payment' ? '付款申请详情' : '报销单详情'}}</text>
+    <view class="detail-panel-v2" catchtap="stopPropagation">
 
-      <view class="detail-row">
-        <text class="detail-label">类型</text>
-        <text class="detail-value">{{currentRecord.record_type_label}}{{currentRecord.payment_type_label ? ' · ' + currentRecord.payment_type_label : ''}}</text>
+      <!-- ★ 顶部留白区（2bar 空隙 + 标题） -->
+      <view class="detail-top-spacer"></view>
+      <view class="detail-header-row">
+        <text class="detail-title-v2">{{currentRecord.record_type === 'payment' ? '付款申请详情' : '报销单详情'}}</text>
+        <text class="detail-close-x" bindtap="closeDetail">✕</text>
       </view>
 
-      <view wx:if="{{currentRecord.record_type === 'expense'}}" class="detail-row">
-        <text class="detail-label">事由</text>
-        <text class="detail-value">{{currentRecord.reason || currentRecord.purpose || '-'}}</text>
+      <!-- ★ 上 1/3：发票/凭证图片预览 -->
+      <view class="detail-section-img">
+        <block wx:if="{{currentRecord.invoice_image_url || currentRecord.voucher_url || currentRecord.receipt_image_url}}">
+          <image src="{{currentRecord.invoice_image_url || currentRecord.voucher_url || currentRecord.receipt_image_url}}"
+                 mode="aspectFit" class="detail-preview-img"
+                 bindtap="previewVoucher"
+                 data-url="{{currentRecord.invoice_image_url || currentRecord.voucher_url || currentRecord.receipt_image_url}}" />
+        </block>
+        <block wx:else>
+          <view class="detail-no-img">
+            <text class="no-img-icon">📄</text>
+            <text class="no-img-text">暂无凭证图片</text>
+          </view>
+        </block>
       </view>
 
-      <view wx:if="{{currentRecord.record_type === 'payment'}}" class="detail-row">
-        <text class="detail-label">供应商</text>
-        <text class="detail-value">{{currentRecord.supplier_name || '-'}}</text>
+      <!-- ★ 中 1/3：发票/票据 OCR 详情内容框（可折叠） -->
+      <view wx:if="{{currentRecord.invoice_info || currentRecord.ocr_data}}" class="detail-section-ocr">
+        <view class="ocr-header" bindtap="toggleOcrExpand">
+          <text class="ocr-header-title">发票 / 票据详情</text>
+          <text class="ocr-toggle-btn">{{ocrExpanded ? '收起 ▲' : '展开 ▼'}}</text>
+        </view>
+        <!-- 折叠时只显示摘要 -->
+        <view class="ocr-summary">
+          <view class="ocr-summary-row">
+            <text class="ocr-s-label">销方</text>
+            <text class="ocr-s-value">{{currentRecord.invoice_info.seller_name || currentRecord.ocr_data.seller_name || '-'}}</text>
+          </view>
+          <view class="ocr-summary-row">
+            <text class="ocr-s-label">金额</text>
+            <text class="ocr-s-value ocr-s-amount">¥{{currentRecord.invoice_info.total_amount || currentRecord.ocr_data.total_amount || '-'}}</text>
+          </view>
+          <view class="ocr-summary-row">
+            <text class="ocr-s-label">类型</text>
+            <text class="ocr-s-value">{{currentRecord.invoice_info.invoice_type_label || currentRecord.ocr_data.invoice_type_label || currentRecord.invoice_info.invoice_type_code || '-'}}</text>
+          </view>
+        </view>
+        <!-- 展开时显示全部 OCR 字段 -->
+        <view wx:if="{{ocrExpanded}}" class="ocr-full-detail">
+          <view wx:if="{{currentRecord.ocr_data.invoice_number || currentRecord.invoice_info.invoice_number}}" class="ocr-detail-row">
+            <text class="ocr-d-label">发票号码</text>
+            <text class="ocr-d-value">{{currentRecord.ocr_data.invoice_number || currentRecord.invoice_info.invoice_number}}</text>
+          </view>
+          <view wx:if="{{currentRecord.ocr_data.invoice_code}}" class="ocr-detail-row">
+            <text class="ocr-d-label">发票代码</text>
+            <text class="ocr-d-value">{{currentRecord.ocr_data.invoice_code}}</text>
+          </view>
+          <view wx:if="{{currentRecord.ocr_data.invoice_date || currentRecord.invoice_info.invoice_date}}" class="ocr-detail-row">
+            <text class="ocr-d-label">开票日期</text>
+            <text class="ocr-d-value">{{currentRecord.ocr_data.invoice_date || currentRecord.invoice_info.invoice_date}}</text>
+          </view>
+          <view wx:if="{{currentRecord.ocr_data.pre_tax_amount}}" class="ocr-detail-row">
+            <text class="ocr-d-label">不含税金额</text>
+            <text class="ocr-d-value">¥{{currentRecord.ocr_data.pre_tax_amount}}</text>
+          </view>
+          <view wx:if="{{currentRecord.ocr_data.tax_amount}}" class="ocr-detail-row">
+            <text class="ocr-d-label">税额</text>
+            <text class="ocr-d-value">¥{{currentRecord.ocr_data.tax_amount}}</text>
+          </view>
+          <view wx:if="{{currentRecord.ocr_data.buyer_name}}" class="ocr-detail-row">
+            <text class="ocr-d-label">购方名称</text>
+            <text class="ocr-d-value">{{currentRecord.ocr_data.buyer_name}}</text>
+          </view>
+          <view wx:if="{{currentRecord.ocr_data.buyer_tax_id}}" class="ocr-detail-row">
+            <text class="ocr-d-label">购方税号</text>
+            <text class="ocr-d-value">{{currentRecord.ocr_data.buyer_tax_id}}</text>
+          </view>
+          <view wx:if="{{currentRecord.ocr_data.seller_tax_id}}" class="ocr-detail-row">
+            <text class="ocr-d-label">销方税号</text>
+            <text class="ocr-d-value">{{currentRecord.ocr_data.seller_tax_id}}</text>
+          </view>
+          <view wx:if="{{currentRecord.ocr_data.check_code}}" class="ocr-detail-row">
+            <text class="ocr-d-label">校验码</text>
+            <text class="ocr-d-value">{{currentRecord.ocr_data.check_code}}</text>
+          </view>
+          <view wx:if="{{currentRecord.ocr_data.goods_name_summary}}" class="ocr-detail-row">
+            <text class="ocr-d-label">货物/服务</text>
+            <text class="ocr-d-value">{{currentRecord.ocr_data.goods_name_summary}}</text>
+          </view>
+          <view wx:if="{{currentRecord.ocr_data.remark}}" class="ocr-detail-row">
+            <text class="ocr-d-label">备注</text>
+            <text class="ocr-d-value">{{currentRecord.ocr_data.remark}}</text>
+          </view>
+          <view wx:if="{{currentRecord.ocr_data.drawer}}" class="ocr-detail-row">
+            <text class="ocr-d-label">开票人</text>
+            <text class="ocr-d-value">{{currentRecord.ocr_data.drawer}}</text>
+          </view>
+        </view>
       </view>
 
-      <view wx:if="{{currentRecord.record_type === 'payment'}}" class="detail-row">
-        <text class="detail-label">付款事由</text>
-        <text class="detail-value">{{currentRecord.purpose || '-'}}</text>
-      </view>
+      <!-- ★ 下 1/3：基本信息 -->
+      <view class="detail-section-info">
+        <view wx:if="{{currentRecord.record_type === 'expense'}}" class="detail-row-v2">
+          <text class="detail-label-v2">提交人</text>
+          <text class="detail-value-v2">{{currentRecord.employee_name || currentRecord.user_name || '-'}}</text>
+        </view>
+        <view wx:if="{{currentRecord.record_type === 'payment'}}" class="detail-row-v2">
+          <text class="detail-label-v2">供应商</text>
+          <text class="detail-value-v2">{{currentRecord.supplier_name || '-'}}</text>
+        </view>
 
-      <view class="detail-row">
-        <text class="detail-label">金额</text>
-        <text class="detail-value amount-value">¥ {{currentRecord.display_amount}}</text>
-      </view>
+        <view class="detail-row-v2">
+          <text class="detail-label-v2">事由</text>
+          <text class="detail-value-v2">{{currentRecord.reason || currentRecord.purpose || currentRecord.display_reason || '-'}}</text>
+        </view>
 
-      <view wx:if="{{currentRecord.voucher_type}}" class="detail-row">
-        <text class="detail-label">凭证类型</text>
-        <text class="detail-value">{{currentRecord.voucher_type === 'invoice' ? '发票' : '收据'}}</text>
-      </view>
+        <view class="detail-row-v2">
+          <text class="detail-label-v2">金额</text>
+          <text class="detail-value-v2 amount-highlight">¥ {{currentRecord.display_amount || currentRecord.claimed_amount || currentRecord.total_amount || 0}}</text>
+        </view>
 
-      <view class="detail-row">
-        <text class="detail-label">提交时间</text>
-        <text class="detail-value">{{currentRecord.created_at}}</text>
-      </view>
+        <view class="detail-row-v2">
+          <text class="detail-label-v2">凭证类型</text>
+          <text class="detail-value-v2">{{currentRecord.voucher_type === 'invoice' ? '发票' : currentRecord.voucher_type === 'receipt' ? '收据' : currentRecord.record_type === 'payment' ? '付款单' : '-'}}</text>
+        </view>
 
-      <view class="detail-row">
-        <text class="detail-label">状态</text>
-        <text class="detail-value {{currentRecord.statusClass}}">{{currentRecord.statusLabel}}</text>
-      </view>
+        <view class="detail-row-v2">
+          <text class="detail-label-v2">提交时间</text>
+          <text class="detail-value-v2">{{currentRecord.created_at}}</text>
+        </view>
 
-      <view wx:if="{{currentRecord.review_note}}" class="detail-row">
-        <text class="detail-label">审核备注</text>
-        <text class="detail-value">{{currentRecord.review_note}}</text>
-      </view>
+        <view class="detail-row-v2">
+          <text class="detail-label-v2">状态</text>
+          <text class="detail-value-v2 {{currentRecord.statusClass}}">{{currentRecord.statusLabel}}</text>
+        </view>
 
-      <!-- 凭证图片 -->
-      <view wx:if="{{currentRecord.voucher_url}}" class="detail-voucher">
-        <text class="voucher-label">收据图片</text>
-        <image src="{{currentRecord.voucher_url}}" mode="aspectFit" class="voucher-img"
-               bindtap="previewVoucher" data-url="{{currentRecord.voucher_url}}" />
+        <view wx:if="{{currentRecord.review_note}}" class="detail-row-v2">
+          <text class="detail-label-v2">审核备注</text>
+          <text class="detail-value-v2">{{currentRecord.review_note}}</text>
+        </view>
+
+        <view wx:if="{{currentRecord.points_delta}}" class="detail-row-v2">
+          <text class="detail-label-v2">积分变动</text>
+          <text class="detail-value-v2 {{currentRecord.points_delta > 0 ? 'positive' : 'negative'}}">{{currentRecord.points_delta > 0 ? '+' : ''}}{{currentRecord.points_delta}}</text>
+        </view>
       </view>
 
       <!-- 操作按钮 -->
-      <view class="detail-actions">
-        <view class="btn-close" bindtap="closeDetail">关闭</view>
-        <view wx:if="{{currentRecord.status === 'rejected'}}" class="btn-edit" bindtap="editRejected">修改重提</view>
+      <view class="detail-actions-v2">
+        <view class="btn-close-v2" bindtap="closeDetail">关闭</view>
+        <view wx:if="{{currentRecord.status === 'rejected'}}" class="btn-edit-v2" bindtap="editRejected">修改重提</view>
       </view>
     </view>
   </view>

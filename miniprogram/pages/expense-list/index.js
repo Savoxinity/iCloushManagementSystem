@@ -1,7 +1,8 @@
 // ============================================
-// 报销记录页 V5.4.1 — 全部/付款采购/报销/被驳回 四Tab
-// ★ 增加详情弹窗（同管理员报销审核样式）
-// ★ 被驳回的单据支持修改重提
+// 报销记录页 V5.6.3 — 三段式详情弹窗
+// ★ 上1/3 发票/凭证图片预览
+// ★ 中1/3 OCR 详情折叠框（展开/收起）
+// ★ 下1/3 基本信息（提交人、事由、金额、凭证类型、时间、状态）
 // ============================================
 var app = getApp();
 
@@ -23,6 +24,7 @@ Page({
     // 详情弹窗
     showDetail: false,
     currentRecord: null,
+    ocrExpanded: false,  // ★ OCR 折叠框状态
   },
 
   onLoad: function () {
@@ -114,7 +116,6 @@ Page({
   },
 
   mergeAndFilter: function (expenses, payments) {
-    // 合并并按时间倒序
     var all = expenses.concat(payments);
     all.sort(function (a, b) {
       var ta = new Date(a.created_at || 0).getTime();
@@ -143,7 +144,7 @@ Page({
     this.setData({ records: filtered });
   },
 
-  // ── 查看详情弹窗 ──
+  // ── ★ 查看详情弹窗（V5.6.3 加载完整数据含图片和 OCR） ──
   viewDetail: function (e) {
     var id = e.currentTarget.dataset.id;
     var record = null;
@@ -153,9 +154,11 @@ Page({
     }
     if (!record) return;
 
-    // 如果是报销单，尝试加载详情
+    var self = this;
+    self.setData({ ocrExpanded: false });  // 默认折叠
+
     if (record.record_type === 'expense') {
-      var self = this;
+      // ★ 加载报销单详情（含 invoice_image_url、ocr_data、invoice_info）
       app.request({
         url: '/api/v1/expenses/' + id,
         success: function (res) {
@@ -167,6 +170,38 @@ Page({
             detail.display_reason = detail.reason || detail.purpose || '报销申请';
             detail.statusLabel = record.statusLabel;
             detail.statusClass = record.statusClass;
+            // ★ 确保 invoice_info 和 ocr_data 都有
+            if (!detail.invoice_info && detail.invoice_id) {
+              detail.invoice_info = record.invoice_info || {};
+            }
+            if (!detail.ocr_data && detail.invoice_info) {
+              detail.ocr_data = detail.invoice_info;
+            }
+            self.setData({ currentRecord: detail, showDetail: true });
+          } else {
+            self.setData({ currentRecord: record, showDetail: true });
+          }
+        },
+        fail: function () {
+          self.setData({ currentRecord: record, showDetail: true });
+        },
+      });
+    } else if (record.record_type === 'payment') {
+      // ★ 加载付款详情（含发票图片和 OCR 信息）
+      app.request({
+        url: '/api/v1/payments/' + id,
+        success: function (res) {
+          if (res.code === 200 && res.data) {
+            var detail = res.data;
+            detail.record_type = 'payment';
+            detail.record_type_label = '付款';
+            detail.display_amount = detail.total_amount || 0;
+            detail.display_reason = detail.purpose || detail.supplier_name || '付款申请';
+            detail.statusLabel = record.statusLabel;
+            detail.statusClass = record.statusClass;
+            if (!detail.ocr_data && detail.invoice_info) {
+              detail.ocr_data = detail.invoice_info;
+            }
             self.setData({ currentRecord: detail, showDetail: true });
           } else {
             self.setData({ currentRecord: record, showDetail: true });
@@ -182,10 +217,15 @@ Page({
   },
 
   closeDetail: function () {
-    this.setData({ showDetail: false, currentRecord: null });
+    this.setData({ showDetail: false, currentRecord: null, ocrExpanded: false });
   },
 
   stopPropagation: function () {},
+
+  // ★ OCR 折叠框 展开/收起
+  toggleOcrExpand: function () {
+    this.setData({ ocrExpanded: !this.data.ocrExpanded });
+  },
 
   // ── 预览凭证图片 ──
   previewVoucher: function (e) {

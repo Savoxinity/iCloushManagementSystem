@@ -631,7 +631,7 @@ function getMockResponse(url, method, data) {
     return {
       code: 200,
       data: [
-        { id: 'pay_001', payment_type: 'A', supplier_name: '海尔', purpose: '家用小洗衣机采购', total_amount: 900, status: 'pending', created_at: '2026-04-12T08:00:00Z', statusLabel: '待审批' },
+        { id: 'pay_001', payment_type: 'A', supplier_name: '海尔', purpose: '家用小洗衣机采购', total_amount: 900, status: 'pending', created_at: '2026-04-12T08:00:00Z', statusLabel: '待审批', invoice_image_url: 'https://mock.icloush.com/photo/invoice_haier.jpg' },
         { id: 'pay_002', payment_type: 'B', supplier_name: '格力', purpose: '空调采购', total_amount: 5600, status: 'completed', created_at: '2026-04-10T10:00:00Z', statusLabel: '已完成' },
       ],
       message: '成功',
@@ -945,7 +945,9 @@ function getMockResponse(url, method, data) {
         {
           id: 'exp_001', purpose: '餐费', claimed_amount: 767, voucher_type: 'invoice',
           status: 'pending', created_at: '2026-04-13T14:53:59.510789+00:00',
+          employee_name: 'Savox',
           invoice_id: 'inv_003',
+          invoice_image_url: 'https://mock.icloush.com/invoices/vat_special_water.jpg',
           invoice_info: {
             id: 'inv_003',
             invoice_type_code: '专',
@@ -967,9 +969,11 @@ function getMockResponse(url, method, data) {
         {
           id: 'exp_001', purpose: '餐费', claimed_amount: 767, voucher_type: 'invoice',
           status: 'pending', user_name: 'Savox', user_id: 'u001',
+          applicant_name: 'Savox',
           created_at: '2026-04-13T14:53:59.510789+00:00',
           points_delta: 0,
           invoice_id: 'inv_003',
+          invoice_image_url: 'https://mock.icloush.com/invoices/vat_special_water.jpg',
           invoice_info: {
             id: 'inv_003',
             invoice_type_code: '专',
@@ -997,8 +1001,10 @@ function getMockResponse(url, method, data) {
         voucher_type_label: '发票',
         status: 'pending', status_label: '待审核',
         user_name: 'Savox', user_id: 'u001',
+        applicant_name: 'Savox', employee_name: 'Savox',
         created_at: '2026-04-13T14:53:59.510789+00:00',
         invoice_id: 'inv_003',
+        invoice_image_url: 'https://mock.icloush.com/invoices/vat_special_water.jpg',
         invoice_info: {
           id: 'inv_003',
           invoice_type_code: '专',
@@ -1008,6 +1014,23 @@ function getMockResponse(url, method, data) {
           image_url: 'https://mock.icloush.com/invoices/vat_special_water.jpg',
         },
         receipt_image_url: null,
+        ocr_data: {
+          seller_name: '太仓市自来水有限公司',
+          seller_tax_id: '91320585138087604',
+          buyer_name: '富尔朵实业(太仓)有限公司',
+          buyer_tax_id: '91320585MA1N5CYG7X',
+          total_amount: '10070.97',
+          pre_tax_amount: '9777.64',
+          tax_amount: '293.33',
+          invoice_date: '2026-04-13',
+          invoice_number: '26327000006804323071',
+          invoice_code: '',
+          invoice_type_label: '电子发票(增值税专用发票)',
+          check_code: '',
+          goods_name_summary: '*水冰雪*水费 工业、商业、服务业',
+          drawer: '盛恩恩',
+          remark: '户号:0519424852,读数:99841-104398,用水量:4557',
+        },
       },
       message: '成功',
     };
