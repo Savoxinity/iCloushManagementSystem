@@ -30,9 +30,7 @@
         </view>
         <view class="mall-card-stock {{item.stock <= 3 ? 'low' : ''}}"><text>剩余 {{item.stock}}</text></view>
       </view>
-      <view wx:if="{{myPoints < item.points_cost}}" class="insufficient-mask">
-        <text class="insufficient-text">积分不足</text>
-      </view>
+      <view wx:if="{{myPoints < item.points_cost}}" class="insufficient-mask"></view>
     </view>
     <!-- 管理员：添加商品卡片 -->
     <view wx:if="{{isAdmin}}" class="mall-card add-card" bindtap="onAddItem">
@@ -71,8 +69,8 @@
 </view>
 
 <!-- 兑换确认弹窗 -->
-<view wx:if="{{showItemModal}}" class="modal-overlay" bindtap="closeModal">
-  <view class="item-modal" catchtap="">
+<view wx:if="{{showItemModal}}" class="modal-overlay">
+  <view class="item-modal" catchtap="preventBubble">
     <view class="item-modal-header">
       <text class="item-modal-icon">{{currentItem.icon}}</text>
       <text class="item-modal-title">{{currentItem.name}}</text>
@@ -93,8 +91,8 @@
 </view>
 
 <!-- 管理员：新增/编辑商品弹窗 -->
-<view wx:if="{{showAddModal}}" class="modal-overlay" bindtap="closeAddModal">
-  <view class="add-modal" catchtap="">
+<view wx:if="{{showAddModal}}" class="modal-overlay">
+  <view class="add-modal" catchtap="preventBubble">
     <view class="add-modal-header">
       <text class="add-modal-title">{{editingItem ? '编辑奖品' : '新增奖品'}}</text>
     </view>

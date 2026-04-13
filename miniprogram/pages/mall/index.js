@@ -222,6 +222,8 @@ Page({
   // ═══════════════════════════════════════════
   // 管理员：删除商品
   // ═══════════════════════════════════════════
+  preventBubble: function () { /* 阻止事件冒泡到遮罩层 */ },
+
   onDeleteItem: function (e) {
     var item = e.currentTarget.dataset.item;
     var self = this;
