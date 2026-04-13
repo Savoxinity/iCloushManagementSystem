@@ -1,5 +1,5 @@
 <!-- 员工管理页：员工档案 + 头像库选择 + 技能标签 -->
-<!-- V5 修复：新增弹窗补齐技能标签 + 飞书式默认头像 -->
+<!-- V5.5.1 重构：停用褪色+已停用标签+删除账号+编辑账号密码 -->
 
 <wxs module="tagUtil">
 module.exports = {
@@ -34,22 +34,29 @@ module.exports = {
 
   <!-- 员工列表 -->
   <view class="staff-list">
-    <view wx:for="{{filteredStaff}}" wx:key="id" class="staff-card" bindtap="showStaffDetail" data-id="{{item.id}}">
-      <!-- ★ 飞书式默认头像：渐变色圆 + 姓名首字 -->
-      <view class="card-avatar feishu-avatar" style="background:linear-gradient(135deg, {{item.avatarColor}}, {{item.avatarColorDark}});">
+    <!-- ★ V5.5.1：停用账号卡片添加 disabled 类，整体褪色变灰 -->
+    <view wx:for="{{filteredStaff}}" wx:key="id"
+      class="staff-card {{item.status === 'inactive' || item.status === 'disabled' ? 'staff-card-disabled' : ''}}"
+      bindtap="showStaffDetail" data-id="{{item.id}}">
+      <!-- 飞书式默认头像 -->
+      <view class="card-avatar feishu-avatar"
+        style="background:linear-gradient(135deg, {{item.status === 'inactive' || item.status === 'disabled' ? '#555, #333' : item.avatarColor + ', ' + item.avatarColorDark}});">
         <text class="card-initial">{{item.nameInitial}}</text>
         <view class="avatar-badge role-{{item.role}}"><text>{{item.roleShort}}</text></view>
       </view>
       <!-- 基本信息 -->
       <view class="card-info">
         <view class="card-name-row">
-          <text class="card-name">{{item.name}}</text>
-          <view wx:if="{{item.is_multi_post}}" class="multi-tag"><text>多岗</text></view>
+          <text class="card-name {{item.status === 'inactive' || item.status === 'disabled' ? 'text-disabled' : ''}}">{{item.name}}</text>
+          <view wx:if="{{item.is_multi_post && item.status !== 'inactive' && item.status !== 'disabled'}}" class="multi-tag"><text>多岗</text></view>
+          <!-- ★ V5.5.1：已停用标签 -->
+          <view wx:if="{{item.status === 'inactive' || item.status === 'disabled'}}" class="disabled-tag"><text>已停用</text></view>
         </view>
-        <text class="card-role">{{item.roleLabel}}</text>
+        <text class="card-role {{item.status === 'inactive' || item.status === 'disabled' ? 'text-disabled' : ''}}">{{item.roleLabel}}</text>
         <!-- 技能标签 -->
         <view class="skill-tags">
-          <view wx:for="{{item.skills}}" wx:key="*this" wx:for-item="skill" class="skill-tag">
+          <view wx:for="{{item.skills}}" wx:key="*this" wx:for-item="skill"
+            class="skill-tag {{item.status === 'inactive' || item.status === 'disabled' ? 'skill-tag-disabled' : ''}}">
             <text>{{skill}}</text>
           </view>
         </view>
@@ -57,7 +64,7 @@ module.exports = {
       <!-- 右侧状态 -->
       <view class="card-right">
         <view class="status-dot-sm status-{{item.status}}" />
-        <text class="card-points">{{item.total_points}}</text>
+        <text class="card-points {{item.status === 'inactive' || item.status === 'disabled' ? 'text-disabled' : ''}}">{{item.total_points}}</text>
         <text class="points-label">积分</text>
         <text class="card-arrow">›</text>
       </view>
@@ -71,16 +78,21 @@ module.exports = {
 
   <!-- 员工详情/编辑弹窗 -->
   <view wx:if="{{showDetailModal}}" class="modal-overlay" catchtap="closeDetailModal">
-    <view class="modal-box" catchtap="stopProp">
+    <view class="modal-box modal-box-tall" catchtap="stopProp">
       <!-- 弹窗标题 -->
       <view class="modal-header">
         <text class="modal-title">{{editMode ? '编辑员工' : '员工档案'}}</text>
-        <view wx:if="{{!editMode}}" class="edit-btn" bindtap="enterEditMode"><text>编辑</text></view>
+        <view class="modal-header-right">
+          <!-- ★ V5.5.1：停用状态标签（弹窗内） -->
+          <view wx:if="{{(currentStaff.status === 'inactive' || currentStaff.status === 'disabled') && !editMode}}" class="disabled-tag-lg"><text>已停用</text></view>
+          <view wx:if="{{!editMode}}" class="edit-btn" bindtap="enterEditMode"><text>编辑</text></view>
+        </view>
       </view>
 
       <!-- 飞书式头像预览 -->
       <view class="avatar-preview-section">
-        <view class="avatar-preview feishu-avatar-lg" style="background:linear-gradient(135deg, {{currentStaff.avatarColor}}, {{currentStaff.avatarColorDark}});">
+        <view class="avatar-preview feishu-avatar-lg"
+          style="background:linear-gradient(135deg, {{currentStaff.status === 'inactive' || currentStaff.status === 'disabled' ? '#555, #333' : currentStaff.avatarColor + ', ' + currentStaff.avatarColorDark}});">
           <text class="avatar-preview-initial">{{currentStaff.nameInitial}}</text>
         </view>
       </view>
@@ -104,6 +116,25 @@ module.exports = {
         <input class="form-input" value="{{currentStaff.name}}" bindinput="onEditName" placeholder="请输入姓名" placeholder-class="ph" />
       </view>
       <text wx:else class="form-value">{{currentStaff.name}}</text>
+
+      <!-- ★ V5.5.1：编辑模式下显示账号密码字段 -->
+      <view wx:if="{{editMode}}" class="credential-section">
+        <text class="form-label">登录账号</text>
+        <input class="form-input" value="{{currentStaff.username}}" bindinput="onEditUsername" placeholder="英文/拼音，如 zhangwei" placeholder-class="ph" />
+
+        <text class="form-label">密码（留空则不修改）</text>
+        <view class="form-input-row">
+          <input class="form-input flex-input" value="{{currentStaff.password}}" bindinput="onEditPassword" placeholder="输入新密码可重置" placeholder-class="ph" password="{{!showEditPassword}}" />
+          <view class="toggle-pwd-btn" bindtap="toggleEditPwdVisible">
+            <text>{{showEditPassword ? '🙈' : '👁'}}</text>
+          </view>
+        </view>
+      </view>
+      <!-- ★ V5.5.1：查看模式下也显示账号（只读） -->
+      <view wx:else>
+        <text class="form-label">登录账号</text>
+        <text class="form-value">{{currentStaff.username || '未设置'}}</text>
+      </view>
 
       <text class="form-label">角色</text>
       <view wx:if="{{editMode}}" class="role-select-row">
@@ -139,9 +170,19 @@ module.exports = {
         <button class="modal-btn-cancel" bindtap="cancelEdit">取消</button>
         <button class="modal-btn-confirm" bindtap="saveStaff">保存</button>
       </view>
-      <view wx:else class="modal-btns">
-        <button class="modal-btn-danger" bindtap="confirmDisable">停用账号</button>
-        <button class="modal-btn-close" bindtap="closeDetailModal">关闭</button>
+      <view wx:else class="modal-btns-col">
+        <!-- ★ V5.5.1：根据状态显示停用/恢复按钮 -->
+        <view class="modal-btns">
+          <view wx:if="{{currentStaff.status === 'inactive' || currentStaff.status === 'disabled'}}">
+            <button class="modal-btn-restore" bindtap="confirmRestore">恢复账号</button>
+          </view>
+          <view wx:else>
+            <button class="modal-btn-danger" bindtap="confirmDisable">停用账号</button>
+          </view>
+          <button class="modal-btn-close" bindtap="closeDetailModal">关闭</button>
+        </view>
+        <!-- ★ V5.5.1：删除账号按钮（危险操作，独立一行） -->
+        <button class="modal-btn-delete" bindtap="confirmDelete">🗑 永久删除账号</button>
       </view>
     </view>
   </view>

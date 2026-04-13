@@ -4,12 +4,12 @@
  */
 
 var USERS = [
-  { id: 'u001', name: '张伟', role: 7, avatar_key: 'male_admin_01', skills: ['洗涤龙', '单机洗烘', '展布机平烫', '物流驾驶'], is_multi_post: true, status: 'active', total_points: 3860, monthly_points: 420, task_completed: 187, current_zones: ['zone_a'] },
-  { id: 'u002', name: '李娜', role: 5, avatar_key: 'female_supervisor_01', skills: ['布草分拣', '手工洗涤', '熨烫'], is_multi_post: true, status: 'active', total_points: 2140, monthly_points: 310, task_completed: 98, current_zones: ['zone_g'] },
-  { id: 'u003', name: '王强', role: 3, avatar_key: 'male_washer_01', skills: ['洗涤龙', '单机洗烘'], is_multi_post: false, status: 'active', total_points: 1580, monthly_points: 220, task_completed: 76, current_zones: ['zone_a'] },
-  { id: 'u004', name: '赵敏', role: 1, avatar_key: 'female_washer_01', skills: ['展布机平烫', '平烫后处理'], is_multi_post: true, status: 'active', total_points: 980, monthly_points: 145, task_completed: 52, current_zones: ['zone_c'] },
-  { id: 'u005', name: '陈刚', role: 1, avatar_key: 'male_driver_01', skills: ['物流驾驶', '跟车小工'], is_multi_post: false, status: 'active', total_points: 760, monthly_points: 98, task_completed: 41, current_zones: ['zone_f'] },
-  { id: 'u006', name: '刘芳', role: 1, avatar_key: 'female_ironer_01', skills: ['展布机平烫', '平烫后处理'], is_multi_post: false, status: 'leave', total_points: 620, monthly_points: 0, task_completed: 33, current_zones: [] },
+  { id: 'u001', name: '张伟', username: 'zhangwei', role: 7, avatar_key: 'male_admin_01', skills: ['洗涤龙', '单机洗烘', '展布机平烫', '物流驾驶'], is_multi_post: true, status: 'active', total_points: 3860, monthly_points: 420, task_completed: 187, current_zones: ['zone_a'] },
+  { id: 'u002', name: '李娜', username: 'lina', role: 5, avatar_key: 'female_supervisor_01', skills: ['布草分拣', '手工洗涤', '熨烫'], is_multi_post: true, status: 'active', total_points: 2140, monthly_points: 310, task_completed: 98, current_zones: ['zone_g'] },
+  { id: 'u003', name: '王强', username: 'wangqiang', role: 3, avatar_key: 'male_washer_01', skills: ['洗涤龙', '单机洗烘'], is_multi_post: false, status: 'active', total_points: 1580, monthly_points: 220, task_completed: 76, current_zones: ['zone_a'] },
+  { id: 'u004', name: '赵敏', username: 'zhaomin', role: 1, avatar_key: 'female_washer_01', skills: ['展布机平烫', '平烫后处理'], is_multi_post: true, status: 'active', total_points: 980, monthly_points: 145, task_completed: 52, current_zones: ['zone_c'] },
+  { id: 'u005', name: '陈刚', username: 'chengang', role: 1, avatar_key: 'male_driver_01', skills: ['物流驾驶', '跟车小工'], is_multi_post: false, status: 'active', total_points: 760, monthly_points: 98, task_completed: 41, current_zones: ['zone_f'] },
+  { id: 'u006', name: '刘芳', username: 'liufang', role: 1, avatar_key: 'female_ironer_01', skills: ['展布机平烫', '平烫后处理'], is_multi_post: false, status: 'inactive', total_points: 620, monthly_points: 0, task_completed: 33, current_zones: [] },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -232,11 +232,69 @@ function getMockResponse(url, method, data) {
 
     return { code: 200, data: newUser, message: '员工账号创建成功' };
   }
+  // ★ V5.5.1：更新用户（含账号密码）
   if (url.match(/\/api\/v1\/users\/\w+$/) && method === 'PUT') {
+    var userId = url.match(/\/users\/(\w+)/)[1];
+    for (var ui = 0; ui < USERS.length; ui++) {
+      if (USERS[ui].id === userId) {
+        var updateKeys = Object.keys(data || {});
+        for (var uk = 0; uk < updateKeys.length; uk++) {
+          if (updateKeys[uk] !== 'password') USERS[ui][updateKeys[uk]] = data[updateKeys[uk]];
+        }
+        break;
+      }
+    }
+    // 同步更新 WHITELIST 中的账号密码
+    if (data.username) {
+      var found = false;
+      for (var wi = 0; wi < WHITELIST.length; wi++) {
+        if (WHITELIST[wi].bind_user_id === userId) {
+          WHITELIST[wi].username = data.username;
+          if (data.password) WHITELIST[wi].password = data.password;
+          WHITELIST[wi].name = data.name || WHITELIST[wi].name;
+          found = true;
+          break;
+        }
+      }
+      if (!found && data.password) {
+        WHITELIST.push({ username: data.username, password: data.password, phone: '', name: data.name || '', bind_user_id: userId, role: 'staff' });
+      }
+    }
     return { code: 200, data: {}, message: '保存成功' };
   }
+
+  // ★ V5.5.1：停用账号（更新 USERS 中的 status）
   if (url.indexOf('/disable') !== -1 && method === 'POST') {
+    var disableId = url.match(/\/users\/(\w+)/); 
+    if (disableId) {
+      for (var di = 0; di < USERS.length; di++) {
+        if (USERS[di].id === disableId[1]) { USERS[di].status = 'inactive'; break; }
+      }
+    }
     return { code: 200, data: {}, message: '账号已停用' };
+  }
+
+  // ★ V5.5.1：恢复账号
+  if (url.indexOf('/restore') !== -1 && method === 'POST') {
+    var restoreId = url.match(/\/users\/(\w+)/);
+    if (restoreId) {
+      for (var ri = 0; ri < USERS.length; ri++) {
+        if (USERS[ri].id === restoreId[1]) { USERS[ri].status = 'active'; break; }
+      }
+    }
+    return { code: 200, data: {}, message: '账号已恢复' };
+  }
+
+  // ★ V5.5.1：永久删除账号（从 USERS 和 WHITELIST 中移除）
+  if (url.match(/\/api\/v1\/users\/\w+$/) && method === 'DELETE') {
+    var deleteId = url.match(/\/users\/(\w+)/)[1];
+    for (var ddi = 0; ddi < USERS.length; ddi++) {
+      if (USERS[ddi].id === deleteId) { USERS.splice(ddi, 1); break; }
+    }
+    for (var dwi = 0; dwi < WHITELIST.length; dwi++) {
+      if (WHITELIST[dwi].bind_user_id === deleteId) { WHITELIST.splice(dwi, 1); break; }
+    }
+    return { code: 200, data: {}, message: '账号已永久删除' };
   }
 
   // 任务统计（必须在任务列表之前匹配）

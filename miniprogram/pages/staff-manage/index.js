@@ -1,11 +1,11 @@
 // ============================================
 // 员工管理页面
-// V5 修复：新增弹窗补齐技能标签 + 飞书式默认头像（渐变色）
+// V5.5.1 重构：停用褪色+已停用标签+删除账号+编辑账号密码+恢复账号
 // ============================================
 var app = getApp();
 var util = require('../../utils/util');
 
-// ★ 飞书式头像颜色库：每个 key 带主色 + 暗色（用于 linear-gradient）
+// ★ 飞书式头像颜色库
 var AVATAR_LIBRARY = [
   { key: 'male_washer_01', label: '洗涤工', initial: '男', color: '#3B82F6', colorDark: '#1E40AF' },
   { key: 'male_washer_02', label: '洗涤工', initial: '男', color: '#1D4ED8', colorDark: '#1E3A8A' },
@@ -23,7 +23,6 @@ var AVATAR_LIBRARY = [
 
 var ALL_SKILLS = ['洗涤龙', '单机洗烘', '展布机平烫', '平烫后处理', '毛巾折叠', '布草分拣', '衣服分拣', '手工洗涤', '燨烫', '物流驾驶', '跟车小工', '行政', '管理'];
 
-// 根据 avatar_key 查找颜色
 function getAvatarColors(key) {
   for (var i = 0; i < AVATAR_LIBRARY.length; i++) {
     if (AVATAR_LIBRARY[i].key === key) return { color: AVATAR_LIBRARY[i].color, colorDark: AVATAR_LIBRARY[i].colorDark };
@@ -56,6 +55,7 @@ Page({
     showAddModal: false,
     editMode: false,
     currentStaff: {},
+    showEditPassword: false,  // ★ V5.5.1：编辑模式密码可见切换
     newStaff: { name: '', username: '', password: '', role: 1, avatar_key: 'male_washer_01', skills: [], is_multi_post: false },
     showNewPassword: false,
     newStaffAvatarColor: '#3B82F6',
@@ -93,6 +93,7 @@ Page({
             monthly_points: s.monthly_points || 0,
             task_completed: s.task_completed || 0,
             current_zones: s.current_zones || [],
+            username: s.username || '',  // ★ V5.5.1：保存账号信息
           });
         }
         self.setData({ allStaff: allStaff });
@@ -129,7 +130,8 @@ Page({
     var keys = Object.keys(staff);
     for (var k = 0; k < keys.length; k++) { copy[keys[k]] = staff[keys[k]]; }
     copy.skills = (staff.skills || []).slice();
-    this.setData({ showDetailModal: true, editMode: false, currentStaff: copy });
+    copy.password = '';  // ★ V5.5.1：密码字段初始为空（留空=不修改）
+    this.setData({ showDetailModal: true, editMode: false, currentStaff: copy, showEditPassword: false });
   },
 
   closeDetailModal: function () { this.setData({ showDetailModal: false, editMode: false }); },
@@ -155,6 +157,21 @@ Page({
     });
   },
 
+  // ★ V5.5.1：编辑账号
+  onEditUsername: function (e) {
+    this.setData({ 'currentStaff.username': e.detail.value });
+  },
+
+  // ★ V5.5.1：编辑密码
+  onEditPassword: function (e) {
+    this.setData({ 'currentStaff.password': e.detail.value });
+  },
+
+  // ★ V5.5.1：切换编辑模式密码可见
+  toggleEditPwdVisible: function () {
+    this.setData({ showEditPassword: !this.data.showEditPassword });
+  },
+
   selectRole: function (e) {
     this.setData({
       'currentStaff.role': e.currentTarget.dataset.value,
@@ -173,14 +190,33 @@ Page({
 
   toggleMultiPost: function (e) { this.setData({ 'currentStaff.is_multi_post': e.detail.value }); },
 
+  // ★ V5.5.1：保存时包含账号密码
   saveStaff: function () {
     var currentStaff = this.data.currentStaff;
     if (!currentStaff.name) { wx.showToast({ title: '请输入姓名', icon: 'none' }); return; }
+    if (!currentStaff.username || currentStaff.username.trim().length < 2) {
+      wx.showToast({ title: '请输入登录账号（至少2位）', icon: 'none' }); return;
+    }
     var self = this;
+    var payload = {
+      name: currentStaff.name,
+      username: currentStaff.username,
+      role: currentStaff.role,
+      avatar_key: currentStaff.avatar_key,
+      skills: currentStaff.skills,
+      is_multi_post: currentStaff.is_multi_post,
+    };
+    // ★ 密码非空时才提交（留空=不修改）
+    if (currentStaff.password && currentStaff.password.trim().length > 0) {
+      if (currentStaff.password.trim().length < 6) {
+        wx.showToast({ title: '密码至少6位', icon: 'none' }); return;
+      }
+      payload.password = currentStaff.password;
+    }
     app.request({
       url: '/api/v1/users/' + currentStaff.id,
       method: 'PUT',
-      data: { name: currentStaff.name, role: currentStaff.role, avatar_key: currentStaff.avatar_key, skills: currentStaff.skills, is_multi_post: currentStaff.is_multi_post },
+      data: payload,
       success: function (res) {
         if (res.code === 200) {
           wx.showToast({ title: '保存成功', icon: 'success' });
@@ -193,21 +229,92 @@ Page({
     });
   },
 
+  // 停用账号
   confirmDisable: function () {
     var self = this;
     wx.showModal({
       title: '停用账号',
-      content: '确认停用该员工账号？',
+      content: '确认停用「' + self.data.currentStaff.name + '」的账号？停用后该员工将无法登录系统，但历史数据保留。',
+      confirmText: '停用',
       confirmColor: '#EF4444',
       success: function (res) {
         if (!res.confirm) return;
         app.request({
           url: '/api/v1/users/' + self.data.currentStaff.id + '/disable',
           method: 'POST',
-          success: function () {
-            wx.showToast({ title: '账号已停用', icon: 'success' });
-            self.setData({ showDetailModal: false });
-            self.loadStaff();
+          success: function (apiRes) {
+            if (apiRes.code === 200) {
+              wx.showToast({ title: '账号已停用', icon: 'success' });
+              self.setData({ showDetailModal: false });
+              self.loadStaff();
+            } else {
+              wx.showToast({ title: '操作失败', icon: 'none' });
+            }
+          },
+        });
+      },
+    });
+  },
+
+  // ★ V5.5.1：恢复账号
+  confirmRestore: function () {
+    var self = this;
+    wx.showModal({
+      title: '恢复账号',
+      content: '确认恢复「' + self.data.currentStaff.name + '」的账号？恢复后该员工可正常登录系统。',
+      confirmText: '恢复',
+      confirmColor: '#10B981',
+      success: function (res) {
+        if (!res.confirm) return;
+        app.request({
+          url: '/api/v1/users/' + self.data.currentStaff.id + '/restore',
+          method: 'POST',
+          success: function (apiRes) {
+            if (apiRes.code === 200) {
+              wx.showToast({ title: '账号已恢复', icon: 'success' });
+              self.setData({ showDetailModal: false });
+              self.loadStaff();
+            } else {
+              wx.showToast({ title: '操作失败', icon: 'none' });
+            }
+          },
+        });
+      },
+    });
+  },
+
+  // ★ V5.5.1：永久删除账号（二次确认）
+  confirmDelete: function () {
+    var self = this;
+    var staffName = self.data.currentStaff.name;
+    wx.showModal({
+      title: '⚠️ 永久删除账号',
+      content: '即将永久删除「' + staffName + '」的账号和密码。此操作不可撤销！\n\n该员工产生的历史数据（发票、票据等）将保留，不会被删除。',
+      confirmText: '确认删除',
+      confirmColor: '#EF4444',
+      success: function (res) {
+        if (!res.confirm) return;
+        // 二次确认
+        wx.showModal({
+          title: '最终确认',
+          content: '请再次确认：永久删除「' + staffName + '」？',
+          confirmText: '删除',
+          confirmColor: '#EF4444',
+          success: function (res2) {
+            if (!res2.confirm) return;
+            app.request({
+              url: '/api/v1/users/' + self.data.currentStaff.id,
+              method: 'DELETE',
+              success: function (apiRes) {
+                if (apiRes.code === 200) {
+                  wx.showToast({ title: '账号已删除', icon: 'success' });
+                  self.setData({ showDetailModal: false });
+                  self.loadStaff();
+                } else {
+                  wx.showToast({ title: '删除失败', icon: 'none' });
+                }
+              },
+            });
           },
         });
       },
@@ -236,17 +343,14 @@ Page({
     });
   },
 
-  // ★ V6 新增：登录账号输入
   onNewUsername: function (e) {
     this.setData({ 'newStaff.username': e.detail.value });
   },
 
-  // ★ V6 新增：密码输入
   onNewPassword: function (e) {
     this.setData({ 'newStaff.password': e.detail.value });
   },
 
-  // ★ V6 新增：切换密码可见
   toggleNewPwdVisible: function () {
     this.setData({ showNewPassword: !this.data.showNewPassword });
   },
@@ -263,7 +367,6 @@ Page({
     });
   },
 
-  // ★ V5 新增：新增弹窗技能标签切换
   toggleNewSkill: function (e) {
     var skill = e.currentTarget.dataset.skill;
     var skills = (this.data.newStaff.skills || []).slice();
@@ -275,7 +378,6 @@ Page({
     });
   },
 
-  // ★ V5 新增：新增弹窗多岗位开关
   toggleNewMultiPost: function (e) {
     this.setData({ 'newStaff.is_multi_post': e.detail.value });
   },

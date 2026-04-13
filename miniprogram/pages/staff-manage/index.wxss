@@ -11,9 +11,57 @@
 .filter-chip{padding:8rpx 20rpx;border-radius:20rpx;background:#1A1A1A;border:1rpx solid #252525;font-size:22rpx;color:#888888;flex-shrink:0;}
 .filter-chip.active{background:rgba(201,168,76,0.15);border-color:rgba(201,168,76,0.4);color:#C9A84C;}
 .staff-list{padding:12rpx 16rpx;}
-.staff-card{display:flex;align-items:center;gap:16rpx;background:#141414;border-radius:16rpx;border:1rpx solid #1E1E1E;padding:16rpx;margin-bottom:10rpx;}
+.staff-card{display:flex;align-items:center;gap:16rpx;background:#141414;border-radius:16rpx;border:1rpx solid #1E1E1E;padding:16rpx;margin-bottom:10rpx;transition:all 0.3s;}
+
+/* ★ V5.5.1：停用账号卡片褪色变灰 */
+.staff-card-disabled {
+  opacity: 0.45;
+  background: #0E0E0E;
+  border-color: #1A1A1A;
+}
+.staff-card-disabled .card-initial {
+  color: #888;
+}
+.text-disabled {
+  color: #555 !important;
+}
+.skill-tag-disabled {
+  background: #151515;
+  border-color: #1A1A1A;
+}
+.skill-tag-disabled text {
+  color: #444 !important;
+}
+
+/* ★ V5.5.1：已停用标签（卡片内） */
+.disabled-tag {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1rpx solid rgba(239, 68, 68, 0.3);
+  border-radius: 8rpx;
+  padding: 2rpx 10rpx;
+}
+.disabled-tag text {
+  font-size: 18rpx;
+  color: #EF4444;
+  font-weight: 600;
+}
+
+/* ★ V5.5.1：已停用标签（弹窗内，大号） */
+.disabled-tag-lg {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1rpx solid rgba(239, 68, 68, 0.3);
+  border-radius: 10rpx;
+  padding: 4rpx 16rpx;
+  margin-right: 12rpx;
+}
+.disabled-tag-lg text {
+  font-size: 22rpx;
+  color: #EF4444;
+  font-weight: 600;
+}
+
 .card-avatar{position:relative;width:80rpx;height:80rpx;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.card-initial{font-size:30rpx;font-weight:700;color:#000;}
+.card-initial{font-size:30rpx;font-weight:700;color:#fff;text-shadow:0 1rpx 2rpx rgba(0,0,0,0.2);}
 .avatar-badge{position:absolute;bottom:-4rpx;right:-4rpx;border-radius:8rpx;padding:0 6rpx;font-size:14rpx;}
 .role-7{background:#C9A84C;color:#000;}.role-5{background:#8B5CF6;color:#fff;}.role-3{background:#3B82F6;color:#fff;}.role-1{background:#374151;color:#9CA3AF;}
 .card-info{flex:1;min-width:0;}
@@ -27,7 +75,7 @@
 .skill-tag text{font-size:16rpx;color:#888888;}
 .card-right{display:flex;flex-direction:column;align-items:center;gap:2rpx;flex-shrink:0;}
 .status-dot-sm{width:12rpx;height:12rpx;border-radius:50%;margin-bottom:4rpx;}
-.status-active{background:#00FF88;}.status-leave{background:#EF4444;}.status-inactive{background:#374151;}
+.status-active{background:#00FF88;}.status-leave{background:#EF4444;}.status-inactive{background:#555;}.status-disabled{background:#555;}
 .card-points{font-size:26rpx;font-weight:700;color:#C9A84C;font-family:'Courier New',monospace;}
 .points-label{font-size:16rpx;color:#666666;}
 .card-arrow{font-size:32rpx;color:#444444;margin-top:4rpx;}
@@ -36,6 +84,7 @@
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:100;display:flex;align-items:flex-end;}
 .modal-box{width:100%;background:#141414;border-radius:24rpx 24rpx 0 0;padding:32rpx 24rpx;max-height:85vh;overflow-y:auto;box-sizing:border-box;}
 .modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20rpx;}
+.modal-header-right{display:flex;align-items:center;}
 .modal-title{font-size:32rpx;font-weight:700;color:#F0F0F0;}
 .edit-btn{background:rgba(201,168,76,0.15);border-radius:20rpx;padding:6rpx 20rpx;}
 .edit-btn text{font-size:22rpx;color:#C9A84C;}
@@ -62,12 +111,34 @@
 .points-num.gold{color:#C9A84C;}.points-num.green{color:#00FF88;}
 .points-desc{font-size:18rpx;color:#666666;}
 .modal-btns{display:flex;gap:12rpx;margin-top:24rpx;}
-.modal-btn-cancel,.modal-btn-confirm,.modal-btn-danger,.modal-btn-close{flex:1;height:80rpx;border-radius:12rpx;font-size:26rpx;border:none;}
+.modal-btns-col{display:flex;flex-direction:column;gap:12rpx;margin-top:24rpx;}
+.modal-btn-cancel,.modal-btn-confirm,.modal-btn-danger,.modal-btn-close,.modal-btn-restore{flex:1;height:80rpx;border-radius:12rpx;font-size:26rpx;border:none;}
 .modal-btn-cancel{background:#1A1A1A;color:#888888;border:1rpx solid #252525;}
 .modal-btn-confirm{background:#C9A84C;color:#000;font-weight:700;}
 .modal-btn-danger{background:rgba(239,68,68,0.1);color:#EF4444;border:1rpx solid rgba(239,68,68,0.2);}
 .modal-btn-close{background:#1A1A1A;color:#888888;border:1rpx solid #252525;}
-.modal-btn-cancel::after,.modal-btn-confirm::after,.modal-btn-danger::after,.modal-btn-close::after{border:none;}
+
+/* ★ V5.5.1：恢复账号按钮 */
+.modal-btn-restore {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10B981;
+  border: 1rpx solid rgba(16, 185, 129, 0.3);
+  font-weight: 600;
+}
+
+/* ★ V5.5.1：永久删除按钮 */
+.modal-btn-delete {
+  width: 100%;
+  height: 72rpx;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  color: #666;
+  background: transparent;
+  border: 1rpx dashed #333;
+}
+.modal-btn-delete::after { border: none; }
+
+.modal-btn-cancel::after,.modal-btn-confirm::after,.modal-btn-danger::after,.modal-btn-close::after,.modal-btn-restore::after{border:none;}
 .safe-bottom{height:env(safe-area-inset-bottom);}
 
 /* ═══════════════════════════════════════════════
@@ -75,10 +146,6 @@
    ═══════════════════════════════════════════════ */
 .feishu-avatar {
   box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.3);
-}
-.card-initial {
-  color: #FFFFFF;
-  text-shadow: 0 1rpx 2rpx rgba(0,0,0,0.2);
 }
 .avatar-preview-section {
   display: flex;
@@ -130,4 +197,11 @@
   border-radius: 12rpx;
   border: 1rpx solid #252525;
   font-size: 24rpx;
+}
+
+/* ★ V5.5.1：账号密码编辑区域 */
+.credential-section {
+  border-top: 1rpx solid #1E1E1E;
+  padding-top: 8rpx;
+  margin-top: 8rpx;
 }
