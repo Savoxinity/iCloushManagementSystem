@@ -1,5 +1,6 @@
 // ============================================
 // 任务发布控制台 — Task Command Console
+// V5.6.1: 新增"必须拍照取证"开关
 // 权限：班组长(3)及以上可发布
 // ============================================
 var app = getApp();
@@ -24,6 +25,7 @@ Page({
     unit: '件',
     pointsReward: 10,
     intervalDays: '',          // 周期任务间隔天数
+    requirePhoto: false,       // ★ V5.6.1: 必须拍照取证开关
 
     // 选择器数据
     taskTypes: [
@@ -182,6 +184,11 @@ Page({
     this.setData({ intervalDays: days });
   },
 
+  // ★ V5.6.1: 必须拍照取证开关
+  onRequirePhotoChange: function (e) {
+    this.setData({ requirePhoto: e.detail.value });
+  },
+
   // ── 员工选择器 ──────────────────────────────────────────
   openStaffPicker: function () {
     this.setData({ showStaffPicker: true });
@@ -290,6 +297,8 @@ Page({
       interval_days: data.taskType === 'periodic' ? (Number(data.intervalDays) || 0) : 0,
       is_recurring: data.taskType === 'periodic',
       next_publish_date: data.taskType === 'periodic' ? this._calcNextPublishDate(data.deadline, data.intervalDays) : '',
+      // ★ V5.6.1: 必须拍照取证
+      requires_photo: data.requirePhoto,
     };
 
     app.request({

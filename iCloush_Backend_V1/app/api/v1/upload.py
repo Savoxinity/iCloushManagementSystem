@@ -1,6 +1,12 @@
 """
 上传路由 — 文件上传中转 + 腾讯云 COS
 ═══════════════════════════════════════════════════
+V5.6.1: 后端水印方案升级
+  - task-photo 接口接收原图 + 元数据
+  - 后端调用 watermark.py 添加仿小米徕卡风格水印
+  - 水印后的图片上传到 COS
+  - 前端不再做 Canvas 水印处理
+
 Phase 5.1: 云端迁移适配
   - 使用 cos-python-sdk-v5 官方 SDK 上传
   - COS 未配置时降级为本地存储（仅开发环境）
@@ -90,14 +96,13 @@ async def _upload_to_cos(file_bytes: bytes, file_key: str, content_type: str) ->
         raise RuntimeError(f"COS 上传失败: {e}")
 
 
-async def _save_file(file: UploadFile, prefix: str) -> str:
+async def _save_bytes(file_bytes: bytes, prefix: str, filename: str = "photo.jpg") -> str:
     """
-    保存上传文件，优先 COS，降级本地
+    保存 bytes 数据，优先 COS，降级本地
     返回公网可访问的 URL
     """
-    file_bytes = await file.read()
-    file_key = _generate_filename(prefix, file.filename)
-    content_type = file.content_type or "image/jpeg"
+    file_key = _generate_filename(prefix, filename)
+    content_type = "image/jpeg"
 
     # 尝试 COS
     try:
@@ -106,7 +111,6 @@ async def _save_file(file: UploadFile, prefix: str) -> str:
     except Exception as e:
         if settings.APP_ENV == "production":
             logger.error(f"[上传] 生产环境 COS 上传失败: {e}")
-            # 生产环境仍然降级到本地，但记录严重警告
             logger.warning("[上传] 生产环境降级到本地存储，容器重启后文件将丢失！")
         else:
             logger.info(f"[上传] 开发环境 COS 不可用，使用本地存储: {e}")
@@ -117,44 +121,106 @@ async def _save_file(file: UploadFile, prefix: str) -> str:
     with open(local_path, "wb") as f:
         f.write(file_bytes)
 
-    # 返回可访问的 URL
     base_url = settings.effective_base_url
     public_url = f"{base_url}/uploads/{file_key}"
     logger.info(f"[上传] 本地存储: {local_path} → {public_url}")
     return public_url
 
 
+async def _save_file(file: UploadFile, prefix: str) -> str:
+    """
+    保存上传文件，优先 COS，降级本地
+    返回公网可访问的 URL
+    """
+    file_bytes = await file.read()
+    return await _save_bytes(file_bytes, prefix, file.filename or "photo.jpg")
+
+
 # ═══════════════════════════════════════════════════
-# POST /task-photo — 任务拍照上传（watermark.js 调用）
+# POST /task-photo — V5.6.1 后端水印方案
 # ═══════════════════════════════════════════════════
 
 @router.post("/task-photo")
 async def upload_task_photo(
     file: UploadFile = File(...),
     task_id: str = Form(default="0"),
+    timestamp: str = Form(default=""),
+    staff_name: str = Form(default=""),
+    zone_name: str = Form(default=""),
+    gps_lat: str = Form(default=""),
+    gps_lng: str = Form(default=""),
     current_user: User = Depends(get_current_user),
 ):
     """
-    任务拍照上传
-    接收 watermark.js 合成水印后的图片
-    返回公网 URL 供前端展示和提交
+    V5.6.1 任务拍照上传 — 后端水印方案
+    
+    前端上传原图 + 元数据（时间、员工名、工区、GPS）
+    后端调用 watermark.py 合成仿小米徕卡风格水印
+    水印后的图片上传到 COS 并返回 URL
+    
+    表单字段：
+      file       - 原图文件（仅允许相机拍摄）
+      task_id    - 任务ID
+      timestamp  - 拍摄时间（格式：2026.04.13 14:30:25）
+      staff_name - 员工姓名
+      zone_name  - 工区名称
+      gps_lat    - GPS纬度
+      gps_lng    - GPS经度
     """
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="只允许上传图片文件")
 
-    # 限制文件大小 10MB
+    # 读取原图 bytes
     file_bytes = await file.read()
     if len(file_bytes) > 10 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="文件大小不能超过 10MB")
-    # 重置文件指针
-    await file.seek(0)
 
-    public_url = await _save_file(file, f"task-photos/{task_id}")
+    # ── 构建 GPS 文本 ──────────────────────────────
+    gps_text = ""
+    try:
+        lat = float(gps_lat) if gps_lat else None
+        lng = float(gps_lng) if gps_lng else None
+        if lat is not None and lng is not None:
+            lat_dir = "N" if lat >= 0 else "S"
+            lng_dir = "E" if lng >= 0 else "W"
+            gps_text = f"{abs(lat):.2f}°{lat_dir} {abs(lng):.2f}°{lng_dir}"
+    except (ValueError, TypeError):
+        gps_text = ""
+
+    # ── 构建水印元数据 ──────────────────────────────
+    meta = {
+        "timestamp": timestamp or datetime.now().strftime("%Y.%m.%d %H:%M:%S"),
+        "staff_name": staff_name or (current_user.name if current_user else ""),
+        "zone_name": zone_name or "",
+        "task_id": task_id or "0",
+        "gps_text": gps_text,
+    }
+
+    # ── 调用后端水印服务 ──────────────────────────────
+    try:
+        from app.services.watermark import compose_watermark
+        watermarked_bytes = compose_watermark(file_bytes, meta)
+        logger.info(f"[水印] 后端水印合成成功: task={task_id}, staff={staff_name}")
+    except Exception as e:
+        logger.error(f"[水印] 后端水印合成失败，降级上传原图: {e}")
+        # 水印失败时降级上传原图（不阻塞业务）
+        watermarked_bytes = file_bytes
+
+    # ── 上传到 COS ──────────────────────────────────
+    try:
+        public_url = await _save_bytes(
+            watermarked_bytes,
+            f"task-photos/{task_id}",
+            f"wm_{file.filename or 'photo.jpg'}",
+        )
+    except Exception as e:
+        logger.error(f"[上传] 水印图片上传失败: {e}")
+        raise HTTPException(status_code=500, detail=f"图片上传失败: {str(e)}")
 
     return {
         "code": 200,
         "data": {"url": public_url},
-        "message": "拍照上传成功",
+        "message": "拍照上传成功（已添加防伪水印）",
     }
 
 

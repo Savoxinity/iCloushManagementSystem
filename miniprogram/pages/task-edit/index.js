@@ -23,6 +23,7 @@ Page({
     unit: '件',
     pointsReward: 10,
     intervalDays: '',          // 周期任务间隔天数
+    requirePhoto: false,       // ★ V5.6.1: 必须拍照取证开关
 
     // 选择器数据
     taskTypes: [
@@ -163,6 +164,7 @@ Page({
           pointsReward: raw.points_reward || 10,
           taskStatus: raw.status || 0,
           intervalDays: raw.interval_days || '',
+          requirePhoto: raw.requires_photo || raw.require_photo || false,
         });
 
         wx.setNavigationBarTitle({ title: '编辑: ' + (raw.title || '').slice(0, 8) });
@@ -217,6 +219,9 @@ Page({
   onPointsInput: function (e) { this.setData({ pointsReward: Number(e.detail.value) || 0 }); },
   onIntervalInput: function (e) { this.setData({ intervalDays: Number(e.detail.value) || '' }); },
   onPresetInterval: function (e) { this.setData({ intervalDays: Number(e.currentTarget.dataset.days) }); },
+
+  // ★ V5.6.1: 必须拍照取证开关
+  onRequirePhotoChange: function (e) { this.setData({ requirePhoto: e.detail.value }); },
 
   // ── 员工选择器 ──────────────────────────────────────────
   openStaffPicker: function () { this.setData({ showStaffPicker: true }); },
@@ -295,6 +300,8 @@ Page({
       assigned_to: assignedTo,
       interval_days: data.taskType === 'periodic' ? (Number(data.intervalDays) || 0) : 0,
       is_recurring: data.taskType === 'periodic',
+      // ★ V5.6.1: 必须拍照取证
+      requires_photo: data.requirePhoto,
     };
 
     app.request({

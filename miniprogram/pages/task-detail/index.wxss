@@ -139,3 +139,9 @@
 .edit-task-btn{display:flex!important;align-items:center;justify-content:center;gap:12rpx;width:100%;height:80rpx;background:transparent!important;border:1rpx solid rgba(59,130,246,0.4)!important;border-radius:12rpx;color:#3B82F6!important;font-size:28rpx;font-weight:500;padding:0;line-height:80rpx;}
 .edit-task-btn::after{border:none;}
 .edit-btn-icon{font-size:28rpx;}
+
+/* ═══ V5.6.1 新增样式 ═══ */
+.meta-text.photo-required-tag{color:#EF4444;font-weight:600;}
+.photo-notice{display:flex;align-items:flex-start;gap:8rpx;padding:12rpx 16rpx;margin-bottom:16rpx;background:rgba(239,68,68,0.08);border-radius:8rpx;border:1rpx solid rgba(239,68,68,0.2);}
+.notice-icon{font-size:24rpx;flex-shrink:0;margin-top:2rpx;}
+.notice-text{font-size:22rpx;color:#EF4444;line-height:1.5;}

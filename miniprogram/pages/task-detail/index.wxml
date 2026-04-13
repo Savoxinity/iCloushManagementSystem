@@ -1,4 +1,4 @@
-<!-- 任务详情页：V10 接单网关 + 审查闭环 + 负责人信息 -->
+<!-- 任务详情页：V5.6.1 水印相机修复 + 强制拍照 + 后端徕卡水印 -->
 <view class="page-container">
 
   <!-- ★ 驳回警告横幅 -->
@@ -25,6 +25,11 @@
       <view wx:if="{{task.is_recurring && task.interval_days > 0}}" class="meta-row">
         <text class="meta-icon">🔄</text>
         <text class="meta-text recurring">每{{task.interval_days}}天自动重复</text>
+      </view>
+      <!-- ★ 强制拍照标识 -->
+      <view wx:if="{{task.requires_photo}}" class="meta-row">
+        <text class="meta-icon">📸</text>
+        <text class="meta-text photo-required-tag">必须拍照取证</text>
       </view>
       <!-- ★ 负责人信息 -->
       <view class="meta-row">
@@ -71,7 +76,7 @@
     <text class="desc-text">{{task.description}}</text>
   </view>
 
-  <!-- ★ 员工执行区（仅 status === 2 进行中时显示，接单网关拦截 status=0） -->
+  <!-- ★ 员工执行区（仅 status === 1 或 2 时显示） -->
   <view wx:if="{{canExecute}}" class="action-section">
     <text class="section-title">执行操作</text>
     <!-- 计件输入 -->
@@ -84,12 +89,17 @@
       <view class="count-btn" bindtap="increaseCount"><text>＋</text></view>
       <button class="count-submit-btn" bindtap="submitCount">提交计件</button>
     </view>
-    <!-- 拍照取证 -->
+    <!-- ★ V5.6.1 拍照取证（后端水印方案） -->
     <view class="photo-section">
       <view class="photo-header">
         <text class="photo-label">拍照取证</text>
         <text wx:if="{{task.requires_photo}}" class="photo-required">必填</text>
         <text wx:else class="photo-optional">选填</text>
+      </view>
+      <!-- ★ 强制拍照提示 -->
+      <view wx:if="{{task.requires_photo}}" class="photo-notice">
+        <text class="notice-icon">🔒</text>
+        <text class="notice-text">此任务要求必须拍照取证，仅支持现场拍摄（禁止相册选择），照片将自动添加防伪水印。</text>
       </view>
       <view class="photo-grid">
         <view wx:for="{{uploadedPhotos}}" wx:key="id" class="photo-thumb" bindtap="previewPhoto" data-url="{{item.url}}">

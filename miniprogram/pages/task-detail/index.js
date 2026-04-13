@@ -1,5 +1,5 @@
 // ============================================
-// 任务详情页 — V10 接单网关 + 审查闭环
+// 任务详情页 — V5.6.1 水印相机修复 + 强制拍照
 // ============================================
 var app = getApp();
 var util = require('../../utils/util');
@@ -54,7 +54,8 @@ Page({
           status: raw.status, priority: raw.priority,
           points_reward: raw.points_reward,
           progress: raw.progress, target: raw.target, unit: raw.unit,
-          requires_photo: raw.requires_photo,
+          // ★ V5.6.1: require_photo 字段
+          requires_photo: raw.requires_photo || raw.require_photo || false,
           description: raw.description || '按标准操作规程执行，完成后拍照取证提交。',
           deadline: raw.deadline, assigned_to: raw.assigned_to,
           is_rejected: raw.is_rejected || false,
@@ -88,10 +89,8 @@ Page({
         }
 
         // ★ 状态判断
-        var isPending = raw.status === 0;  // 待接单（公域任务）
-        // canExecute: 状态 1(已接单) 或 2(进行中)，均可执行操作
+        var isPending = raw.status === 0;
         var canExecute = raw.status === 1 || raw.status === 2;
-        // canReview: 管理员 + 状态 === 3（待审核）
         var canReview = self.data.isAdmin && raw.status === 3;
 
         self.setData({
@@ -218,53 +217,93 @@ Page({
   },
 
   // ============================================
-  // 拍照取证
+  // ★ V5.6.1 拍照取证（后端水印方案）
   // ============================================
+  // 修复要点：
+  //   1. 仅允许相机拍摄（sourceType: ['camera']），禁用相册
+  //   2. 使用 watermarkUtil.uploadPhotoWithWatermark 走云托管链路
+  //   3. 完整 fail/catch 错误处理，杜绝无限 loading
+  //   4. uploading 状态锁防止重复触发
   takePhoto: function () {
     var self = this;
-    if (self.data.uploading) { wx.showToast({ title: '上一张正在上传，请稍候', icon: 'none' }); return; }
-    if (self.data.uploadedPhotos.length >= 6) { wx.showToast({ title: '最多上传6张照片', icon: 'none' }); return; }
+
+    // 防重复触发
+    if (self.data.uploading) {
+      wx.showToast({ title: '上一张正在上传，请稍候', icon: 'none' });
+      return;
+    }
+    // 最多6张
+    if (self.data.uploadedPhotos.length >= 6) {
+      wx.showToast({ title: '最多上传6张照片', icon: 'none' });
+      return;
+    }
+
+    // ★ 仅允许相机拍摄，禁用相册（防篡改）
     wx.chooseMedia({
-      count: 1, mediaType: ['image'], sourceType: ['camera'], camera: 'back',
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['camera'],   // ★ 只允许拍照，不允许从相册选择
+      camera: 'back',
       success: function (res) {
         var tempPath = res.tempFiles[0].tempFilePath;
-        var userInfo = app.globalData.userInfo || {};
-        var watermarkText = (userInfo.name || '员工') + ' · ' + util.formatDate(new Date(), 'YYYY-MM-DD HH:mm') + ' · iCloush';
         var localId = Date.now();
+
+        // 先在列表中显示"上传中"占位
         var photos = self.data.uploadedPhotos.slice();
         photos.push({ id: localId, url: tempPath, ai_status: 'uploading' });
         self.setData({ uploading: true, uploadedPhotos: photos });
 
-        watermarkUtil.composeWatermarkAndUpload(tempPath, watermarkText, self.data.taskId)
+        wx.showLoading({ title: '水印处理中...', mask: true });
+
+        // ★ 调用新的后端水印上传接口
+        watermarkUtil.uploadPhotoWithWatermark(tempPath, self.data.taskId)
           .then(function (publicUrl) {
+            wx.hideLoading();
+            // 更新照片URL为后端返回的带水印URL
             var updatedPhotos = [];
             for (var i = 0; i < self.data.uploadedPhotos.length; i++) {
               var p = self.data.uploadedPhotos[i];
               if (p.id === localId) {
                 updatedPhotos.push({ id: p.id, url: publicUrl, ai_status: 'pending' });
-              } else { updatedPhotos.push(p); }
+              } else {
+                updatedPhotos.push(p);
+              }
             }
             self.setData({ uploadedPhotos: updatedPhotos, uploading: false });
+
+            // 模拟 AI 审核（2秒后标记为通过）
             setTimeout(function () {
               var finalPhotos = [];
               for (var j = 0; j < self.data.uploadedPhotos.length; j++) {
                 var pp = self.data.uploadedPhotos[j];
                 if (pp.id === localId) {
                   finalPhotos.push({ id: pp.id, url: pp.url, ai_status: 'pass' });
-                } else { finalPhotos.push(pp); }
+                } else {
+                  finalPhotos.push(pp);
+                }
               }
               self.setData({ uploadedPhotos: finalPhotos });
             }, 2000);
           })
           .catch(function (err) {
+            // ★ 关键修复：上传失败必须 hideLoading + showToast
+            wx.hideLoading();
             console.error('[拍照上传] 失败:', err);
+
+            // 移除失败的占位照片
             var filtered = [];
             for (var i = 0; i < self.data.uploadedPhotos.length; i++) {
-              if (self.data.uploadedPhotos[i].id !== localId) filtered.push(self.data.uploadedPhotos[i]);
+              if (self.data.uploadedPhotos[i].id !== localId) {
+                filtered.push(self.data.uploadedPhotos[i]);
+              }
             }
             self.setData({ uploading: false, uploadedPhotos: filtered });
-            wx.showToast({ title: '上传失败，请重拍', icon: 'none' });
+
+            wx.showToast({ title: '上传失败，请重拍', icon: 'none', duration: 2500 });
           });
+      },
+      fail: function () {
+        // 用户取消拍照，不做任何处理
       },
     });
   },
@@ -288,24 +327,52 @@ Page({
   },
 
   // ============================================
-  // 提交任务
+  // ★ V5.6.1 提交任务（强制拍照拦截）
   // ============================================
   submitTask: function () {
     var task = this.data.task;
     var uploadedPhotos = this.data.uploadedPhotos;
     var uploading = this.data.uploading;
     var self = this;
-    if (uploading) { wx.showToast({ title: '照片正在上传，请稍候', icon: 'none' }); return; }
-    if (task.requires_photo && uploadedPhotos.length === 0) { wx.showToast({ title: '请先拍照取证', icon: 'none' }); return; }
+
+    // 正在上传时拦截
+    if (uploading) {
+      wx.showToast({ title: '照片正在上传，请稍候', icon: 'none' });
+      return;
+    }
+
+    // ★ V5.6.1: 强制拍照拦截（require_photo / requires_photo）
+    if (task.requires_photo && uploadedPhotos.length === 0) {
+      wx.showModal({
+        title: '拍照取证（必填）',
+        content: '此任务要求必须拍照取证后才能提交，请先拍照。',
+        showCancel: false,
+        confirmText: '去拍照',
+      });
+      return;
+    }
+
+    // 检查是否有有效照片（已上传完成的）
     var validPhotos = [];
     for (var i = 0; i < uploadedPhotos.length; i++) {
       var p = uploadedPhotos[i];
-      if (p.ai_status !== 'uploading' && p.url && p.url.indexOf('http') === 0) validPhotos.push(p);
+      if (p.ai_status !== 'uploading' && p.url) {
+        validPhotos.push(p);
+      }
     }
-    if (task.requires_photo && validPhotos.length === 0) { wx.showToast({ title: '照片尚未上传完成', icon: 'none' }); return; }
+
+    if (task.requires_photo && validPhotos.length === 0) {
+      wx.showToast({ title: '照片尚未上传完成', icon: 'none' });
+      return;
+    }
+
     self.setData({ submitting: true });
+
     var photoUrls = [];
-    for (var j = 0; j < validPhotos.length; j++) { photoUrls.push(validPhotos[j].url); }
+    for (var j = 0; j < validPhotos.length; j++) {
+      photoUrls.push(validPhotos[j].url);
+    }
+
     app.request({
       url: '/api/v1/tasks/' + self.data.taskId + '/submit',
       method: 'POST',
@@ -315,7 +382,13 @@ Page({
         if (res.code === 200) {
           wx.showToast({ title: '已提交，等待审核', icon: 'success' });
           self.loadTask(self.data.taskId);
-        } else { wx.showToast({ title: '提交失败', icon: 'none' }); }
+        } else {
+          wx.showToast({ title: '提交失败', icon: 'none' });
+        }
+      },
+      fail: function () {
+        self.setData({ submitting: false });
+        wx.showToast({ title: '网络异常，请重试', icon: 'none' });
       },
     });
   },

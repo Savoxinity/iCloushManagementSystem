@@ -496,7 +496,11 @@ function getMockResponse(url, method, data) {
     return { code: 200, data: REPORT_SUMMARY[period] || REPORT_SUMMARY.today, message: '成功' };
   }
 
-  // 图片上传
+  // ★ V5.6.1: 图片上传（后端水印方案）
+  if (url.indexOf('/api/v1/upload/task-photo') !== -1) {
+    return { code: 200, data: { url: 'https://mock.icloush.com/photo/watermarked_' + Date.now() + '.jpg' }, message: '拍照上传成功（已添加防伪水印）' };
+  }
+  // 通用图片上传
   if (url.indexOf('/api/v1/upload') !== -1) {
     return { code: 200, data: { url: 'https://mock.icloush.com/photo/mock.jpg' }, message: '上传成功' };
   }
@@ -533,7 +537,7 @@ function getMockResponse(url, method, data) {
       }
       if (!editTask) return { code: 404, data: null, message: '任务不存在' };
       // 更新可编辑字段
-      var editFields = ['title', 'description', 'task_type', 'priority', 'zone_id', 'zone_name', 'deadline', 'target', 'unit', 'points_reward'];
+      var editFields = ['title', 'description', 'task_type', 'priority', 'zone_id', 'zone_name', 'deadline', 'target', 'unit', 'points_reward', 'requires_photo'];
       for (var ef = 0; ef < editFields.length; ef++) {
         var fk = editFields[ef];
         if (data[fk] !== undefined) editTask[fk] = data[fk];
@@ -568,7 +572,7 @@ function getMockResponse(url, method, data) {
     for (var tk = 0; tk < tkeys.length; tk++) { newTask[tkeys[tk]] = data[tkeys[tk]]; }
     newTask.id = 't' + Date.now();
     newTask.progress = 0;
-    newTask.requires_photo = false;
+    newTask.requires_photo = data.requires_photo || false;
     // ★ 核心逻辑：指定了员工 → status=1(已接单)；未指定 → status=0(待认领)
     var assignees = newTask.assigned_to;
     if (assignees && ((typeof assignees === 'string' && assignees.length > 0) || (Array.isArray(assignees) && assignees.length > 0))) {

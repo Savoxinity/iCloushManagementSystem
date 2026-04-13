@@ -107,6 +107,21 @@
       </view>
     </view>
 
+    <!-- ★ V5.6.1: 必须拍照取证开关 -->
+    <view class="form-section">
+      <view class="section-label">
+        <text class="label-icon">◈</text>
+        <text class="label-text">PHOTO / 拍照取证</text>
+      </view>
+      <view class="switch-row">
+        <view class="switch-info">
+          <text class="switch-title">必须拍照取证</text>
+          <text class="switch-desc">开启后，员工提交任务时必须拍照，且仅允许现场拍摄（禁止相册），照片自动添加防伪水印。</text>
+        </view>
+        <switch checked="{{requirePhoto}}" bindchange="onRequirePhotoChange" color="#C9A84C" />
+      </view>
+    </view>
+
     <!-- 目标量 & 单位 -->
     <view class="form-section">
       <view class="section-label">
