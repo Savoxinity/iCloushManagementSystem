@@ -1,13 +1,39 @@
-<!-- 管理员发票/票据池 — 全员工票据统一管理 -->
+<!-- 全局发票工作台 V5.5.0 — 合并发票池+打印管理+覆盖率 -->
 <view class="page-container">
 
   <!-- 顶部标题栏 -->
   <view class="header-bar">
-    <text class="page-title">发票/票据池</text>
+    <text class="page-title">发票工作台</text>
     <view class="header-actions">
+      <view class="btn-filter" bindtap="toggleCoverage">
+        <text class="filter-icon">📊</text>
+        <text class="filter-text">覆盖率</text>
+      </view>
       <view class="btn-filter" bindtap="toggleDateFilter">
         <text class="filter-icon">📅</text>
         <text class="filter-text">日期</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ★ 覆盖率看板（可折叠） -->
+  <view wx:if="{{showCoverage}}" class="coverage-card">
+    <view class="coverage-header">
+      <text class="coverage-title">本月开票覆盖率</text>
+      <text class="coverage-rate">{{coverageRate}}%</text>
+    </view>
+    <view class="coverage-detail">
+      <view class="detail-item">
+        <text class="detail-label">已核验发票总额</text>
+        <text class="detail-value positive">¥{{invoiceTotal}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">实际总成本</text>
+        <text class="detail-value">¥{{costTotal}}</text>
+      </view>
+      <view class="detail-item highlight">
+        <text class="detail-label">价税现金差额</text>
+        <text class="detail-value negative">¥{{taxGap}}</text>
       </view>
     </view>
   </view>
@@ -41,18 +67,20 @@
     <view class="btn-apply" bindtap="applyDateFilter">应用筛选</view>
   </view>
 
-  <!-- 筛选 Tab 栏 -->
-  <view class="filter-tabs">
-    <view
-      wx:for="{{tabs}}"
-      wx:key="key"
-      class="tab-item {{activeTab === item.key ? 'active' : ''}}"
-      bindtap="switchTab"
-      data-tab="{{item.key}}"
-    >
-      <text>{{item.label}}</text>
+  <!-- 筛选 Tab 栏 — ★ 合并核验+打印状态 -->
+  <scroll-view scroll-x class="filter-tabs-scroll">
+    <view class="filter-tabs">
+      <view
+        wx:for="{{tabs}}"
+        wx:key="key"
+        class="tab-item {{activeTab === item.key ? 'active' : ''}}"
+        bindtap="switchTab"
+        data-tab="{{item.key}}"
+      >
+        <text>{{item.label}}</text>
+      </view>
     </view>
-  </view>
+  </scroll-view>
 
   <!-- 统计信息 -->
   <view class="stats-bar">
@@ -104,10 +132,11 @@
         </view>
       </view>
 
-      <!-- 第二行：状态标签栏 — 用独立 wx:if 实现互斥 -->
+      <!-- 第二行：状态标签栏 — ★ 合并核验+来源+打印+占用 -->
       <view class="card-tags">
+        <!-- 核验状态 -->
         <view wx:if="{{item.verify_status === 'verified'}}" class="tag tag-verified">
-          <text class="tag-text">验</text>
+          <text class="tag-text">✓ 已核验</text>
         </view>
         <view wx:if="{{item.verify_status === 'pending'}}" class="tag tag-pending">
           <text class="tag-text">待核验</text>
@@ -116,15 +145,33 @@
           <text class="tag-text">核验失败</text>
         </view>
         <view wx:if="{{item.verify_status === 'manual_review'}}" class="tag tag-manual-review">
-          <text class="tag-text">待人工复核</text>
+          <text class="tag-text">待复核</text>
         </view>
         <view wx:if="{{item.verify_status === 'duplicate'}}" class="tag tag-duplicate">
-          <text class="tag-text">重复发票</text>
+          <text class="tag-text">重复</text>
         </view>
 
-        <!-- 重复发票标签（is_duplicate 独立标记） -->
-        <view wx:if="{{item.is_duplicate}}" class="tag tag-duplicate">
-          <text class="tag-text">重复发票</text>
+        <!-- ★ 来源标签 -->
+        <view class="tag tag-source {{item.source_class}}">
+          <text class="tag-text">{{item.source_label}}</text>
+        </view>
+
+        <!-- ★ 占用状态 -->
+        <view wx:if="{{item.is_linked}}" class="tag tag-linked">
+          <text class="tag-text">已关联</text>
+        </view>
+        <view wx:if="{{!item.is_linked && item.verify_status === 'verified'}}" class="tag tag-unlinked">
+          <text class="tag-text">未占用</text>
+        </view>
+
+        <!-- ★ 打印 Toggle -->
+        <view
+          class="tag tag-print {{item.is_printed ? 'tag-printed' : 'tag-unprinted'}}"
+          catchtap="togglePrint"
+          data-id="{{item.id}}"
+          data-printed="{{item.is_printed}}"
+        >
+          <text class="tag-text">{{item.is_printed ? '🖨 已打印' : '🖨 未打印'}}</text>
         </view>
 
         <!-- 发票号码 -->

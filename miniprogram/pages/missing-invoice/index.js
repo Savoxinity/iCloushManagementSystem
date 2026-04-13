@@ -1,5 +1,8 @@
 // ============================================
-// 欠票看板页 — Phase 3C
+// 欠票看板页 V5.5.0 — 状态机 + 核销能力
+// ★ 状态机：Pending(>3天) / Warning(<=3天) / Overdue(已过期)
+// ★ 核销（Match）：从发票池选择未关联发票绑定
+// ★ 催票：单条催票 + 批量催票
 // ============================================
 var app = getApp();
 
@@ -10,6 +13,13 @@ Page({
     ledger: [],
     loading: true,
     activeTab: 'overview', // overview / list
+
+    // ★ 核销弹窗
+    showMatchModal: false,
+    matchTargetId: null,
+    matchTargetPurpose: '',
+    unlinkedInvoices: [],
+    loadingUnlinked: false,
   },
 
   onLoad: function () {
@@ -19,6 +29,9 @@ Page({
 
   onShow: function () {
     this.loadDashboard();
+    if (this.data.activeTab === 'list') {
+      this.loadLedger();
+    }
   },
 
   switchTab: function (e) {
@@ -42,6 +55,9 @@ Page({
           });
         }
       },
+      fail: function () {
+        self.setData({ loading: false });
+      },
     });
   },
 
@@ -52,17 +68,55 @@ Page({
       url: '/api/v1/missing-invoices/list?status=open',
       success: function (res) {
         if (res.code === 200) {
+          var now = new Date();
           var list = (res.data || []).map(function (item) {
-            // 计算逾期天数
-            if (item.deadline) {
-              var deadline = new Date(item.deadline);
-              var now = new Date();
-              var diff = Math.floor((now - deadline) / (1000 * 60 * 60 * 24));
-              item.overdueDays = diff > 0 ? diff : 0;
-              item.isOverdue = diff > 0;
+            // ★ 状态机计算
+            if (item.expected_invoice_date) {
+              var deadline = new Date(item.expected_invoice_date);
+              var diffMs = deadline.getTime() - now.getTime();
+              var diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+              if (diffDays < 0) {
+                item.statusLevel = 'overdue';
+                item.statusLabel = '逾期 ' + Math.abs(diffDays) + ' 天';
+                item.overdueDays = Math.abs(diffDays);
+                item.isOverdue = true;
+              } else if (diffDays <= 3) {
+                item.statusLevel = 'warning';
+                item.statusLabel = '剩余 ' + diffDays + ' 天';
+                item.overdueDays = 0;
+                item.isOverdue = false;
+              } else {
+                item.statusLevel = 'pending';
+                item.statusLabel = '剩余 ' + diffDays + ' 天';
+                item.overdueDays = 0;
+                item.isOverdue = false;
+              }
+            } else {
+              item.statusLevel = 'pending';
+              item.statusLabel = '无截止日期';
+              item.overdueDays = 0;
+              item.isOverdue = false;
             }
+
+            // ★ 来源标签
+            if (item.source_type === 'payment') {
+              item.sourceLabel = '付款';
+            } else if (item.source_type === 'expense') {
+              item.sourceLabel = '报销';
+            } else {
+              item.sourceLabel = '其他';
+            }
+
             return item;
           });
+
+          // ★ 按状态排序：overdue > warning > pending
+          var order = { overdue: 0, warning: 1, pending: 2 };
+          list.sort(function (a, b) {
+            return (order[a.statusLevel] || 2) - (order[b.statusLevel] || 2);
+          });
+
           self.setData({ ledger: list });
         }
       },
@@ -114,4 +168,84 @@ Page({
       },
     });
   },
+
+  // ★ 打开核销弹窗
+  openMatchModal: function (e) {
+    var id = e.currentTarget.dataset.id;
+    var purpose = e.currentTarget.dataset.purpose || '';
+    var self = this;
+
+    self.setData({
+      showMatchModal: true,
+      matchTargetId: id,
+      matchTargetPurpose: purpose,
+      loadingUnlinked: true,
+      unlinkedInvoices: [],
+    });
+
+    // 加载未关联发票列表
+    app.request({
+      url: '/api/v1/invoices/unlinked',
+      success: function (res) {
+        self.setData({ loadingUnlinked: false });
+        if (res.code === 200) {
+          self.setData({ unlinkedInvoices: res.data || [] });
+        }
+      },
+      fail: function () {
+        self.setData({ loadingUnlinked: false });
+        wx.showToast({ title: '加载失败', icon: 'none' });
+      },
+    });
+  },
+
+  // ★ 关闭核销弹窗
+  closeMatchModal: function () {
+    this.setData({
+      showMatchModal: false,
+      matchTargetId: null,
+      matchTargetPurpose: '',
+      unlinkedInvoices: [],
+    });
+  },
+
+  // ★ 执行核销（选择发票绑定）
+  doMatch: function (e) {
+    var invoiceId = e.currentTarget.dataset.invoiceid;
+    var missingId = this.data.matchTargetId;
+    var self = this;
+
+    if (!missingId || !invoiceId) return;
+
+    wx.showModal({
+      title: '确认核销',
+      content: '将此发票关联到欠票记录，核销后欠票记录将关闭。',
+      success: function (res) {
+        if (res.confirm) {
+          app.request({
+            url: '/api/v1/missing-invoices/' + missingId + '/match',
+            method: 'POST',
+            data: { invoice_id: invoiceId },
+            success: function (res) {
+              if (res.code === 200) {
+                wx.showToast({ title: '核销成功', icon: 'success' });
+                self.closeMatchModal();
+                // 刷新数据
+                self.loadDashboard();
+                self.loadLedger();
+              } else {
+                wx.showToast({ title: res.message || '核销失败', icon: 'none' });
+              }
+            },
+            fail: function () {
+              wx.showToast({ title: '网络错误', icon: 'none' });
+            },
+          });
+        }
+      },
+    });
+  },
+
+  // 阻止弹窗穿透
+  preventTap: function () {},
 });

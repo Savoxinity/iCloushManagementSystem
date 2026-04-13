@@ -1,17 +1,28 @@
+/* 欠票看板页 V5.5.0 — 状态机 + 核销能力 */
 .page-container { padding: 24rpx; background: #0a0a0a; min-height: 100vh; }
+
+/* Tab 栏 */
 .tab-bar { display: flex; margin-bottom: 32rpx; border-radius: 12rpx; overflow: hidden; border: 1rpx solid rgba(201,168,76,0.3); }
 .tab { flex: 1; text-align: center; padding: 20rpx 0; font-size: 28rpx; color: #888; background: rgba(255,255,255,0.03); }
 .tab.active { background: #C9A84C; color: #000; font-weight: bold; }
+
+/* 统计卡片 */
 .stats-row { display: flex; gap: 16rpx; margin-bottom: 32rpx; }
 .stat-card { flex: 1; background: rgba(255,255,255,0.05); border-radius: 12rpx; padding: 24rpx 16rpx; text-align: center; }
 .stat-value { display: block; font-size: 40rpx; color: #C9A84C; font-weight: bold; margin-bottom: 8rpx; }
 .stat-value.warn { color: #FBBF24; }
 .stat-value.danger { color: #EF4444; }
 .stat-label { font-size: 22rpx; color: #888; }
+
+/* 操作栏 */
 .action-bar { margin-bottom: 32rpx; }
 .btn-batch-remind { width: 100%; text-align: center; padding: 24rpx 0; background: rgba(239,68,68,0.15); color: #EF4444; font-size: 28rpx; font-weight: bold; border-radius: 12rpx; border: 1rpx solid rgba(239,68,68,0.3); }
+
+/* 区块标题 */
 .section-title { font-size: 30rpx; color: #fff; font-weight: bold; margin-bottom: 20rpx; }
 .empty-hint { text-align: center; color: #666; font-size: 28rpx; padding: 60rpx 0; }
+
+/* 排行列表 */
 .ranking-list { background: rgba(255,255,255,0.03); border-radius: 12rpx; overflow: hidden; }
 .ranking-item { display: flex; justify-content: space-between; align-items: center; padding: 24rpx; border-bottom: 1rpx solid rgba(255,255,255,0.05); }
 .ranking-item:last-child { border-bottom: none; }
@@ -21,14 +32,155 @@
 .rank-right { display: flex; align-items: center; gap: 24rpx; }
 .rank-count { font-size: 24rpx; color: #888; }
 .rank-amount { font-size: 28rpx; color: #FBBF24; font-weight: bold; }
-.ledger-card { background: rgba(255,255,255,0.05); border-radius: 12rpx; padding: 24rpx; margin-bottom: 20rpx; }
-.ledger-card.overdue { border-left: 4rpx solid #EF4444; }
+
+/* 欠票卡片 */
+.ledger-card {
+  background: rgba(255,255,255,0.05);
+  border-radius: 12rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  border-left: 4rpx solid transparent;
+}
+/* ★ 状态机边框颜色 */
+.ledger-card.overdue { border-left-color: #EF4444; }
+.ledger-card.warning { border-left-color: #FBBF24; }
+.ledger-card.pending { border-left-color: #10B981; }
+
 .ledger-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx; }
-.ledger-purpose { font-size: 28rpx; color: #fff; }
-.overdue-badge { font-size: 22rpx; color: #EF4444; background: rgba(239,68,68,0.15); padding: 4rpx 12rpx; border-radius: 6rpx; }
-.ledger-body { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12rpx; }
+.ledger-purpose { font-size: 28rpx; color: #fff; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ★ 状态标签 */
+.status-badge {
+  padding: 4rpx 14rpx;
+  border-radius: 6rpx;
+  font-size: 22rpx;
+  flex-shrink: 0;
+  margin-left: 12rpx;
+}
+.status-overdue {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1rpx solid rgba(239, 68, 68, 0.3);
+}
+.status-overdue .status-text { color: #EF4444; }
+.status-warning {
+  background: rgba(251, 191, 36, 0.15);
+  border: 1rpx solid rgba(251, 191, 36, 0.3);
+}
+.status-warning .status-text { color: #FBBF24; }
+.status-pending {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1rpx solid rgba(16, 185, 129, 0.3);
+}
+.status-pending .status-text { color: #10B981; }
+.status-text { font-size: 22rpx; font-weight: 500; }
+
+.ledger-body { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx; }
 .ledger-amount { font-size: 36rpx; color: #C9A84C; font-weight: bold; }
+.ledger-meta { display: flex; align-items: center; gap: 12rpx; }
 .ledger-emp { font-size: 24rpx; color: #888; }
+
+/* ★ 来源标签 */
+.source-tag {
+  padding: 2rpx 10rpx;
+  border-radius: 4rpx;
+  font-size: 20rpx;
+}
+.source-payment {
+  background: rgba(139, 92, 246, 0.15);
+  border: 1rpx solid rgba(139, 92, 246, 0.3);
+}
+.source-payment .source-tag-text { color: #A78BFA; }
+.source-expense {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1rpx solid rgba(59, 130, 246, 0.3);
+}
+.source-expense .source-tag-text { color: #60A5FA; }
+.source-tag-text { font-size: 20rpx; }
+
 .ledger-bottom { display: flex; justify-content: space-between; align-items: center; }
 .ledger-date { font-size: 22rpx; color: #555; }
-.btn-remind { font-size: 24rpx; color: #EF4444; border: 1rpx solid #EF4444; padding: 8rpx 24rpx; border-radius: 6rpx; }
+.ledger-actions { display: flex; gap: 16rpx; }
+
+/* ★ 核销按钮 */
+.btn-match {
+  font-size: 24rpx;
+  color: #10B981;
+  border: 1rpx solid rgba(16, 185, 129, 0.5);
+  padding: 8rpx 24rpx;
+  border-radius: 6rpx;
+  background: rgba(16, 185, 129, 0.08);
+}
+
+/* 催票按钮 */
+.btn-remind {
+  font-size: 24rpx;
+  color: #EF4444;
+  border: 1rpx solid rgba(239, 68, 68, 0.5);
+  padding: 8rpx 24rpx;
+  border-radius: 6rpx;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+/* ★ 核销弹窗 */
+.modal-mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.modal-content {
+  width: 100%;
+  max-height: 80vh;
+  background: #1a1a1a;
+  border-radius: 24rpx 24rpx 0 0;
+  padding: 32rpx;
+  overflow-y: auto;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+.modal-title { font-size: 32rpx; color: #fff; font-weight: bold; }
+.modal-close { font-size: 36rpx; color: #888; padding: 8rpx; }
+.modal-hint { margin-bottom: 24rpx; }
+.hint-text { font-size: 24rpx; color: #888; line-height: 1.6; }
+.modal-loading { text-align: center; padding: 60rpx 0; }
+.loading-text { font-size: 28rpx; color: #888; }
+.modal-empty { text-align: center; padding: 60rpx 0; }
+.modal-empty .empty-text { display: block; font-size: 28rpx; color: #666; margin-bottom: 12rpx; }
+.modal-empty .empty-sub { display: block; font-size: 22rpx; color: #444; }
+
+/* 弹窗中的发票列表 */
+.modal-list { }
+.modal-invoice-item {
+  background: rgba(255,255,255,0.05);
+  border-radius: 12rpx;
+  padding: 20rpx;
+  margin-bottom: 16rpx;
+  border: 1rpx solid rgba(255,255,255,0.08);
+}
+.modal-invoice-item:active {
+  background: rgba(201, 168, 76, 0.15);
+  border-color: rgba(201, 168, 76, 0.4);
+}
+.modal-inv-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8rpx;
+}
+.modal-inv-name { font-size: 28rpx; color: #fff; font-weight: 500; }
+.modal-inv-amount { font-size: 30rpx; color: #C9A84C; font-weight: bold; }
+.modal-inv-sub {
+  display: flex;
+  gap: 16rpx;
+  align-items: center;
+}
+.modal-inv-seller { font-size: 22rpx; color: #888; }
+.modal-inv-date { font-size: 22rpx; color: #555; }
+.modal-inv-number { font-size: 22rpx; color: #555; }

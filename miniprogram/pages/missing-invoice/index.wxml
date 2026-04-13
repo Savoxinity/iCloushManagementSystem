@@ -1,4 +1,4 @@
-<!-- 欠票看板页 -->
+<!-- 欠票看板页 V5.5.0 — 状态机 + 核销能力 -->
 <view class="page-container">
   <!-- Tab 切换 -->
   <view class="tab-bar">
@@ -31,8 +31,9 @@
 
     <!-- 欠票排行 -->
     <view class="section-title">欠票排行</view>
-    <view wx:if="{{ranking.length === 0}}" class="empty-hint">暂无欠票记录</view>
-    <view wx:else class="ranking-list">
+    <view wx:if="{{ranking.length === 0 && !loading}}" class="empty-hint">暂无欠票记录</view>
+    <view wx:if="{{loading}}" class="empty-hint">加载中...</view>
+    <view wx:if="{{ranking.length > 0}}" class="ranking-list">
       <view class="ranking-item" wx:for="{{ranking}}" wx:key="employee_id">
         <view class="rank-left">
           <text class="rank-num">{{index + 1}}</text>
@@ -50,18 +51,77 @@
   <view wx:if="{{activeTab === 'list'}}">
     <view wx:if="{{ledger.length === 0}}" class="empty-hint">暂无欠票明细</view>
     <view wx:else class="ledger-list">
-      <view class="ledger-card {{item.isOverdue ? 'overdue' : ''}}" wx:for="{{ledger}}" wx:key="id">
+      <view class="ledger-card {{item.statusLevel}}" wx:for="{{ledger}}" wx:key="id">
+        <!-- 顶部：事由 + 状态标签 -->
         <view class="ledger-top">
-          <text class="ledger-purpose">{{item.purpose || '报销#' + item.expense_id}}</text>
-          <text wx:if="{{item.isOverdue}}" class="overdue-badge">逾期 {{item.overdueDays}} 天</text>
+          <text class="ledger-purpose">{{item.purpose || '报销#' + item.source_id}}</text>
+          <view class="status-badge status-{{item.statusLevel}}">
+            <text class="status-text">{{item.statusLabel}}</text>
+          </view>
         </view>
+
+        <!-- 中间：金额 + 员工 + 来源 -->
         <view class="ledger-body">
           <text class="ledger-amount">¥ {{item.amount}}</text>
-          <text class="ledger-emp">{{item.employee_name || '员工#' + item.employee_id}}</text>
+          <view class="ledger-meta">
+            <text class="ledger-emp">{{item.employee_name || '员工#' + item.employee_id}}</text>
+            <view class="source-tag source-{{item.source_type}}">
+              <text class="source-tag-text">{{item.sourceLabel}}</text>
+            </view>
+          </view>
         </view>
+
+        <!-- 底部：截止日期 + 操作按钮 -->
         <view class="ledger-bottom">
-          <text class="ledger-date">截止: {{item.deadline || '--'}}</text>
-          <view class="btn-remind" data-id="{{item.id}}" bindtap="sendReminder">催票</view>
+          <text class="ledger-date">截止: {{item.expected_invoice_date || '--'}}</text>
+          <view class="ledger-actions">
+            <!-- ★ 核销按钮 -->
+            <view class="btn-match" data-id="{{item.id}}" data-purpose="{{item.purpose}}" catchtap="openMatchModal">核销</view>
+            <!-- 催票按钮 -->
+            <view class="btn-remind" data-id="{{item.id}}" catchtap="sendReminder">催票</view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ★ 核销弹窗 -->
+  <view wx:if="{{showMatchModal}}" class="modal-mask" bindtap="closeMatchModal">
+    <view class="modal-content" catchtap="preventTap">
+      <view class="modal-header">
+        <text class="modal-title">选择发票核销</text>
+        <text class="modal-close" bindtap="closeMatchModal">✕</text>
+      </view>
+      <view class="modal-hint">
+        <text class="hint-text">为「{{matchTargetPurpose}}」选择一张未关联的发票进行核销</text>
+      </view>
+
+      <view wx:if="{{loadingUnlinked}}" class="modal-loading">
+        <text class="loading-text">加载中...</text>
+      </view>
+
+      <view wx:if="{{!loadingUnlinked && unlinkedInvoices.length === 0}}" class="modal-empty">
+        <text class="empty-text">暂无可用的未关联发票</text>
+        <text class="empty-sub">请先通过「发票上传」或「报销/付款」入口添加发票</text>
+      </view>
+
+      <view wx:if="{{!loadingUnlinked && unlinkedInvoices.length > 0}}" class="modal-list">
+        <view
+          class="modal-invoice-item"
+          wx:for="{{unlinkedInvoices}}"
+          wx:key="id"
+          data-invoiceid="{{item.id}}"
+          bindtap="doMatch"
+        >
+          <view class="modal-inv-main">
+            <text class="modal-inv-name">{{item.goods_name_summary || item.seller_name}}</text>
+            <text class="modal-inv-amount">¥{{item.total_amount}}</text>
+          </view>
+          <view class="modal-inv-sub">
+            <text class="modal-inv-seller">{{item.seller_name}}</text>
+            <text class="modal-inv-date">{{item.invoice_date}}</text>
+            <text class="modal-inv-number">{{item.invoice_number}}</text>
+          </view>
         </view>
       </view>
     </view>

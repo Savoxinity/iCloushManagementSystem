@@ -1,7 +1,8 @@
 // ============================================
-// 付款申请单 V5.4.1 — 即付即票/先付后票/分批付款
-// ★ Type A 发票自动走 OCR → 进发票/票据池
-// ★ 修复提交失败问题
+// 付款申请单 V5.5.0 — 强制入池漏斗
+// ★ Type A/B(当日)/C(当日) 发票自动走 OCR → 强制入发票/票据池
+// ★ OCR 失败也 fallback 到 /invoices/upload 创建 pending 记录
+// ★ 提交时强制携带 invoice_id
 // ============================================
 var app = getApp();
 
@@ -14,6 +15,7 @@ Page({
     expectedInvoiceDate: '',
     isToday: false,
     invoiceImage: '',
+    invoiceId: null,       // ★ V5.5.0 新增：强制关联发票池 ID
     uploading: false,
     ocrLoading: false,
     ocrResult: null,
@@ -34,6 +36,7 @@ Page({
       expectedInvoiceDate: '',
       isToday: false,
       invoiceImage: '',
+      invoiceId: null,
       ocrResult: null,
       ocrLoading: false,
       installments: [{ amount: '', date: '' }],
@@ -121,7 +124,7 @@ Page({
       sourceType: ['album', 'camera'],
       success: function (res) {
         var tempPath = res.tempFiles[0].tempFilePath;
-        self.setData({ uploading: true, ocrResult: null });
+        self.setData({ uploading: true, ocrResult: null, invoiceId: null });
         self.uploadAndOCR(tempPath);
       },
     });
@@ -132,11 +135,13 @@ Page({
     var self = this;
     var baseUrl = app.globalData.baseUrl || '';
 
-    // 如果是 Mock 模式，直接使用本地路径
+    // Mock 模式 — ★ 也返回 invoiceId，模拟强制入池
     if (app.globalData.useMock) {
+      var mockInvoiceId = 'inv_mock_' + Date.now();
       self.setData({
         uploading: false,
         invoiceImage: tempPath,
+        invoiceId: mockInvoiceId,
         ocrResult: {
           seller_name: '（Mock）供应商',
           total_amount: self.data.totalAmount || '0.00',
@@ -144,7 +149,7 @@ Page({
         },
       });
       self.checkCanSubmit();
-      wx.showToast({ title: '图片已选择', icon: 'success' });
+      wx.showToast({ title: '已入发票池', icon: 'success' });
       return;
     }
 
@@ -187,6 +192,7 @@ Page({
   },
 
   // ★ 调用后端 OCR 识别 → 自动入发票/票据池
+  // ★ V5.5.0: OCR 失败时 fallback 到 /invoices/upload 强制入池
   runOCR: function (imageUrl) {
     var self = this;
     self.setData({ ocrLoading: true });
@@ -200,18 +206,48 @@ Page({
         if (res.code === 200 && res.data) {
           if (res.data.ocr_available && res.data.parsed) {
             self.setData({ ocrResult: res.data.parsed });
-            wx.showToast({ title: 'OCR 识别成功', icon: 'success' });
+            // ★ OCR 成功 → 拿到 invoice_id
+            if (res.data.invoice_id) {
+              self.setData({ invoiceId: res.data.invoice_id });
+            }
+            wx.showToast({ title: 'OCR 识别成功，已入池', icon: 'success' });
           } else {
-            wx.showToast({
-              title: 'OCR 不可用，请手动确认',
-              icon: 'none',
-              duration: 2000,
-            });
+            // ★ OCR 不可用 → fallback 强制入池
+            self.fallbackUploadToPool(imageUrl);
           }
+        } else {
+          self.fallbackUploadToPool(imageUrl);
         }
       },
       fail: function () {
         self.setData({ ocrLoading: false });
+        self.fallbackUploadToPool(imageUrl);
+      },
+    });
+  },
+
+  // ★ V5.5.0 新增：OCR 失败时 fallback 强制入池
+  fallbackUploadToPool: function (imageUrl) {
+    var self = this;
+    console.log('[payment-create] OCR 失败，fallback 入池:', imageUrl);
+
+    app.request({
+      url: '/api/v1/invoices/upload',
+      method: 'POST',
+      data: {
+        image_url: imageUrl,
+        source: 'payment_create',
+      },
+      success: function (res) {
+        if (res.code === 200 && res.data && res.data.id) {
+          self.setData({ invoiceId: res.data.id });
+          wx.showToast({ title: '已入发票池（待人工核验）', icon: 'none', duration: 2000 });
+        } else {
+          wx.showToast({ title: 'OCR 不可用，请手动确认', icon: 'none', duration: 2000 });
+        }
+      },
+      fail: function () {
+        wx.showToast({ title: 'OCR 不可用，请手动确认', icon: 'none', duration: 2000 });
       },
     });
   },
@@ -248,6 +284,7 @@ Page({
   },
 
   // ── 提交 ──
+  // ★ V5.5.0: 强制携带 invoice_id
   submitPayment: function () {
     if (!this.data.canSubmit || this.data.submitting) return;
     this.setData({ submitting: true });
@@ -263,7 +300,10 @@ Page({
     if (d.paymentType === 'A') {
       payload.total_amount = parseFloat(d.totalAmount);
       payload.invoice_image_url = d.invoiceImage;
-      // 附带 OCR 结果
+      // ★ 强制携带 invoice_id
+      if (d.invoiceId) {
+        payload.invoice_id = d.invoiceId;
+      }
       if (d.ocrResult) {
         payload.ocr_data = d.ocrResult;
       }
@@ -272,6 +312,10 @@ Page({
       payload.expected_invoice_date = d.expectedInvoiceDate;
       if (d.isToday && d.invoiceImage) {
         payload.invoice_image_url = d.invoiceImage;
+        // ★ 强制携带 invoice_id
+        if (d.invoiceId) {
+          payload.invoice_id = d.invoiceId;
+        }
         if (d.ocrResult) payload.ocr_data = d.ocrResult;
       }
     } else if (d.paymentType === 'C') {
@@ -282,6 +326,10 @@ Page({
       });
       if (d.isToday && d.invoiceImage) {
         payload.invoice_image_url = d.invoiceImage;
+        // ★ 强制携带 invoice_id
+        if (d.invoiceId) {
+          payload.invoice_id = d.invoiceId;
+        }
         if (d.ocrResult) payload.ocr_data = d.ocrResult;
       }
     }

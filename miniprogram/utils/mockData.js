@@ -592,12 +592,13 @@ function getMockResponse(url, method, data) {
     return { code: 200, data: { status: 'approved' }, message: '审批成功' };
   }
 
-  // 发票 OCR 识别
+  // 发票 OCR 识别（★ 返回 invoice_id，强制入池）
   if (url.indexOf('/api/v1/invoices/ocr') !== -1 && method === 'POST') {
     return {
       code: 200,
       data: {
         ocr_available: true,
+        invoice_id: 'inv_ocr_' + Date.now(),
         parsed: {
           invoice_type: 'vat_normal',
           invoice_type_label: '增值税普通发票',
@@ -644,12 +645,28 @@ function getMockResponse(url, method, data) {
     };
   }
 
-  // 发票管理（全员票据池）
+  // 发票管理（全员票据池 — ★ 合并打印状态+关联来源+占用状态）
+  if (url.indexOf('/api/v1/invoices/admin-list') !== -1 && method === 'GET') {
+    return {
+      code: 200,
+      data: [
+        { id: 'inv_001', invoice_type_code: '普', seller_name: '上海康智电子商务有限公司', total_amount: 6628.88, invoice_date: '2026-02-25', invoice_number: '08965432', verify_status: 'verified', is_duplicate: false, is_printed: false, source: 'invoice_upload', linked_to: null, linked_type: null, user_name: '程建平', goods_name_summary: '洗涤设备维保服务' },
+        { id: 'inv_002', invoice_type_code: '专', seller_name: '上海海尔电器有限公司', total_amount: 900.00, invoice_date: '2026-04-12', invoice_number: '09876543', verify_status: 'verified', is_duplicate: false, is_printed: true, source: 'payment_create', linked_to: 'pay_001', linked_type: 'payment', user_name: '程建平', goods_name_summary: '家用洗衣机' },
+        { id: 'inv_003', invoice_type_code: '普', seller_name: '美团外卖', total_amount: 99.20, invoice_date: '2026-04-11', invoice_number: '11223344', verify_status: 'pending', is_duplicate: false, is_printed: false, source: 'expense_create', linked_to: 'exp_001', linked_type: 'expense', user_name: '程建平', goods_name_summary: '餐费' },
+        { id: 'inv_004', invoice_type_code: '普', seller_name: '上海康智电子商务有限公司', total_amount: 6628.88, invoice_date: '2026-03-15', invoice_number: '08965432', verify_status: 'duplicate', is_duplicate: true, is_printed: false, source: 'invoice_upload', linked_to: null, linked_type: null, user_name: '张三', goods_name_summary: '洗涤设备维保服务' },
+        { id: 'inv_005', invoice_type_code: '普', seller_name: '格力电器', total_amount: 5600.00, invoice_date: '2026-04-08', invoice_number: '55667788', verify_status: 'verified', is_duplicate: false, is_printed: false, source: 'invoice_upload', linked_to: null, linked_type: null, user_name: '李娜', goods_name_summary: '空调采购' },
+      ],
+      total: 5,
+      message: '成功',
+    };
+  }
+
+  // 发票管理（全员票据池 — 旧接口兼容）
   if (url.indexOf('/api/v1/invoices/all') !== -1 && method === 'GET') {
     return {
       code: 200,
       data: {
-        total: 1,
+        total: 5,
         invoices: [
           { id: 'inv_001', seller_name: '上海康智电子商务有限公司', total_amount: 6628.88, invoice_date: '2026-02-25', status: 'pending', uploader_name: '程建平', source: 'invoice_upload' },
         ],
@@ -658,20 +675,24 @@ function getMockResponse(url, method, data) {
     };
   }
 
-  // 发票打印状态列表
+  // 发票打印状态列表（★ 已合并到 admin-list，保留兼容）
   if (url.indexOf('/api/v1/payments/invoices/print-status') !== -1 && method === 'GET') {
     return {
       code: 200,
       data: [
         { id: 'inv_001', invoice_code: '3100224130', invoice_number: '08965432', seller_name: '上海康智电子商务有限公司', total_amount: 6628.88, is_printed: false, created_at: '2026-02-25T10:00:00Z' },
+        { id: 'inv_002', invoice_code: '3100224131', invoice_number: '09876543', seller_name: '上海海尔电器有限公司', total_amount: 900.00, is_printed: true, created_at: '2026-04-12T10:00:00Z' },
       ],
       message: '成功',
     };
   }
 
-  // 发票打印标记
+  // 发票打印标记（★ 统一路由，同时支持 /invoices/:id/print-toggle）
   if (url.match(/\/api\/v1\/payments\/invoices\/[^/]+\/print/) && method === 'PUT') {
     return { code: 200, data: {}, message: '操作成功' };
+  }
+  if (url.match(/\/api\/v1\/invoices\/[^/]+\/print-toggle/) && method === 'PUT') {
+    return { code: 200, data: {}, message: '打印状态已更新' };
   }
 
   // 开票覆盖率
@@ -684,6 +705,65 @@ function getMockResponse(url, method, data) {
         cost_total: 67100.00,
         tax_gap: 18450.00,
       },
+      message: '成功',
+    };
+  }
+
+  // ★ 欠票看板 — Dashboard
+  if (url.indexOf('/api/v1/missing-invoices/dashboard') !== -1 && method === 'GET') {
+    var today = new Date();
+    return {
+      code: 200,
+      data: {
+        summary: { total_missing: 3, total_amount: 12800.00, overdue_count: 1 },
+        ranking: [
+          { employee_id: 'u003', employee_name: '王强', missing_count: 2, total_amount: 7200.00 },
+          { employee_id: 'u005', employee_name: '陈刚', missing_count: 1, total_amount: 5600.00 },
+        ],
+      },
+      message: '成功',
+    };
+  }
+
+  // ★ 欠票看板 — 明细列表（状态机：Pending/Warning/Overdue）
+  if (url.indexOf('/api/v1/missing-invoices/list') !== -1 && method === 'GET') {
+    var now = new Date();
+    var in5days = new Date(now.getTime() + 5 * 86400000).toISOString().slice(0, 10);
+    var in2days = new Date(now.getTime() + 2 * 86400000).toISOString().slice(0, 10);
+    var past3days = new Date(now.getTime() - 3 * 86400000).toISOString().slice(0, 10);
+    return {
+      code: 200,
+      data: [
+        { id: 'mi_001', source_type: 'payment', source_id: 'pay_002', purpose: '空调采购（格力）', amount: 5600.00, employee_id: 'u005', employee_name: '陈刚', expected_invoice_date: in5days, status: 'pending', invoice_id: null },
+        { id: 'mi_002', source_type: 'payment', source_id: 'pay_003', purpose: '洗涤龙备件采购', amount: 3200.00, employee_id: 'u003', employee_name: '王强', expected_invoice_date: in2days, status: 'warning', invoice_id: null },
+        { id: 'mi_003', source_type: 'expense', source_id: 'exp_002', purpose: '快递费报销（无票）', amount: 4000.00, employee_id: 'u003', employee_name: '王强', expected_invoice_date: past3days, status: 'overdue', invoice_id: null },
+      ],
+      message: '成功',
+    };
+  }
+
+  // ★ 欠票核销（Match）
+  if (url.match(/\/api\/v1\/missing-invoices\/[^/]+\/match/) && method === 'POST') {
+    return { code: 200, data: { status: 'resolved' }, message: '核销成功，欠票记录已关闭' };
+  }
+
+  // ★ 欠票催票
+  if (url.match(/\/api\/v1\/missing-invoices\/[^/]+\/remind/) && method === 'POST') {
+    return { code: 200, data: {}, message: '催票已发送' };
+  }
+
+  // ★ 批量催票
+  if (url.indexOf('/api/v1/missing-invoices/batch-remind') !== -1 && method === 'POST') {
+    return { code: 200, data: { sent_count: 1 }, message: '批量催票已发送' };
+  }
+
+  // ★ 获取未关联发票列表（用于核销选择）
+  if (url.indexOf('/api/v1/invoices/unlinked') !== -1 && method === 'GET') {
+    return {
+      code: 200,
+      data: [
+        { id: 'inv_005', seller_name: '格力电器', total_amount: 5600.00, invoice_date: '2026-04-08', invoice_number: '55667788', goods_name_summary: '空调采购' },
+      ],
       message: '成功',
     };
   }

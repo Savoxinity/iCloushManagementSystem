@@ -1,4 +1,4 @@
-/* 管理员发票管理页 — 华通APP风格 */
+/* 全局发票工作台 V5.5.0 — 华通APP风格 */
 .page-container { padding: 24rpx; background: #0a0a0a; min-height: 100vh; }
 
 /* 顶部标题栏 */
@@ -14,6 +14,37 @@
 }
 .filter-icon { font-size: 28rpx; }
 .filter-text { font-size: 24rpx; }
+
+/* ★ 覆盖率看板 */
+.coverage-card {
+  background: rgba(201, 168, 76, 0.08);
+  border: 1rpx solid rgba(201, 168, 76, 0.25);
+  border-radius: 12rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+}
+.coverage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+.coverage-title { font-size: 28rpx; color: #C9A84C; font-weight: bold; }
+.coverage-rate { font-size: 40rpx; color: #C9A84C; font-weight: bold; }
+.coverage-detail { display: flex; flex-direction: column; gap: 12rpx; }
+.detail-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8rpx 0;
+}
+.detail-item.highlight {
+  border-top: 1rpx solid rgba(255,255,255,0.08);
+  padding-top: 12rpx;
+  margin-top: 4rpx;
+}
+.detail-label { font-size: 24rpx; color: #888; }
+.detail-value { font-size: 26rpx; color: #ddd; font-weight: 500; }
+.detail-value.positive { color: #10B981; }
+.detail-value.negative { color: #EF4444; }
 
 /* 搜索栏 */
 .search-bar {
@@ -71,23 +102,25 @@
 .stats-text { font-size: 24rpx; color: #888; }
 .stats-date { font-size: 22rpx; color: #555; }
 
-/* 筛选 Tab 栏 */
-.filter-tabs {
-  display: flex;
-  gap: 16rpx;
+/* 筛选 Tab 栏 — ★ 横向滚动 */
+.filter-tabs-scroll {
   margin-bottom: 16rpx;
-  padding-bottom: 16rpx;
-  border-bottom: 1rpx solid rgba(255,255,255,0.08);
-  overflow-x: auto;
   white-space: nowrap;
 }
+.filter-tabs {
+  display: inline-flex;
+  gap: 12rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid rgba(255,255,255,0.08);
+}
 .tab-item {
-  font-size: 26rpx;
+  font-size: 24rpx;
   color: #888;
-  padding: 8rpx 24rpx;
+  padding: 8rpx 20rpx;
   border-radius: 24rpx;
   background: rgba(255,255,255,0.05);
   flex-shrink: 0;
+  display: inline-block;
 }
 .tab-item.active {
   color: #000;
@@ -198,7 +231,7 @@
 .card-tags {
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  gap: 10rpx;
   flex-wrap: wrap;
 }
 
@@ -207,11 +240,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4rpx 14rpx;
+  padding: 4rpx 12rpx;
   border-radius: 6rpx;
   font-size: 22rpx;
 }
-.tag-text { font-size: 22rpx; font-weight: 500; }
+.tag-text { font-size: 20rpx; font-weight: 500; }
 
 /* 验证通过 — 绿色 */
 .tag-verified {
@@ -247,6 +280,56 @@
   border: 1rpx solid rgba(249, 115, 22, 0.3);
 }
 .tag-duplicate .tag-text { color: #F97316; }
+
+/* ★ 来源标签 */
+.tag-source {
+  border: 1rpx solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.05);
+}
+.tag-source .tag-text { color: #888; }
+.source-expense {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+.source-expense .tag-text { color: #60A5FA; }
+.source-payment {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+.source-payment .tag-text { color: #A78BFA; }
+.source-upload {
+  background: rgba(107, 114, 128, 0.1);
+  border-color: rgba(107, 114, 128, 0.3);
+}
+.source-upload .tag-text { color: #9CA3AF; }
+
+/* ★ 占用状态 */
+.tag-linked {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1rpx solid rgba(16, 185, 129, 0.25);
+}
+.tag-linked .tag-text { color: #10B981; }
+.tag-unlinked {
+  background: rgba(251, 191, 36, 0.1);
+  border: 1rpx solid rgba(251, 191, 36, 0.25);
+}
+.tag-unlinked .tag-text { color: #FBBF24; }
+
+/* ★ 打印 Toggle */
+.tag-print {
+  border: 1rpx solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.05);
+}
+.tag-printed {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+.tag-printed .tag-text { color: #10B981; }
+.tag-unprinted {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+.tag-unprinted .tag-text { color: #F87171; }
 
 /* 发票号码标签 */
 .inv-number-tag {

@@ -1,6 +1,7 @@
 // ============================================
-// 报销单创建页 V5.4.1 — 统一 OCR 链路
-// ★ 发票凭证上传后自动走 OCR → 进发票/票据池
+// 报销单创建页 V5.5.0 — 强制入池漏斗
+// ★ 发票凭证上传后自动走 OCR → 强制入发票/票据池
+// ★ OCR 失败也调用 /invoices/upload 创建 pending 记录
 // ★ 收据图片也统一上传（但不走 OCR）
 // ============================================
 
@@ -61,7 +62,7 @@ Page({
       sourceType: ['album', 'camera'],
       success: function (res) {
         var tempPath = res.tempFiles[0].tempFilePath;
-        self.setData({ tempInvoicePath: tempPath, ocrResult: null });
+        self.setData({ tempInvoicePath: tempPath, ocrResult: null, invoiceId: null });
         self._uploadAndOCR(tempPath, 'invoice');
       },
     });
@@ -91,15 +92,17 @@ Page({
     var self = this;
     self.setData({ uploading: true });
 
-    // Mock 模式
+    // Mock 模式 — ★ 也返回 invoiceId，模拟强制入池
     if (app.globalData.useMock) {
+      var mockInvoiceId = 'inv_mock_' + Date.now();
       self.setData({
         uploading: false,
         invoiceImage: tempPath,
+        invoiceId: mockInvoiceId,
         ocrResult: { seller_name: '（Mock）供应商', total_amount: self.data.claimedAmount || '0' },
       });
       self._checkCanSubmit();
-      wx.showToast({ title: '图片已选择', icon: 'success' });
+      wx.showToast({ title: '已入发票池', icon: 'success' });
       return;
     }
 
@@ -139,6 +142,7 @@ Page({
   },
 
   // ★ 调用后端 OCR 识别 → 自动入发票/票据池
+  // ★ V5.5.0: OCR 失败时 fallback 到 /invoices/upload 强制入池
   _runOCR: function (imageUrl) {
     var self = this;
     self.setData({ ocrLoading: true });
@@ -152,18 +156,52 @@ Page({
         if (res.code === 200 && res.data) {
           if (res.data.ocr_available && res.data.parsed) {
             self.setData({ ocrResult: res.data.parsed });
-            // 如果 OCR 返回了发票 ID，关联
+            // ★ OCR 成功 → 拿到 invoice_id
             if (res.data.invoice_id) {
               self.setData({ invoiceId: res.data.invoice_id });
             }
-            wx.showToast({ title: 'OCR 识别成功', icon: 'success' });
+            wx.showToast({ title: 'OCR 识别成功，已入池', icon: 'success' });
           } else {
-            wx.showToast({ title: 'OCR 不可用，请手动确认', icon: 'none', duration: 2000 });
+            // ★ OCR 不可用 → fallback 强制入池
+            self._fallbackUploadToPool(imageUrl);
           }
+        } else {
+          // ★ 非 200 → fallback 强制入池
+          self._fallbackUploadToPool(imageUrl);
         }
       },
       fail: function () {
         self.setData({ ocrLoading: false });
+        // ★ 网络失败 → fallback 强制入池
+        self._fallbackUploadToPool(imageUrl);
+      },
+    });
+  },
+
+  // ★ V5.5.0 新增：OCR 失败时 fallback 强制入池
+  // 调用 /api/v1/invoices/upload 创建一条 pending 状态的发票记录
+  _fallbackUploadToPool: function (imageUrl) {
+    var self = this;
+    console.log('[expense-create] OCR 失败，fallback 入池:', imageUrl);
+
+    app.request({
+      url: '/api/v1/invoices/upload',
+      method: 'POST',
+      data: {
+        image_url: imageUrl,
+        source: 'expense_create',
+        // 无 OCR 数据，后端创建 pending 状态记录
+      },
+      success: function (res) {
+        if (res.code === 200 && res.data && res.data.id) {
+          self.setData({ invoiceId: res.data.id });
+          wx.showToast({ title: '已入发票池（待人工核验）', icon: 'none', duration: 2000 });
+        } else {
+          wx.showToast({ title: 'OCR 不可用，请手动确认', icon: 'none', duration: 2000 });
+        }
+      },
+      fail: function () {
+        wx.showToast({ title: 'OCR 不可用，请手动确认', icon: 'none', duration: 2000 });
       },
     });
   },
@@ -227,6 +265,7 @@ Page({
   },
 
   // ── 提交报销单 ──
+  // ★ V5.5.0: 强制携带 invoice_id；无 invoice_id 时也传 image_url 兜底
   submitExpense: function () {
     var self = this;
     if (!self.data.canSubmit || self.data.submitting) return;
@@ -238,14 +277,18 @@ Page({
       voucher_type: self.data.voucherType,
     };
 
-    if (self.data.voucherType === 'invoice' && self.data.invoiceId) {
-      payload.invoice_id = self.data.invoiceId;
+    if (self.data.voucherType === 'invoice') {
+      // ★ 强制携带 invoice_id（OCR 成功或 fallback 入池后都有）
+      if (self.data.invoiceId) {
+        payload.invoice_id = self.data.invoiceId;
+      }
+      // 兜底：始终传 image_url
+      if (self.data.invoiceImage) {
+        payload.invoice_image_url = self.data.invoiceImage;
+      }
     }
     if (self.data.voucherType === 'receipt' && self.data.receiptImage) {
       payload.receipt_image_url = self.data.receiptImage;
-    }
-    if (self.data.voucherType === 'invoice' && self.data.invoiceImage && !self.data.invoiceId) {
-      payload.receipt_image_url = self.data.invoiceImage;
     }
     // 附带 OCR 结果
     if (self.data.ocrResult) {
@@ -264,6 +307,10 @@ Page({
         } else {
           wx.showToast({ title: res.message || '提交失败', icon: 'none' });
         }
+      },
+      fail: function () {
+        self.setData({ submitting: false });
+        wx.showToast({ title: '网络错误', icon: 'none' });
       },
     });
   },
