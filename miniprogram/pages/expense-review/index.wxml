@@ -1,4 +1,4 @@
-<!-- 报销审核页 V5.6.4 — 五Tab分类 + 三按钮审核 + 三段式详情弹窗 -->
+<!-- 报销审核页 V5.6.7 — 五Tab分类 + 三按钮审核 + 归一化详情弹窗 -->
 <view class="page-container">
   <view class="header-bar">
     <text class="page-title">报销审核</text>
@@ -103,16 +103,16 @@
   </block>
 
   <!-- ═══════════════════════════════════════════
-       V5.6.4 三段式详情弹窗
-       顶部2bar留白 → 图片预览(上1/3) → OCR折叠框(中1/3) → 基本信息(下1/3)
+       V5.6.7 归一化详情弹窗
+       顶部留白 → 图片预览(上) → 归一化发票详情(中) → 报销基本信息(下)
        ═══════════════════════════════════════════ -->
   <view wx:if="{{showDetailPanel}}" class="review-mask" bindtap="closeDetail">
     <view class="detail-panel-v2" catchtap="stopPropagation">
 
-      <!-- ★ 顶部2bar留白（空气感） -->
+      <!-- ★ 顶部留白（空气感） -->
       <view class="detail-top-spacer"></view>
 
-      <!-- ═══ 上1/3：发票/凭证图片预览 ═══ -->
+      <!-- ═══ 上部：发票/凭证图片预览 ═══ -->
       <view class="detail-section detail-image-section">
         <view wx:if="{{currentExpense.invoice_image_url || (currentExpense.invoice_info && currentExpense.invoice_info.image_url)}}" class="image-preview-box">
           <image
@@ -141,97 +141,31 @@
         </view>
       </view>
 
-      <!-- ═══ 中1/3：OCR 识别详情折叠框 ═══ -->
-      <view class="detail-section detail-ocr-section">
-        <view wx:if="{{currentExpense.invoice_info || currentExpense.ocr_data}}" class="ocr-box">
-          <view class="ocr-header">
-            <text class="ocr-title">发票识别详情（已入票据池）</text>
+      <!-- ═══ 中部：★ V5.6.7 归一化发票详情组件（替代简陋版 OCR 折叠框） ═══ -->
+      <view class="detail-section detail-invoice-section">
+        <view wx:if="{{currentExpense.invoice_info || currentExpense.ocr_data}}" class="invoice-card-wrapper">
+          <view class="invoice-card-header">
+            <text class="invoice-card-title">发票识别详情（已入票据池）</text>
           </view>
-
-          <!-- 始终显示的摘要信息 -->
-          <view class="ocr-summary">
-            <view class="ocr-row">
-              <text class="ocr-label">销方名称</text>
-              <text class="ocr-value">{{currentExpense.invoice_info.seller_name || currentExpense.ocr_data.seller_name || '--'}}</text>
-            </view>
-            <view class="ocr-row">
-              <text class="ocr-label">发票金额</text>
-              <text class="ocr-value amount">¥{{currentExpense.invoice_info.total_amount || currentExpense.ocr_data.total_amount || '--'}}</text>
-            </view>
-            <view class="ocr-row">
-              <text class="ocr-label">开票日期</text>
-              <text class="ocr-value">{{currentExpense.invoice_info.invoice_date || currentExpense.ocr_data.invoice_date || '--'}}</text>
-            </view>
-            <view class="ocr-row">
-              <text class="ocr-label">发票类型</text>
-              <text class="ocr-value">{{currentExpense.invoice_info.invoice_type || currentExpense.ocr_data.invoice_type || '--'}}</text>
-            </view>
-          </view>
-
-          <!-- ★ 展开后的完整 OCR 数据 -->
-          <view wx:if="{{ocrExpanded}}" class="ocr-expanded">
-            <view class="ocr-row">
-              <text class="ocr-label">发票代码</text>
-              <text class="ocr-value">{{currentExpense.invoice_info.invoice_code || currentExpense.ocr_data.invoice_code || '--'}}</text>
-            </view>
-            <view class="ocr-row">
-              <text class="ocr-label">发票号码</text>
-              <text class="ocr-value">{{currentExpense.invoice_info.invoice_number || currentExpense.ocr_data.invoice_number || '--'}}</text>
-            </view>
-            <view class="ocr-row">
-              <text class="ocr-label">购方名称</text>
-              <text class="ocr-value">{{currentExpense.invoice_info.buyer_name || currentExpense.ocr_data.buyer_name || '--'}}</text>
-            </view>
-            <view class="ocr-row">
-              <text class="ocr-label">购方税号</text>
-              <text class="ocr-value">{{currentExpense.invoice_info.buyer_tax_id || currentExpense.ocr_data.buyer_tax_id || '--'}}</text>
-            </view>
-            <view class="ocr-row">
-              <text class="ocr-label">销方税号</text>
-              <text class="ocr-value">{{currentExpense.invoice_info.seller_tax_id || currentExpense.ocr_data.seller_tax_id || '--'}}</text>
-            </view>
-            <view class="ocr-row">
-              <text class="ocr-label">合计金额</text>
-              <text class="ocr-value">¥{{currentExpense.invoice_info.amount_without_tax || currentExpense.ocr_data.amount_without_tax || '--'}}</text>
-            </view>
-            <view class="ocr-row">
-              <text class="ocr-label">合计税额</text>
-              <text class="ocr-value">¥{{currentExpense.invoice_info.tax_amount || currentExpense.ocr_data.tax_amount || '--'}}</text>
-            </view>
-            <view class="ocr-row">
-              <text class="ocr-label">校验码</text>
-              <text class="ocr-value">{{currentExpense.invoice_info.check_code || currentExpense.ocr_data.check_code || '--'}}</text>
-            </view>
-            <view class="ocr-row">
-              <text class="ocr-label">机器编号</text>
-              <text class="ocr-value">{{currentExpense.invoice_info.machine_number || currentExpense.ocr_data.machine_number || '--'}}</text>
-            </view>
-            <view class="ocr-row">
-              <text class="ocr-label">商品名称</text>
-              <text class="ocr-value">{{currentExpense.invoice_info.item_names || currentExpense.ocr_data.item_names || '--'}}</text>
-            </view>
-            <view class="ocr-row">
-              <text class="ocr-label">备注</text>
-              <text class="ocr-value">{{currentExpense.invoice_info.remark || currentExpense.ocr_data.remark || '--'}}</text>
-            </view>
-          </view>
-
-          <!-- ★ 展开/收起按钮（右下角） -->
-          <view class="ocr-toggle" bindtap="toggleOcrExpand">
-            <text class="toggle-text">{{ocrExpanded ? '收起详情 ▲' : '展开详情 ▼'}}</text>
-          </view>
+          <!-- ★ 使用归一化组件，100% 复用"我的发票"详情页的 UI -->
+          <invoice-info-card
+            invoiceData="{{invoiceCardData}}"
+            showImage="{{false}}"
+            showVerifyActions="{{false}}"
+            showVerifyInfo="{{false}}"
+            compact="{{true}}"
+          />
         </view>
-
-        <!-- 无 OCR 数据时 -->
+        <!-- 无发票数据时 -->
         <view wx:elif="{{currentExpense.voucher_type === 'receipt'}}" class="ocr-box ocr-empty">
-          <text class="ocr-empty-text">收据报销（无 OCR 数据）</text>
+          <text class="ocr-empty-text">收据报销（无发票数据）</text>
         </view>
         <view wx:else class="ocr-box ocr-empty">
           <text class="ocr-empty-text">暂无发票识别数据</text>
         </view>
       </view>
 
-      <!-- ═══ 下1/3：基本信息 ═══ -->
+      <!-- ═══ 下部：报销基本信息 ═══ -->
       <view class="detail-section detail-info-section">
         <view class="info-group">
           <view class="detail-row">

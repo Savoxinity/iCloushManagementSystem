@@ -1,0 +1,244 @@
+<!-- ============================================
+     发票详情卡片组件 V5.6.7
+     归一化发票信息展示 — 100% 复用 invoice-detail 的 UI 结构
+     ============================================ -->
+<view class="invoice-card-root {{compact ? 'compact-mode' : ''}}">
+
+  <block wx:if="{{inv}}">
+
+    <!-- ═══ 图片区（可选） ═══ -->
+    <view wx:if="{{showImage}}" class="ic-image-section" bindtap="onPreviewImage">
+      <image
+        wx:if="{{inv.image_url}}"
+        src="{{inv.image_url}}"
+        class="ic-invoice-image"
+        mode="aspectFit"
+        binderror="onImageError"
+      />
+      <view wx:else class="ic-no-image">
+        <text class="ic-no-image-text">暂无发票图片</text>
+      </view>
+      <!-- 类型角标 -->
+      <view class="ic-type-corner {{inv.invoice_type_code === '专' ? 'ic-corner-special' : 'ic-corner-general'}}">
+        <text class="ic-corner-text">{{inv.invoice_type_code || '普'}}</text>
+      </view>
+      <!-- 状态标签 -->
+      <view class="ic-status-overlay">
+        <view wx:if="{{inv.verify_status === 'verified'}}" class="ic-status-badge ic-badge-verified"><text>已核验</text></view>
+        <view wx:if="{{inv.verify_status === 'pending'}}" class="ic-status-badge ic-badge-pending"><text>待核验</text></view>
+        <view wx:if="{{inv.verify_status === 'failed'}}" class="ic-status-badge ic-badge-failed"><text>核验失败</text></view>
+        <view wx:if="{{inv.verify_status === 'manual_review'}}" class="ic-status-badge ic-badge-manual-review"><text>待人工复核</text></view>
+        <view wx:if="{{inv.verify_status === 'duplicate'}}" class="ic-status-badge ic-badge-duplicate"><text>重复发票</text></view>
+        <view wx:if="{{inv.is_duplicate && inv.verify_status !== 'duplicate'}}" class="ic-status-badge ic-badge-duplicate"><text>重</text></view>
+      </view>
+    </view>
+
+    <!-- ═══ 核验操作区（可选） ═══ -->
+    <view wx:if="{{showVerifyActions}}" class="ic-verify-action-bar">
+      <view class="ic-verify-btn ic-verify-btn-auto" bindtap="onAutoVerify">
+        <text>🔍 自动核验</text>
+      </view>
+      <view class="ic-verify-btn ic-verify-btn-manual" bindtap="onManualVerify">
+        <text>✏️ 手动标记</text>
+      </view>
+    </view>
+
+    <!-- ═══ 金额区 ═══ -->
+    <view class="ic-amount-block">
+      <text class="ic-amount-label">价税合计</text>
+      <text class="ic-amount-value">¥{{inv.total_amount || '--'}}</text>
+      <text wx:if="{{inv.total_amount_cn}}" class="ic-amount-cn">{{inv.total_amount_cn}}</text>
+    </view>
+
+    <!-- ═══ 基本信息 ═══ -->
+    <view class="ic-info-group">
+      <view class="ic-group-title">基本信息</view>
+      <view class="ic-info-row">
+        <text class="ic-info-label">发票类型</text>
+        <text class="ic-info-value">{{inv.invoice_type_label || '--'}}</text>
+      </view>
+      <view class="ic-info-row" bindtap="onCopyNumber">
+        <text class="ic-info-label">发票号码</text>
+        <view class="ic-info-value-copy">
+          <text class="ic-info-value">{{inv.invoice_number || '--'}}</text>
+          <text class="ic-copy-btn">复制</text>
+        </view>
+      </view>
+      <view class="ic-info-row">
+        <text class="ic-info-label">发票代码</text>
+        <text class="ic-info-value">{{inv.invoice_code || '--'}}</text>
+      </view>
+      <view class="ic-info-row">
+        <text class="ic-info-label">开票日期</text>
+        <text class="ic-info-value">{{inv.invoice_date || '--'}}</text>
+      </view>
+      <view wx:if="{{inv.check_code}}" class="ic-info-row" bindtap="onCopyCheckCode">
+        <text class="ic-info-label">校验码</text>
+        <view class="ic-info-value-copy">
+          <text class="ic-info-value ic-check-code">{{inv.check_code}}</text>
+          <text class="ic-copy-btn">复制</text>
+        </view>
+      </view>
+      <view wx:if="{{inv.machine_number}}" class="ic-info-row">
+        <text class="ic-info-label">机器编号</text>
+        <text class="ic-info-value">{{inv.machine_number}}</text>
+      </view>
+    </view>
+
+    <!-- ═══ 金额明细 ═══ -->
+    <view class="ic-info-group">
+      <view class="ic-group-title">金额明细</view>
+      <view class="ic-info-row">
+        <text class="ic-info-label">合计金额（不含税）</text>
+        <text class="ic-info-value">¥{{inv.pre_tax_amount || inv.amount_without_tax || '--'}}</text>
+      </view>
+      <view class="ic-info-row">
+        <text class="ic-info-label">合计税额</text>
+        <text class="ic-info-value">¥{{inv.tax_amount || '--'}}</text>
+      </view>
+      <view class="ic-info-row">
+        <text class="ic-info-label">价税合计</text>
+        <text class="ic-info-value ic-amount-highlight">¥{{inv.total_amount || '--'}}</text>
+      </view>
+    </view>
+
+    <!-- ═══ 购买方信息 ═══ -->
+    <view class="ic-info-group">
+      <view class="ic-group-title">购买方信息</view>
+      <view class="ic-info-row">
+        <text class="ic-info-label">名称</text>
+        <text class="ic-info-value">{{inv.buyer_name || '--'}}</text>
+      </view>
+      <view class="ic-info-row">
+        <text class="ic-info-label">纳税人识别号</text>
+        <text class="ic-info-value ic-mono">{{inv.buyer_tax_id || '--'}}</text>
+      </view>
+      <view wx:if="{{inv.buyer_address_phone}}" class="ic-info-row">
+        <text class="ic-info-label">地址电话</text>
+        <text class="ic-info-value ic-small">{{inv.buyer_address_phone}}</text>
+      </view>
+      <view wx:if="{{inv.buyer_bank_account}}" class="ic-info-row">
+        <text class="ic-info-label">开户行及账号</text>
+        <text class="ic-info-value ic-small">{{inv.buyer_bank_account}}</text>
+      </view>
+    </view>
+
+    <!-- ═══ 销售方信息 ═══ -->
+    <view class="ic-info-group">
+      <view class="ic-group-title">销售方信息</view>
+      <view class="ic-info-row">
+        <text class="ic-info-label">名称</text>
+        <text class="ic-info-value">{{inv.seller_name || '--'}}</text>
+      </view>
+      <view class="ic-info-row">
+        <text class="ic-info-label">纳税人识别号</text>
+        <text class="ic-info-value ic-mono">{{inv.seller_tax_id || '--'}}</text>
+      </view>
+      <view wx:if="{{inv.seller_address_phone}}" class="ic-info-row">
+        <text class="ic-info-label">地址电话</text>
+        <text class="ic-info-value ic-small">{{inv.seller_address_phone}}</text>
+      </view>
+      <view wx:if="{{inv.seller_bank_account}}" class="ic-info-row">
+        <text class="ic-info-label">开户行及账号</text>
+        <text class="ic-info-value ic-small">{{inv.seller_bank_account}}</text>
+      </view>
+    </view>
+
+    <!-- ═══ 货物/服务明细 ═══ -->
+    <view wx:if="{{inv.hasItems}}" class="ic-info-group">
+      <view class="ic-group-title">货物/服务明细</view>
+      <view class="ic-items-table">
+        <!-- 表头 -->
+        <view class="ic-item-header">
+          <text class="ic-item-col-name">项目名称</text>
+          <text class="ic-item-col-qty">数量</text>
+          <text class="ic-item-col-price">单价</text>
+          <text class="ic-item-col-amount">金额</text>
+          <text class="ic-item-col-tax">税率</text>
+          <text class="ic-item-col-tax-amt">税额</text>
+        </view>
+        <!-- 明细行 -->
+        <view class="ic-item-row" wx:for="{{inv.items}}" wx:key="index" wx:for-item="row">
+          <text class="ic-item-col-name ic-item-name-text">{{row.name || row.Name || '--'}}</text>
+          <text class="ic-item-col-qty">{{row.quantity || row.Quantity || '--'}}</text>
+          <text class="ic-item-col-price">{{row.unit_price || row.UnitPrice || '--'}}</text>
+          <text class="ic-item-col-amount">{{row.amount_without_tax || row.AmountWithoutTax || '--'}}</text>
+          <text class="ic-item-col-tax">{{row.tax_rate || row.TaxRate || '--'}}</text>
+          <text class="ic-item-col-tax-amt">{{row.tax_amount || row.TaxAmount || '--'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ═══ 开票人员 ═══ -->
+    <view wx:if="{{inv.payee || inv.reviewer_name || inv.drawer}}" class="ic-info-group">
+      <view class="ic-group-title">开票人员</view>
+      <view wx:if="{{inv.payee}}" class="ic-info-row">
+        <text class="ic-info-label">收款人</text>
+        <text class="ic-info-value">{{inv.payee}}</text>
+      </view>
+      <view wx:if="{{inv.reviewer_name}}" class="ic-info-row">
+        <text class="ic-info-label">复核人</text>
+        <text class="ic-info-value">{{inv.reviewer_name}}</text>
+      </view>
+      <view wx:if="{{inv.drawer}}" class="ic-info-row">
+        <text class="ic-info-label">开票人</text>
+        <text class="ic-info-value">{{inv.drawer}}</text>
+      </view>
+    </view>
+
+    <!-- ═══ 备注 ═══ -->
+    <view wx:if="{{inv.remark}}" class="ic-info-group">
+      <view class="ic-group-title">备注</view>
+      <view class="ic-remark-block">
+        <text class="ic-remark-text">{{inv.remark}}</text>
+      </view>
+    </view>
+
+    <!-- ═══ 核验信息（可选） ═══ -->
+    <view wx:if="{{showVerifyInfo}}" class="ic-info-group">
+      <view class="ic-group-title">核验信息</view>
+      <view class="ic-info-row">
+        <text class="ic-info-label">核验状态</text>
+        <text class="ic-info-value {{inv.verify_status === 'verified' ? 'ic-text-green' : inv.verify_status === 'failed' ? 'ic-text-red' : ''}}">
+          {{inv.verify_status_label || '待核验'}}
+        </text>
+      </view>
+      <view wx:if="{{inv.verified_at}}" class="ic-info-row">
+        <text class="ic-info-label">核验时间</text>
+        <text class="ic-info-value">{{inv.verified_at}}</text>
+      </view>
+      <view wx:if="{{inv.is_duplicate}}" class="ic-info-row">
+        <text class="ic-info-label">重复标记</text>
+        <text class="ic-info-value ic-text-red">是（重复发票）</text>
+      </view>
+    </view>
+
+    <!-- ═══ 其他信息 ═══ -->
+    <view class="ic-info-group">
+      <view class="ic-group-title">其他信息</view>
+      <view wx:if="{{inv.province || inv.city}}" class="ic-info-row">
+        <text class="ic-info-label">开票地区</text>
+        <text class="ic-info-value">{{inv.province || ''}} {{inv.city || ''}}</text>
+      </view>
+      <view wx:if="{{inv.consumption_type}}" class="ic-info-row">
+        <text class="ic-info-label">消费类型</text>
+        <text class="ic-info-value">{{inv.consumption_type}}</text>
+      </view>
+      <view class="ic-info-row">
+        <text class="ic-info-label">公司印章</text>
+        <text class="ic-info-value">{{inv.has_company_seal ? '有' : '无/未识别'}}</text>
+      </view>
+      <view wx:if="{{inv.created_at}}" class="ic-info-row">
+        <text class="ic-info-label">上传时间</text>
+        <text class="ic-info-value">{{inv.created_at}}</text>
+      </view>
+    </view>
+
+  </block>
+
+  <!-- 无数据状态 -->
+  <view wx:else class="ic-empty-state">
+    <text class="ic-empty-text">暂无发票数据</text>
+  </view>
+
+</view>

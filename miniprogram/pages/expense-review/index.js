@@ -1,8 +1,9 @@
 // ============================================
-// 报销审核页 — 管理员/财务专用
+// 报销审核页 V5.6.7 — 管理员/财务专用
 // ★ 五Tab分类：全部 / 待审核 / 发票通过 / 小票通过 / 已驳回
 // ★ 三按钮审核：驳回 / 小票通过 / 发票通过
 // ★ 积分后置：审核时才产生积分奖惩
+// ★ V5.6.7: 使用 invoice-info-card 组件替代简陋版 OCR 折叠框
 // ============================================
 var app = getApp();
 
@@ -16,8 +17,9 @@ Page({
     currentExpense: null,
     showReviewPanel: false,
     showDetailPanel: false,
-    ocrExpanded: false,
     reviewNote: '',
+    // ★ V5.6.7: 传给 invoice-info-card 组件的格式化数据
+    invoiceCardData: null,
 
     // ═══ 五Tab筛选 ═══
     activeTab: 'pending',
@@ -94,14 +96,13 @@ Page({
     });
   },
 
-  // ── V5.6.4: 查看报销单详情（加载完整发票+OCR数据） ──
+  // ── V5.6.7: 查看报销单详情（加载完整发票+OCR数据 → 传给组件） ──
   viewDetail: function (e) {
     var id = e.currentTarget.dataset.id;
     var expense = this.data.expenses.find(function (item) { return item.id === id; });
     if (!expense) return;
 
     var self = this;
-    self.setData({ ocrExpanded: false });
 
     app.request({
       url: '/api/v1/expenses/' + id,
@@ -121,35 +122,80 @@ Page({
             manual_review: '待审核', invoice_pass: '发票通过', receipt_pass: '小票通过',
           };
           detail.status_label = statusLabels[detail.status] || detail.status;
+
+          // ★ V5.6.7: 准备传给 invoice-info-card 组件的数据
+          var cardData = self._buildInvoiceCardData(detail);
+
           self.setData({
             currentExpense: detail,
+            invoiceCardData: cardData,
             showDetailPanel: true,
           });
         } else {
           // fallback: 用列表数据
+          var cardData2 = self._buildInvoiceCardData(expense);
           self.setData({
             currentExpense: expense,
+            invoiceCardData: cardData2,
             showDetailPanel: true,
           });
         }
       },
       fail: function () {
+        var cardData3 = self._buildInvoiceCardData(expense);
         self.setData({
           currentExpense: expense,
+          invoiceCardData: cardData3,
           showDetailPanel: true,
         });
       },
     });
   },
 
-  // ── 关闭详情面板 ──
-  closeDetail: function () {
-    this.setData({ showDetailPanel: false, ocrExpanded: false });
+  // ★ V5.6.7: 构建传给 invoice-info-card 组件的数据
+  // 将 expense 的 invoice_info / ocr_data 合并为组件可识别的格式
+  _buildInvoiceCardData: function (expense) {
+    if (!expense) return null;
+
+    // 优先使用 invoice_info（后端 JOIN 查询的完整发票数据）
+    var inv = expense.invoice_info || expense.ocr_data || {};
+
+    // 如果 inv 是空对象，尝试从 expense 本身提取字段
+    if (!inv.invoice_type && !inv.invoice_number && !inv.seller_name) {
+      // 可能后端直接把字段平铺在 expense 上
+      if (expense.invoice_type || expense.invoice_number) {
+        inv = {
+          invoice_type: expense.invoice_type,
+          invoice_number: expense.invoice_number,
+          invoice_code: expense.invoice_code,
+          invoice_date: expense.invoice_date,
+          total_amount: expense.total_amount || expense.claimed_amount,
+          pre_tax_amount: expense.pre_tax_amount || expense.amount_without_tax,
+          tax_amount: expense.tax_amount,
+          seller_name: expense.seller_name,
+          seller_tax_id: expense.seller_tax_id,
+          buyer_name: expense.buyer_name,
+          buyer_tax_id: expense.buyer_tax_id,
+          check_code: expense.check_code,
+          machine_number: expense.machine_number,
+          image_url: expense.invoice_image_url,
+          items: expense.items || [],
+          remark: expense.remark,
+        };
+      }
+    }
+
+    // 补充图片 URL（多来源 fallback）
+    if (!inv.image_url) {
+      inv.image_url = expense.invoice_image_url || expense.receipt_image_url || '';
+    }
+
+    return inv;
   },
 
-  // ★ V5.6.4: OCR 折叠框 展开/收起
-  toggleOcrExpand: function () {
-    this.setData({ ocrExpanded: !this.data.ocrExpanded });
+  // ── 关闭详情面板 ──
+  closeDetail: function () {
+    this.setData({ showDetailPanel: false, invoiceCardData: null });
   },
 
   // ── 从详情进入审核 ──

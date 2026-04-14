@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "发票详情",
-  "usingComponents": {}
+  "usingComponents": {
+    "invoice-info-card": "/components/invoice-info-card/index"
+  }
 }

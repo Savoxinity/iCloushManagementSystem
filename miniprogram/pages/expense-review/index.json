@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "报销审核",
-  "usingComponents": {}
+  "usingComponents": {
+    "invoice-info-card": "/components/invoice-info-card/index"
+  }
 }

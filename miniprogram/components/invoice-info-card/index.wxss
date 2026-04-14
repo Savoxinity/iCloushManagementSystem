@@ -1,0 +1,167 @@
+/* ============================================
+   发票详情卡片组件样式 V5.6.7
+   所有类名加 ic- 前缀，避免与宿主页面冲突
+   ============================================ */
+
+.invoice-card-root { }
+
+/* ═══ 图片区 ═══ */
+.ic-image-section {
+  position: relative;
+  width: 100%;
+  height: 480rpx;
+  background: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.ic-invoice-image { width: 100%; height: 100%; }
+.ic-no-image {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%;
+}
+.ic-no-image-text { font-size: 28rpx; color: #555; }
+
+/* 类型角标 */
+.ic-type-corner {
+  position: absolute; top: 20rpx; left: 20rpx;
+  width: 56rpx; height: 56rpx; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.ic-corner-special { background: rgba(239, 68, 68, 0.85); }
+.ic-corner-general { background: rgba(59, 130, 246, 0.85); }
+.ic-corner-text { font-size: 28rpx; font-weight: bold; color: #fff; }
+
+/* 状态标签 */
+.ic-status-overlay {
+  position: absolute; top: 20rpx; right: 20rpx;
+  display: flex; gap: 8rpx; flex-direction: column; align-items: flex-end;
+}
+.ic-status-badge {
+  padding: 6rpx 16rpx; border-radius: 6rpx;
+  font-size: 22rpx; font-weight: 500;
+}
+.ic-badge-verified { background: rgba(16, 185, 129, 0.9); color: #fff; }
+.ic-badge-pending { background: rgba(251, 191, 36, 0.9); color: #000; }
+.ic-badge-failed { background: rgba(239, 68, 68, 0.9); color: #fff; }
+.ic-badge-manual-review { background: rgba(234, 88, 12, 0.9); color: #fff; }
+.ic-badge-duplicate { background: rgba(249, 115, 22, 0.9); color: #fff; }
+
+/* ═══ 核验操作区 ═══ */
+.ic-verify-action-bar {
+  display: flex; gap: 16rpx; padding: 20rpx 28rpx;
+  background: rgba(255,255,255,0.03);
+}
+.ic-verify-btn {
+  flex: 1; height: 72rpx; line-height: 72rpx;
+  text-align: center; border-radius: 8rpx;
+  font-size: 28rpx; font-weight: 500;
+}
+.ic-verify-btn-auto { background: #C9A84C; color: #000; }
+.ic-verify-btn-manual {
+  background: rgba(255,255,255,0.08); color: #ddd;
+  border: 1rpx solid rgba(255,255,255,0.15);
+}
+
+/* ═══ 金额区 ═══ */
+.ic-amount-block {
+  text-align: center; padding: 32rpx 0; margin-bottom: 24rpx;
+  border-bottom: 1rpx solid rgba(255,255,255,0.08);
+}
+.ic-amount-label { font-size: 24rpx; color: #888; display: block; margin-bottom: 8rpx; }
+.ic-amount-value { font-size: 56rpx; color: #C9A84C; font-weight: bold; display: block; }
+.ic-amount-cn { font-size: 22rpx; color: #666; display: block; margin-top: 8rpx; }
+
+/* ═══ 信息组 ═══ */
+.ic-info-group {
+  margin-bottom: 28rpx; padding-bottom: 20rpx;
+  border-bottom: 1rpx solid rgba(255,255,255,0.05);
+}
+.ic-group-title {
+  font-size: 28rpx; color: #C9A84C; font-weight: 600;
+  margin-bottom: 16rpx; padding-left: 12rpx;
+  border-left: 4rpx solid #C9A84C;
+}
+
+/* ═══ 信息行 ═══ */
+.ic-info-row {
+  display: flex; justify-content: space-between;
+  align-items: flex-start; padding: 12rpx 0;
+}
+.ic-info-label {
+  font-size: 26rpx; color: #888; flex-shrink: 0; width: 160rpx;
+}
+.ic-info-value {
+  font-size: 26rpx; color: #ddd; text-align: right;
+  flex: 1; word-break: break-all;
+}
+.ic-info-value.ic-mono { font-family: 'Courier New', monospace; font-size: 24rpx; }
+.ic-info-value.ic-small { font-size: 22rpx; color: #999; }
+.ic-info-value.ic-check-code { font-family: 'Courier New', monospace; font-size: 22rpx; }
+.ic-amount-highlight { color: #C9A84C; font-weight: bold; }
+
+/* 复制按钮 */
+.ic-info-value-copy {
+  display: flex; align-items: center; justify-content: flex-end;
+  flex: 1; gap: 12rpx;
+}
+.ic-copy-btn {
+  font-size: 20rpx; color: #C9A84C;
+  border: 1rpx solid #C9A84C;
+  padding: 4rpx 12rpx; border-radius: 4rpx; flex-shrink: 0;
+}
+
+/* ═══ 货物/服务明细表格 ═══ */
+.ic-items-table {
+  background: rgba(255,255,255,0.03);
+  border-radius: 8rpx; overflow: hidden;
+}
+.ic-item-header {
+  display: flex; padding: 16rpx 12rpx;
+  background: rgba(255,255,255,0.06);
+  border-bottom: 1rpx solid rgba(255,255,255,0.08);
+}
+.ic-item-header text { font-size: 22rpx; color: #888; font-weight: 500; }
+.ic-item-row {
+  display: flex; padding: 14rpx 12rpx;
+  border-bottom: 1rpx solid rgba(255,255,255,0.03);
+}
+.ic-item-row text { font-size: 22rpx; color: #ccc; }
+.ic-item-col-name { flex: 3; overflow: hidden; text-overflow: ellipsis; }
+.ic-item-name-text { white-space: nowrap; }
+.ic-item-col-qty { flex: 1; text-align: center; }
+.ic-item-col-price { flex: 1.5; text-align: right; }
+.ic-item-col-amount { flex: 1.5; text-align: right; }
+.ic-item-col-tax { flex: 1; text-align: right; }
+.ic-item-col-tax-amt { flex: 1; text-align: right; }
+
+/* ═══ 备注 ═══ */
+.ic-remark-block {
+  background: rgba(255,255,255,0.03);
+  padding: 16rpx; border-radius: 8rpx;
+}
+.ic-remark-text { font-size: 24rpx; color: #aaa; line-height: 1.6; }
+
+/* ═══ 文字颜色 ═══ */
+.ic-text-green { color: #10B981 !important; }
+.ic-text-red { color: #EF4444 !important; }
+
+/* ═══ 空状态 ═══ */
+.ic-empty-state {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 200rpx;
+}
+.ic-empty-text { font-size: 26rpx; color: #555; }
+
+/* ═══ 紧凑模式（弹窗内使用） ═══ */
+.compact-mode .ic-amount-block { padding: 24rpx 0; margin-bottom: 16rpx; }
+.compact-mode .ic-amount-value { font-size: 48rpx; }
+.compact-mode .ic-info-group { margin-bottom: 20rpx; padding-bottom: 16rpx; }
+.compact-mode .ic-group-title { font-size: 26rpx; margin-bottom: 12rpx; }
+.compact-mode .ic-info-row { padding: 8rpx 0; }
+.compact-mode .ic-info-label { font-size: 24rpx; width: 140rpx; }
+.compact-mode .ic-info-value { font-size: 24rpx; }
+.compact-mode .ic-image-section { height: 360rpx; }
+.compact-mode .ic-item-header text { font-size: 20rpx; }
+.compact-mode .ic-item-row text { font-size: 20rpx; }
