@@ -16,6 +16,7 @@ Page({
     currentExpense: null,
     showReviewPanel: false,
     showDetailPanel: false,
+    ocrExpanded: false,
     reviewNote: '',
 
     // ═══ 五Tab筛选 ═══
@@ -93,30 +94,62 @@ Page({
     });
   },
 
-  // ── 查看报销单详情 ──
+  // ── V5.6.4: 查看报销单详情（加载完整发票+OCR数据） ──
   viewDetail: function (e) {
     var id = e.currentTarget.dataset.id;
     var expense = this.data.expenses.find(function (item) { return item.id === id; });
     if (!expense) return;
 
-    // 加载详情（含发票信息）
     var self = this;
+    self.setData({ ocrExpanded: false });
+
     app.request({
       url: '/api/v1/expenses/' + id,
       success: function (res) {
         if (res.code === 200 && res.data) {
+          var detail = res.data;
+          // ★ V5.6.4: 确保 invoice_info 和 ocr_data 都有
+          if (!detail.invoice_info && detail.invoice_id) {
+            detail.invoice_info = expense.invoice_info || {};
+          }
+          if (!detail.ocr_data && detail.invoice_info) {
+            detail.ocr_data = detail.invoice_info;
+          }
+          // 补充 status_label
+          var statusLabels = {
+            pending: '待审核', approved: '已通过', rejected: '已驳回',
+            manual_review: '待审核', invoice_pass: '发票通过', receipt_pass: '小票通过',
+          };
+          detail.status_label = statusLabels[detail.status] || detail.status;
           self.setData({
-            currentExpense: res.data,
+            currentExpense: detail,
+            showDetailPanel: true,
+          });
+        } else {
+          // fallback: 用列表数据
+          self.setData({
+            currentExpense: expense,
             showDetailPanel: true,
           });
         }
+      },
+      fail: function () {
+        self.setData({
+          currentExpense: expense,
+          showDetailPanel: true,
+        });
       },
     });
   },
 
   // ── 关闭详情面板 ──
   closeDetail: function () {
-    this.setData({ showDetailPanel: false });
+    this.setData({ showDetailPanel: false, ocrExpanded: false });
+  },
+
+  // ★ V5.6.4: OCR 折叠框 展开/收起
+  toggleOcrExpand: function () {
+    this.setData({ ocrExpanded: !this.data.ocrExpanded });
   },
 
   // ── 从详情进入审核 ──

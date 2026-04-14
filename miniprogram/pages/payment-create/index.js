@@ -191,8 +191,7 @@ Page({
     });
   },
 
-  // ★ 调用后端 OCR 识别 → 自动入发票/票据池
-  // ★ V5.5.0: OCR 失败时 fallback 到 /invoices/upload 强制入池
+  // ★ V5.6.4: OCR → 强制入池（两步走：先识别，再入库拿 invoice_id）
   runOCR: function (imageUrl) {
     var self = this;
     self.setData({ ocrLoading: true });
@@ -202,29 +201,21 @@ Page({
       method: 'POST',
       data: { image_url: imageUrl, source: 'payment_create' },
       success: function (res) {
-        self.setData({ ocrLoading: false });
-        if (res.code === 200 && res.data) {
-          if (res.data.ocr_available && res.data.parsed) {
-            var parsed = res.data.parsed;
-            // ★ V5.5.2 Hotfix: 价税合计 fallback
-            var totalAmt = parsed.total_amount;
-            var preTax = parsed.pre_tax_amount;
-            var taxAmt = parsed.tax_amount;
-            if ((!totalAmt || totalAmt === '' || totalAmt === 'null') && preTax && taxAmt) {
-              parsed.total_amount = (parseFloat(preTax) + parseFloat(taxAmt)).toFixed(2);
-              console.log('[payment-create OCR Fallback] 价税合计:', parsed.total_amount);
-            }
-            self.setData({ ocrResult: parsed });
-            // ★ OCR 成功 → 拿到 invoice_id
-            if (res.data.invoice_id) {
-              self.setData({ invoiceId: res.data.invoice_id });
-            }
-            wx.showToast({ title: 'OCR 识别成功，已入池', icon: 'success' });
-          } else {
-            // ★ OCR 不可用 → fallback 强制入池
-            self.fallbackUploadToPool(imageUrl);
+        if (res.code === 200 && res.data && res.data.ocr_available && res.data.parsed) {
+          var parsed = res.data.parsed;
+          // ★ V5.5.2 Hotfix: 价税合计 fallback
+          var totalAmt = parsed.total_amount;
+          var preTax = parsed.pre_tax_amount;
+          var taxAmt = parsed.tax_amount;
+          if ((!totalAmt || totalAmt === '' || totalAmt === 'null') && preTax && taxAmt) {
+            parsed.total_amount = (parseFloat(preTax) + parseFloat(taxAmt)).toFixed(2);
+            console.log('[payment-create OCR Fallback] 价税合计:', parsed.total_amount);
           }
+          self.setData({ ocrResult: parsed });
+          // ★ V5.6.4 关键修复：OCR 成功后，必须调用 /upload 入池拿 invoice_id
+          self.uploadToPoolWithOCR(imageUrl, parsed);
         } else {
+          self.setData({ ocrLoading: false });
           self.fallbackUploadToPool(imageUrl);
         }
       },
@@ -235,7 +226,50 @@ Page({
     });
   },
 
-  // ★ V5.5.0 新增：OCR 失败时 fallback 强制入池
+  // ★ V5.6.4 新增：OCR 成功后，携带 OCR 数据调用 /upload 入池
+  uploadToPoolWithOCR: function (imageUrl, parsed) {
+    var self = this;
+    console.log('[payment-create] OCR 成功，携带数据入池:', imageUrl);
+
+    app.request({
+      url: '/api/v1/invoices/upload',
+      method: 'POST',
+      data: {
+        image_url: imageUrl,
+        invoice_type: parsed.invoice_type || '',
+        invoice_code: parsed.invoice_code || '',
+        invoice_number: parsed.invoice_number || '',
+        invoice_date: parsed.invoice_date || '',
+        check_code: parsed.check_code || '',
+        buyer_name: parsed.buyer_name || '',
+        buyer_tax_id: parsed.buyer_tax_id || '',
+        seller_name: parsed.seller_name || '',
+        seller_tax_id: parsed.seller_tax_id || '',
+        pre_tax_amount: parsed.pre_tax_amount ? parseFloat(parsed.pre_tax_amount) : null,
+        tax_amount: parsed.tax_amount ? parseFloat(parsed.tax_amount) : null,
+        total_amount: parsed.total_amount ? parseFloat(parsed.total_amount) : null,
+        remark: parsed.remark || '',
+        ocr_raw_json: parsed,
+        business_type: 'payment',
+      },
+      success: function (res) {
+        self.setData({ ocrLoading: false });
+        if (res.code === 200 && res.data && res.data.id) {
+          self.setData({ invoiceId: res.data.id });
+          console.log('[payment-create] ★ invoice_id 已获取:', res.data.id);
+          wx.showToast({ title: 'OCR 识别成功，已入池', icon: 'success' });
+        } else {
+          wx.showToast({ title: 'OCR 成功但入池失败', icon: 'none', duration: 2000 });
+        }
+      },
+      fail: function () {
+        self.setData({ ocrLoading: false });
+        wx.showToast({ title: 'OCR 成功但入池失败', icon: 'none', duration: 2000 });
+      },
+    });
+  },
+
+  // ★ V5.5.0: OCR 失败时 fallback 强制入池（无 OCR 数据）
   fallbackUploadToPool: function (imageUrl) {
     var self = this;
     console.log('[payment-create] OCR 失败，fallback 入池:', imageUrl);
@@ -245,11 +279,12 @@ Page({
       method: 'POST',
       data: {
         image_url: imageUrl,
-        source: 'payment_create',
+        business_type: 'payment',
       },
       success: function (res) {
         if (res.code === 200 && res.data && res.data.id) {
           self.setData({ invoiceId: res.data.id });
+          console.log('[payment-create] ★ fallback invoice_id:', res.data.id);
           wx.showToast({ title: '已入发票池（待人工核验）', icon: 'none', duration: 2000 });
         } else {
           wx.showToast({ title: 'OCR 不可用，请手动确认', icon: 'none', duration: 2000 });

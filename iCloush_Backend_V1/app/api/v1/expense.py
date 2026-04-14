@@ -1,22 +1,22 @@
 """
-报销路由 — Phase 3B+ 深度重构
+报销路由 — V5.6.4 深度重构
 ═══════════════════════════════════════════════════
-核心变更：
-  1. 员工端极简化：只填事由、金额、凭证（删除成本分类选择器）
-  2. 创建报销时不再扣分/加分 → 积分奖惩后置到审核环节
-  3. 审核端三按钮：驳回 / 小票通过 / 发票通过
-     - 驳回：不产生积分
-     - 小票通过：-5 积分
-     - 发票通过：+10 积分
-  4. 审核通过自动生成 ManagementCostLedger 流水
-  5. 所有权限账号均可创建报销（包括老板/管理员）
+核心变更（V5.6.4）：
+  1. 所有列表/详情接口统一 JOIN Invoice 表
+  2. 返回完整 invoice_info（含 image_url、ocr_raw_json）
+  3. 消除 N+1 查询 → 批量预加载 Invoice
+  4. 前端可直接渲染三段式详情（图片+OCR+基本信息）
+
+历史变更：
+  Phase 3B+: 员工端极简化、积分后置到审核、三按钮审核
+  Phase 3C:  小票通过自动生成欠票记录
 
 接口清单：
-  POST /create          员工创建报销单（极简三项，不扣分）
+  POST /create          员工创建报销单
   GET  /pending         待审核报销单（前端 expense-review 调用）
   GET  /my              我的报销单（前端 expense-list 调用）
   GET  /list            报销单列表（通用，支持 tab 参数）
-  GET  /{id}            报销单详情
+  GET  /{id}            报销单详情（含完整发票+OCR数据）
   POST /review/{id}     审核报销单（三按钮审核）
   PUT  /review/{id}     审核报销单（兼容）
   GET  /stats           报销统计
@@ -78,6 +78,161 @@ class ExpenseReviewRequest(BaseModel):
 
 
 # ═══════════════════════════════════════════════════
+# 工具函数：批量预加载 Invoice
+# ═══════════════════════════════════════════════════
+
+async def _batch_load_invoices(
+    db: AsyncSession,
+    expenses: list,
+) -> dict:
+    """
+    批量加载报销单关联的 Invoice，返回 {invoice_id: Invoice} 映射
+    消除 N+1 查询
+    """
+    invoice_ids = [e.invoice_id for e in expenses if e.invoice_id]
+    if not invoice_ids:
+        return {}
+    inv_result = await db.execute(
+        select(Invoice).where(Invoice.id.in_(invoice_ids))
+    )
+    invoices = inv_result.scalars().all()
+    return {inv.id: inv for inv in invoices}
+
+
+def _serialize_invoice_full(invoice: Invoice) -> dict:
+    """
+    完整序列化 Invoice（含图片URL、OCR原始数据、所有字段）
+    供报销详情页的三段式布局使用
+    """
+    return {
+        "id": invoice.id,
+        # ── 类型信息 ──
+        "invoice_type": invoice.invoice_type,
+        "invoice_type_label": getattr(invoice, 'invoice_type_label', None),
+        "invoice_type_code": getattr(invoice, 'invoice_type_code', None) or (
+            "专" if invoice.invoice_type == "special_vat" else "普"
+        ),
+        # ── 票号信息 ──
+        "invoice_code": invoice.invoice_code,
+        "invoice_number": invoice.invoice_number,
+        "invoice_date": invoice.invoice_date.isoformat() if invoice.invoice_date else None,
+        "check_code": invoice.check_code,
+        "machine_number": invoice.machine_number,
+        # ── 购方信息 ──
+        "buyer_name": invoice.buyer_name,
+        "buyer_tax_id": invoice.buyer_tax_id,
+        "buyer_address_phone": getattr(invoice, 'buyer_address_phone', None),
+        "buyer_bank_account": getattr(invoice, 'buyer_bank_account', None),
+        # ── 销方信息 ──
+        "seller_name": invoice.seller_name,
+        "seller_tax_id": invoice.seller_tax_id,
+        "seller_address_phone": getattr(invoice, 'seller_address_phone', None),
+        "seller_bank_account": getattr(invoice, 'seller_bank_account', None),
+        # ── 金额信息 ──
+        "pre_tax_amount": float(invoice.pre_tax_amount) if invoice.pre_tax_amount else None,
+        "tax_amount": float(invoice.tax_amount) if invoice.tax_amount else None,
+        "total_amount": float(invoice.total_amount) if invoice.total_amount else None,
+        "total_amount_cn": getattr(invoice, 'total_amount_cn', None),
+        # ── 人员信息 ──
+        "payee": getattr(invoice, 'payee', None),
+        "reviewer_name": getattr(invoice, 'reviewer_name', None),
+        "drawer": getattr(invoice, 'drawer', None),
+        # ── 货物/服务 ──
+        "goods_name_summary": getattr(invoice, 'goods_name_summary', None),
+        "items": getattr(invoice, 'items_json', None) or [],
+        # ── 备注 ──
+        "remark": getattr(invoice, 'remark', None),
+        "province": getattr(invoice, 'province', None),
+        "city": getattr(invoice, 'city', None),
+        "consumption_type": getattr(invoice, 'consumption_type', None),
+        # ── 核验状态 ──
+        "verify_status": invoice.verify_status,
+        # ── 图片（关键！前端三段式布局的上1/3） ──
+        "image_url": invoice.image_url,
+        # ── OCR 原始数据（关键！前端折叠框的数据源） ──
+        "ocr_raw_json": getattr(invoice, 'ocr_raw_json', None),
+    }
+
+
+def _serialize_invoice_brief(invoice: Invoice) -> dict:
+    """
+    简要序列化 Invoice（列表页使用，不含 OCR 原始数据）
+    """
+    return {
+        "id": invoice.id,
+        "invoice_type": invoice.invoice_type,
+        "invoice_type_code": getattr(invoice, 'invoice_type_code', None) or (
+            "专" if invoice.invoice_type == "special_vat" else "普"
+        ),
+        "invoice_type_label": getattr(invoice, 'invoice_type_label', None),
+        "invoice_number": invoice.invoice_number,
+        "invoice_date": invoice.invoice_date.isoformat() if invoice.invoice_date else None,
+        "total_amount": float(invoice.total_amount) if invoice.total_amount else None,
+        "seller_name": invoice.seller_name,
+        "buyer_name": invoice.buyer_name,
+        "goods_name_summary": getattr(invoice, 'goods_name_summary', None),
+        "verify_status": invoice.verify_status,
+        "image_url": invoice.image_url,
+    }
+
+
+# ═══════════════════════════════════════════════════
+# 序列化报销单
+# ═══════════════════════════════════════════════════
+
+def _serialize_expense(e: ExpenseReport) -> dict:
+    STATUS_LABELS = {
+        "pending": "待审核",
+        "auto_approved": "自动通过",
+        "manual_review": "人工审核中",
+        "approved": "已通过",
+        "rejected": "已驳回",
+    }
+    return {
+        "id": e.id,
+        "user_id": e.user_id,
+        "purpose": e.purpose,
+        "claimed_amount": float(e.claimed_amount) if e.claimed_amount else 0,
+        "voucher_type": e.voucher_type,
+        "voucher_type_label": "发票" if e.voucher_type == "invoice" else "收据",
+        "invoice_id": e.invoice_id,
+        "receipt_image_url": e.receipt_image_url,
+        "status": e.status,
+        "status_label": STATUS_LABELS.get(e.status, "未知"),
+        "review_note": e.review_note,
+        "reviewer_id": e.reviewer_id,
+        "reviewed_at": e.reviewed_at.isoformat() if e.reviewed_at else None,
+        "category_code": e.category_code,
+        "category_name": COST_CATEGORIES.get(e.category_code, {}).get("name") if e.category_code else None,
+        "amount_diff_pct": float(e.amount_diff_pct) if e.amount_diff_pct else None,
+        "points_delta": e.points_delta,
+        "cost_ledger_id": e.cost_ledger_id,
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+    }
+
+
+def _enrich_with_invoice(d: dict, invoice: Optional[Invoice], full: bool = False) -> dict:
+    """
+    将发票数据注入到报销单序列化结果中
+    full=True: 详情页使用完整数据（含 OCR）
+    full=False: 列表页使用简要数据
+    """
+    if invoice:
+        d["invoice_image_url"] = invoice.image_url
+        d["has_invoice"] = True
+        if full:
+            d["invoice_info"] = _serialize_invoice_full(invoice)
+            d["ocr_data"] = getattr(invoice, 'ocr_raw_json', None)
+        else:
+            d["invoice_info"] = _serialize_invoice_brief(invoice)
+    else:
+        d["invoice_image_url"] = d.get("receipt_image_url")
+        d["has_invoice"] = False
+        d["invoice_info"] = None
+    return d
+
+
+# ═══════════════════════════════════════════════════
 # 员工创建报销单（不再扣分/加分）
 # ═══════════════════════════════════════════════════
 
@@ -94,6 +249,7 @@ async def create_expense(
     """
     # 如果有发票，校验发票是否存在并获取金额差异
     amount_diff_pct = None
+    invoice = None
     if req.invoice_id:
         inv_result = await db.execute(
             select(Invoice).where(Invoice.id == req.invoice_id)
@@ -123,41 +279,38 @@ async def create_expense(
     db.add(expense)
     await db.flush()
 
+    data = _serialize_expense(expense)
+    data = _enrich_with_invoice(data, invoice, full=False)
+
     return {
         "code": 200,
         "message": "报销单创建成功",
-        "data": _serialize_expense(expense),
+        "data": data,
     }
 
 
 # ═══════════════════════════════════════════════════
 # 待审核报销单（前端 expense-review 调用 /pending）
+# V5.6.4: 批量 JOIN Invoice，消除 N+1
 # ═══════════════════════════════════════════════════
 
 @router.get("/pending")
 async def list_pending_expenses(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=100),
-    status: Optional[str] = Query(default=None, description="状态筛选: all/pending/invoice_pass/receipt_pass/rejected"),
+    status: Optional[str] = Query(default=None, description="状态筛选"),
     current_user: User = Depends(require_role(5)),
     db: AsyncSession = Depends(get_db),
 ):
     """
     报销审核列表（支持 Tab 分类筛选）
-    status 参数：
-      - 不传/pending: 待审核（pending + manual_review）
-      - all: 全部报销单
-      - invoice_pass: 发票通过（approved 且 points_delta > 0）
-      - receipt_pass: 小票通过（approved 且 points_delta < 0）
-      - rejected: 已驳回
+    V5.6.4: 统一 JOIN Invoice，返回 invoice_info + invoice_image_url
     """
     query = select(ExpenseReport)
 
     if status == "all":
-        # 全部报销单
         pass
     elif status == "invoice_pass":
-        # 发票通过：approved 且积分 > 0
         query = query.where(
             and_(
                 ExpenseReport.status == "approved",
@@ -165,7 +318,6 @@ async def list_pending_expenses(
             )
         )
     elif status == "receipt_pass":
-        # 小票通过：approved 且积分 < 0
         query = query.where(
             and_(
                 ExpenseReport.status == "approved",
@@ -173,10 +325,8 @@ async def list_pending_expenses(
             )
         )
     elif status == "rejected":
-        # 已驳回
         query = query.where(ExpenseReport.status == "rejected")
     else:
-        # 默认：待审核
         query = query.where(
             ExpenseReport.status.in_(["pending", "manual_review"])
         )
@@ -192,6 +342,7 @@ async def list_pending_expenses(
     result = await db.execute(query)
     expenses = result.scalars().all()
 
+    # ── V5.6.4: 批量预加载 User + Invoice ──
     user_ids = list(set(e.user_id for e in expenses))
     if user_ids:
         users_result = await db.execute(select(User).where(User.id.in_(user_ids)))
@@ -199,29 +350,14 @@ async def list_pending_expenses(
     else:
         user_map = {}
 
+    invoice_map = await _batch_load_invoices(db, expenses)
+
     data = []
     for e in expenses:
         d = _serialize_expense(e)
         d["user_name"] = user_map.get(e.user_id, "未知")
-        # 附带发票图片信息
-        if e.invoice_id:
-            inv_result = await db.execute(
-                select(Invoice).where(Invoice.id == e.invoice_id)
-            )
-            inv = inv_result.scalar_one_or_none()
-            if inv:
-                d["invoice_info"] = {
-                    "id": inv.id,
-                    "invoice_type": inv.invoice_type,
-                    "invoice_type_code": getattr(inv, 'invoice_type_code', None) or (
-                        "专" if inv.invoice_type == "special_vat" else "普"
-                    ),
-                    "invoice_number": inv.invoice_number,
-                    "total_amount": float(inv.total_amount) if inv.total_amount else None,
-                    "seller_name": inv.seller_name,
-                    "verify_status": inv.verify_status,
-                    "image_url": inv.image_url,
-                }
+        invoice = invoice_map.get(e.invoice_id)
+        d = _enrich_with_invoice(d, invoice, full=False)
         data.append(d)
 
     return {"code": 200, "data": data, "total": total, "page": page, "page_size": page_size}
@@ -229,6 +365,7 @@ async def list_pending_expenses(
 
 # ═══════════════════════════════════════════════════
 # 我的报销单（前端 expense-list 调用 /my）
+# V5.6.4: 新增 JOIN Invoice
 # ═══════════════════════════════════════════════════
 
 @router.get("/my")
@@ -239,7 +376,10 @@ async def list_my_expenses(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """当前用户的报销单列表"""
+    """
+    当前用户的报销单列表
+    V5.6.4: JOIN Invoice，返回 invoice_info + invoice_image_url
+    """
     query = select(ExpenseReport).where(
         ExpenseReport.user_id == current_user.id
     )
@@ -257,13 +397,22 @@ async def list_my_expenses(
     result = await db.execute(query)
     expenses = result.scalars().all()
 
-    data = [_serialize_expense(e) for e in expenses]
+    # ── V5.6.4: 批量预加载 Invoice ──
+    invoice_map = await _batch_load_invoices(db, expenses)
+
+    data = []
+    for e in expenses:
+        d = _serialize_expense(e)
+        invoice = invoice_map.get(e.invoice_id)
+        d = _enrich_with_invoice(d, invoice, full=False)
+        data.append(d)
 
     return {"code": 200, "data": data, "total": total, "page": page, "page_size": page_size}
 
 
 # ═══════════════════════════════════════════════════
 # 报销单列表（通用）
+# V5.6.4: 新增 JOIN Invoice
 # ═══════════════════════════════════════════════════
 
 @router.get("/list")
@@ -274,7 +423,10 @@ async def list_expenses(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """报销单列表"""
+    """
+    报销单列表
+    V5.6.4: 统一 JOIN Invoice
+    """
     query = select(ExpenseReport)
 
     if tab == "my":
@@ -300,6 +452,7 @@ async def list_expenses(
     result = await db.execute(query)
     expenses = result.scalars().all()
 
+    # ── V5.6.4: 批量预加载 User + Invoice ──
     user_ids = list(set(e.user_id for e in expenses))
     if user_ids:
         users_result = await db.execute(select(User).where(User.id.in_(user_ids)))
@@ -307,10 +460,14 @@ async def list_expenses(
     else:
         user_map = {}
 
+    invoice_map = await _batch_load_invoices(db, expenses)
+
     data = []
     for e in expenses:
         d = _serialize_expense(e)
         d["user_name"] = user_map.get(e.user_id, "未知")
+        invoice = invoice_map.get(e.invoice_id)
+        d = _enrich_with_invoice(d, invoice, full=False)
         data.append(d)
 
     return {
@@ -324,6 +481,7 @@ async def list_expenses(
 
 # ═══════════════════════════════════════════════════
 # 报销单详情
+# V5.6.4: 返回完整 Invoice（含 OCR 原始数据）
 # ═══════════════════════════════════════════════════
 
 @router.get("/{expense_id}")
@@ -332,7 +490,14 @@ async def get_expense(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """报销单详情"""
+    """
+    报销单详情
+    V5.6.4: 返回完整 invoice_info（含 image_url + ocr_raw_json）
+    前端三段式布局直接使用：
+      - 上1/3: invoice_info.image_url → 图片预览
+      - 中1/3: invoice_info 全字段 + ocr_data → 折叠框
+      - 下1/3: 基本信息（提交人、事由、金额等）
+    """
     result = await db.execute(
         select(ExpenseReport).where(ExpenseReport.id == expense_id)
     )
@@ -349,31 +514,15 @@ async def get_expense(
     data = _serialize_expense(expense)
     data["user_name"] = submitter.name if submitter else "未知"
 
-    # 如果有关联发票，返回完整发票信息
+    # ── V5.6.4: JOIN Invoice，返回完整数据（含 OCR） ──
+    invoice = None
     if expense.invoice_id:
         inv_result = await db.execute(
             select(Invoice).where(Invoice.id == expense.invoice_id)
         )
         invoice = inv_result.scalar_one_or_none()
-        if invoice:
-            data["invoice_info"] = {
-                "id": invoice.id,
-                "invoice_type": invoice.invoice_type,
-                "invoice_type_code": getattr(invoice, 'invoice_type_code', None) or (
-                    "专" if invoice.invoice_type == "special_vat" else "普"
-                ),
-                "invoice_type_label": getattr(invoice, 'invoice_type_label', None),
-                "invoice_code": invoice.invoice_code,
-                "invoice_number": invoice.invoice_number,
-                "invoice_date": invoice.invoice_date.isoformat() if invoice.invoice_date else None,
-                "total_amount": float(invoice.total_amount) if invoice.total_amount else None,
-                "seller_name": invoice.seller_name,
-                "buyer_name": invoice.buyer_name,
-                "verify_status": invoice.verify_status,
-                "image_url": invoice.image_url,
-                "goods_name_summary": getattr(invoice, 'goods_name_summary', None),
-                "items": getattr(invoice, 'items_json', None) or [],
-            }
+
+    data = _enrich_with_invoice(data, invoice, full=True)
 
     return {"code": 200, "data": data}
 
@@ -446,7 +595,6 @@ async def _do_review(
 
     if action in ("receipt_pass", "invoice_pass"):
         # ── 通过审核 ──
-        # 默认分类为 E-10（报销杂项），管理员可在审核时覆盖
         category_code = req.category_code or "E-10"
         if category_code not in COST_CATEGORIES:
             raise HTTPException(
@@ -545,7 +693,7 @@ async def _do_review(
         expense.reviewer_id = current_user.id
         expense.reviewed_at = now
         expense.review_note = req.review_note or "审核未通过"
-        expense.points_delta = 0  # 驳回不产生积分
+        expense.points_delta = 0
         action_label = "驳回"
 
     else:
@@ -621,38 +769,3 @@ async def list_categories(
         for code, config in COST_CATEGORIES.items()
     ]
     return {"code": 200, "data": categories}
-
-
-# ═══════════════════════════════════════════════════
-# 序列化
-# ═══════════════════════════════════════════════════
-
-def _serialize_expense(e: ExpenseReport) -> dict:
-    STATUS_LABELS = {
-        "pending": "待审核",
-        "auto_approved": "自动通过",
-        "manual_review": "人工审核中",
-        "approved": "已通过",
-        "rejected": "已驳回",
-    }
-    return {
-        "id": e.id,
-        "user_id": e.user_id,
-        "purpose": e.purpose,
-        "claimed_amount": float(e.claimed_amount) if e.claimed_amount else 0,
-        "voucher_type": e.voucher_type,
-        "voucher_type_label": "发票" if e.voucher_type == "invoice" else "收据",
-        "invoice_id": e.invoice_id,
-        "receipt_image_url": e.receipt_image_url,
-        "status": e.status,
-        "status_label": STATUS_LABELS.get(e.status, "未知"),
-        "review_note": e.review_note,
-        "reviewer_id": e.reviewer_id,
-        "reviewed_at": e.reviewed_at.isoformat() if e.reviewed_at else None,
-        "category_code": e.category_code,
-        "category_name": COST_CATEGORIES.get(e.category_code, {}).get("name") if e.category_code else None,
-        "amount_diff_pct": float(e.amount_diff_pct) if e.amount_diff_pct else None,
-        "points_delta": e.points_delta,
-        "cost_ledger_id": e.cost_ledger_id,
-        "created_at": e.created_at.isoformat() if e.created_at else None,
-    }
