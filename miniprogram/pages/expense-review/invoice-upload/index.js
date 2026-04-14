@@ -1,7 +1,7 @@
 // ============================================
-// 发票上传页 — OCR识别 + 上传
-// 修复: 移除无用的 require('../../utils/util')
-//       增强错误处理和日志
+// 审核页补传发票 V5.6.6 — 云端上传链路重构
+// ★ 彻底废弃 wx.uploadFile，统一走 Base64 + app.request
+// ★ 增强错误处理和日志
 // ============================================
 var app = getApp();
 
@@ -35,43 +35,48 @@ Page({
     });
   },
 
-  // ── 上传图片到后端 ──
+  // ── V5.6.6 重构：上传图片到后端（Base64 + app.request） ──
   uploadImage: function (tempPath) {
     var self = this;
     self.setData({ uploading: true });
-    var baseUrl = app.globalData.baseUrl || '';
 
-    wx.uploadFile({
-      url: baseUrl + '/api/v1/upload/image',
-      filePath: tempPath,
-      name: 'file',
-      formData: { category: 'invoice' },
-      header: {
-        'Authorization': 'Bearer ' + (app.globalData.token || ''),
+    // ★ V5.6.6: 读取图片为 Base64，通过 app.request (JSON) 上传
+    var fs = wx.getFileSystemManager();
+    try {
+      var fileData = fs.readFileSync(tempPath);
+      var base64Data = wx.arrayBufferToBase64(fileData);
+    } catch (e) {
+      self.setData({ uploading: false });
+      console.error('[审核补传] 图片读取失败:', e);
+      wx.showToast({ title: '图片读取失败: ' + e.message, icon: 'none' });
+      return;
+    }
+
+    app.request({
+      url: '/api/v1/upload/image-base64',
+      method: 'POST',
+      data: {
+        image_base64: base64Data,
+        category: 'invoice',
+        filename: 'invoice.jpg',
       },
-      success: function (uploadRes) {
+      success: function (res) {
         self.setData({ uploading: false });
-        console.log('[发票上传] 图片上传响应:', uploadRes.statusCode, uploadRes.data);
-        try {
-          var data = JSON.parse(uploadRes.data);
-          if (data.code === 200 && data.data && data.data.url) {
-            self.setData({
-              imageUrl: data.data.url,
-              submitDisabled: false,
-            });
-            wx.showToast({ title: '图片上传成功', icon: 'success' });
-          } else {
-            console.error('[发票上传] 图片上传失败:', data);
-            wx.showToast({ title: data.message || '上传失败', icon: 'none' });
-          }
-        } catch (e) {
-          console.error('[发票上传] 解析响应失败:', e, uploadRes.data);
-          wx.showToast({ title: '解析响应失败', icon: 'none' });
+        console.log('[审核补传] 图片上传响应:', JSON.stringify(res));
+        if (res.code === 200 && res.data && res.data.url) {
+          self.setData({
+            imageUrl: res.data.url,
+            submitDisabled: false,
+          });
+          wx.showToast({ title: '图片上传成功', icon: 'success' });
+        } else {
+          console.error('[审核补传] 图片上传失败:', res);
+          wx.showToast({ title: res.message || '上传失败', icon: 'none' });
         }
       },
       fail: function (err) {
         self.setData({ uploading: false });
-        console.error('[发票上传] 网络失败:', err);
+        console.error('[审核补传] Base64上传失败:', err);
         wx.showToast({ title: '上传失败，请重试', icon: 'none' });
       },
     });
@@ -118,7 +123,7 @@ Page({
       buyer_name: ocr.buyer_name || null,
     };
 
-    console.log('[发票上传] 提交payload:', JSON.stringify(payload));
+    console.log('[审核补传] 提交payload:', JSON.stringify(payload));
 
     app.request({
       url: '/api/v1/invoices/upload',
@@ -126,7 +131,7 @@ Page({
       data: payload,
       success: function (res) {
         self.setData({ submitting: false });
-        console.log('[发票上传] 提交响应:', JSON.stringify(res));
+        console.log('[审核补传] 提交响应:', JSON.stringify(res));
         if (res.code === 200) {
           var msg = '发票上传成功';
           if (res.data && res.data.auto_resolved && res.data.auto_resolved.length > 0) {
@@ -140,7 +145,7 @@ Page({
       },
       fail: function (err) {
         self.setData({ submitting: false });
-        console.error('[发票上传] 提交失败:', err);
+        console.error('[审核补传] 提交失败:', err);
         wx.showToast({ title: '网络错误，请重试', icon: 'none' });
       },
     });

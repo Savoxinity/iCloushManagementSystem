@@ -785,7 +785,7 @@ function getMockResponse(url, method, data) {
   }
 
   // 开票覆盖率
-  if (url.indexOf('/api/v1/payments/invoice-coverage') !== -1 && method === 'GET') {
+  if (url.indexOf('/api/v1/payments/dashboard/invoice-coverage') !== -1 && method === 'GET') {
     return {
       code: 200,
       data: {
@@ -1050,7 +1050,7 @@ function getMockResponse(url, method, data) {
   }
 
   // 付款列表（管理员全部）
-  if (url.indexOf('/api/v1/payments/') !== -1 && method === 'GET' && url.indexOf('invoice-coverage') === -1 && url.indexOf('invoices') === -1 && url.indexOf('/my') === -1 && url.indexOf('/pending') === -1) {
+  if (url.indexOf('/api/v1/payments/') !== -1 && method === 'GET' && url.indexOf('dashboard/invoice-coverage') === -1 && url.indexOf('invoices') === -1 && url.indexOf('/my') === -1 && url.indexOf('/pending') === -1) {
     return {
       code: 200,
       data: [

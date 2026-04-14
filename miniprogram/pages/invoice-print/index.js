@@ -56,7 +56,7 @@ Page({
   loadCoverage: function () {
     var self = this;
     app.request({
-      url: '/api/v1/payments/invoice-coverage',
+      url: '/api/v1/payments/dashboard/invoice-coverage',
       success: function (res) {
         if (res.code === 200 && res.data) {
           var d = res.data;

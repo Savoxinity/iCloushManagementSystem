@@ -1,5 +1,6 @@
 // ============================================
-// 发票上传页 — OCR识别 + 上传
+// 发票上传页 V5.6.6 — 云端上传链路重构
+// ★ 彻底废弃 wx.uploadFile，统一走 Base64 + app.request
 // ★ 上传图片后自动调用后端 OCR 识别接口
 // ★ 识别结果可编辑确认后提交
 // ============================================
@@ -75,42 +76,47 @@ Page({
     });
   },
 
-  // ── 上传图片到后端 ──
+  // ── V5.6.6 重构：上传图片到后端（Base64 + app.request） ──
   uploadImage: function (tempPath) {
     var self = this;
     self.setData({ uploading: true });
-    var baseUrl = app.globalData.baseUrl || '';
 
-    wx.uploadFile({
-      url: baseUrl + '/api/v1/upload/image',
-      filePath: tempPath,
-      name: 'file',
-      formData: { category: 'invoice' },
-      header: {
-        'Authorization': 'Bearer ' + (app.globalData.token || ''),
+    // ★ V5.6.6: 读取图片为 Base64，通过 app.request (JSON) 上传
+    var fs = wx.getFileSystemManager();
+    try {
+      var fileData = fs.readFileSync(tempPath);
+      var base64Data = wx.arrayBufferToBase64(fileData);
+    } catch (e) {
+      self.setData({ uploading: false });
+      wx.showToast({ title: '图片读取失败: ' + e.message, icon: 'none' });
+      return;
+    }
+
+    app.request({
+      url: '/api/v1/upload/image-base64',
+      method: 'POST',
+      data: {
+        image_base64: base64Data,
+        category: 'invoice',
+        filename: 'invoice.jpg',
       },
-      success: function (uploadRes) {
+      success: function (res) {
         self.setData({ uploading: false });
-        try {
-          var data = JSON.parse(uploadRes.data);
-          if (data.code === 200 && data.data && data.data.url) {
-            self.setData({
-              imageUrl: data.data.url,
-              submitDisabled: false,
-            });
-            wx.showToast({ title: '图片上传成功', icon: 'success' });
-            // ★ 自动调用后端 OCR 识别
-            self.runOCR(data.data.url);
-          } else {
-            wx.showToast({ title: data.message || '上传失败', icon: 'none' });
-          }
-        } catch (e) {
-          wx.showToast({ title: '解析响应失败', icon: 'none' });
+        if (res.code === 200 && res.data && res.data.url) {
+          self.setData({
+            imageUrl: res.data.url,
+            submitDisabled: false,
+          });
+          wx.showToast({ title: '图片上传成功', icon: 'success' });
+          // ★ 自动调用后端 OCR 识别
+          self.runOCR(res.data.url);
+        } else {
+          wx.showToast({ title: res.message || '上传失败', icon: 'none' });
         }
       },
       fail: function (err) {
         self.setData({ uploading: false });
-        console.error('[发票上传] 失败:', err);
+        console.error('[发票上传] Base64上传失败:', err);
         wx.showToast({ title: '上传失败，请重试', icon: 'none' });
       },
     });

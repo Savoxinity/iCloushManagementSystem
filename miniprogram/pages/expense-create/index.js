@@ -1,11 +1,12 @@
 // ============================================
-// 报销单创建页 V5.5.0 — 强制入池漏斗
+// 报销单创建页 V5.6.6 — 云端上传链路重构
+// ★ 彻底废弃 wx.uploadFile，统一走 Base64 + app.request
 // ★ 发票凭证上传后自动走 OCR → 强制入发票/票据池
 // ★ OCR 失败也调用 /invoices/upload 创建 pending 记录
 // ★ 收据图片也统一上传（但不走 OCR）
 // ============================================
 
-console.log('=== expense-create loaded ===');
+console.log('=== expense-create V5.6.6 loaded ===');
 var app = getApp();
 
 Page({
@@ -79,7 +80,7 @@ Page({
       success: function (res) {
         var tempPath = res.tempFiles[0].tempFilePath;
         self.setData({ tempReceiptPath: tempPath });
-        self._uploadImage(tempPath, 'receipt', function (url) {
+        self._uploadImageBase64(tempPath, 'receipt', function (url) {
           self.setData({ receiptImage: url });
           self._checkCanSubmit();
         });
@@ -87,7 +88,7 @@ Page({
     });
   },
 
-  // ★ 统一上传 + OCR 链路
+  // ★ V5.6.6 重构：统一上传 + OCR 链路（Base64 + app.request）
   _uploadAndOCR: function (tempPath, category) {
     var self = this;
     self.setData({ uploading: true });
@@ -106,37 +107,45 @@ Page({
       return;
     }
 
-    var baseUrl = app.globalData.baseUrl || '';
-    wx.uploadFile({
-      url: baseUrl + '/api/v1/upload/image',
-      filePath: tempPath,
-      name: 'file',
-      formData: { category: category },
-      header: { 'Authorization': 'Bearer ' + (app.globalData.token || '') },
-      success: function (uploadRes) {
+    // ★ V5.6.6: 读取图片为 Base64，通过 app.request (JSON) 上传
+    var fs = wx.getFileSystemManager();
+    try {
+      var fileData = fs.readFileSync(tempPath);
+      var base64Data = wx.arrayBufferToBase64(fileData);
+    } catch (e) {
+      self.setData({ uploading: false, invoiceImage: tempPath });
+      self._checkCanSubmit();
+      wx.showToast({ title: '图片读取失败: ' + e.message, icon: 'none' });
+      return;
+    }
+
+    app.request({
+      url: '/api/v1/upload/image-base64',
+      method: 'POST',
+      data: {
+        image_base64: base64Data,
+        category: category,
+        filename: 'invoice.jpg',
+      },
+      success: function (res) {
         self.setData({ uploading: false });
-        try {
-          var data = JSON.parse(uploadRes.data);
-          if (data.code === 200 && data.data && data.data.url) {
-            var imageUrl = data.data.url;
-            self.setData({ invoiceImage: imageUrl });
-            self._checkCanSubmit();
-            // ★ 自动调用 OCR → 进发票/票据池
-            self._runOCR(imageUrl);
-          } else {
-            self.setData({ invoiceImage: tempPath });
-            self._checkCanSubmit();
-            wx.showToast({ title: data.message || '上传失败', icon: 'none' });
-          }
-        } catch (e) {
+        if (res.code === 200 && res.data && res.data.url) {
+          var imageUrl = res.data.url;
+          self.setData({ invoiceImage: imageUrl });
+          self._checkCanSubmit();
+          // ★ 自动调用 OCR → 进发票/票据池
+          self._runOCR(imageUrl);
+        } else {
           self.setData({ invoiceImage: tempPath });
           self._checkCanSubmit();
+          wx.showToast({ title: res.message || '上传失败', icon: 'none' });
         }
       },
-      fail: function () {
+      fail: function (err) {
         self.setData({ uploading: false, invoiceImage: tempPath });
         self._checkCanSubmit();
-        wx.showToast({ title: '上传失败，使用本地图片', icon: 'none' });
+        console.error('[expense-create] Base64上传失败:', err);
+        wx.showToast({ title: '上传失败，请重试', icon: 'none' });
       },
     });
   },
@@ -249,11 +258,10 @@ Page({
     });
   },
 
-  // ── 通用图片上传（收据用） ──
-  _uploadImage: function (tempPath, category, callback) {
+  // ── V5.6.6 重构：通用图片上传（收据用）— Base64 + app.request ──
+  _uploadImageBase64: function (tempPath, category, callback) {
     var self = this;
     self.setData({ uploading: true });
-    var baseUrl = app.globalData.baseUrl || '';
 
     // Mock 模式
     if (app.globalData.useMock) {
@@ -263,27 +271,36 @@ Page({
       return;
     }
 
-    wx.uploadFile({
-      url: baseUrl + '/api/v1/upload/image',
-      filePath: tempPath,
-      name: 'file',
-      formData: { category: category },
-      header: { 'Authorization': 'Bearer ' + (app.globalData.token || '') },
-      success: function (uploadRes) {
+    // ★ V5.6.6: 读取图片为 Base64
+    var fs = wx.getFileSystemManager();
+    try {
+      var fileData = fs.readFileSync(tempPath);
+      var base64Data = wx.arrayBufferToBase64(fileData);
+    } catch (e) {
+      self.setData({ uploading: false });
+      wx.showToast({ title: '图片读取失败', icon: 'none' });
+      return;
+    }
+
+    app.request({
+      url: '/api/v1/upload/image-base64',
+      method: 'POST',
+      data: {
+        image_base64: base64Data,
+        category: category,
+        filename: category + '.jpg',
+      },
+      success: function (res) {
         self.setData({ uploading: false });
-        try {
-          var data = JSON.parse(uploadRes.data);
-          if (data.code === 200 && data.data && data.data.url) {
-            callback(data.data.url);
-          } else {
-            wx.showToast({ title: '上传失败', icon: 'none' });
-          }
-        } catch (e) {
+        if (res.code === 200 && res.data && res.data.url) {
+          callback(res.data.url);
+        } else {
           wx.showToast({ title: '上传失败', icon: 'none' });
         }
       },
-      fail: function () {
+      fail: function (err) {
         self.setData({ uploading: false });
+        console.error('[expense-create] 收据Base64上传失败:', err);
         wx.showToast({ title: '上传失败，请重试', icon: 'none' });
       },
     });

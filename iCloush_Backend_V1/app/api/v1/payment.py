@@ -2,18 +2,18 @@
 iCloush 智慧工厂 — 付款申请单 API
 ═══════════════════════════════════════════════════
 Phase 5.3: 采购付款与票据追踪
+V5.6.5: 修复路由注册顺序 — 具体路径必须在通配 /{payment_id} 之前
 
 接口：
   POST   /                  创建付款申请
   GET    /                  查询付款申请列表
+  GET    /dashboard/invoice-coverage  开票覆盖率看板（★ 必须在 /{id} 之前）
+  GET    /invoices/print-status       查询发票打印状态列表（★ 必须在 /{id} 之前）
+  PUT    /invoices/{id}/print         标记发票已打印（★ 必须在 /{id} 之前）
   GET    /{id}              查询单个申请详情
-  PUT    /{id}              更新申请（草稿状态）
   PUT    /{id}/review       审批操作（管理员）
   PUT    /{id}/complete      标记已付款（管理员）
   DELETE /{id}              删除申请（草稿状态）
-  PUT    /invoices/{id}/print  标记发票已打印（管理员）
-  GET    /invoices/print-status  查询发票打印状态列表
-  GET    /dashboard/invoice-coverage  开票覆盖率看板
 """
 import logging
 from datetime import datetime, timezone, date
@@ -233,6 +233,198 @@ async def list_payments(
             "page_size": page_size,
         },
     }
+
+
+# ═══════════════════════════════════════════════════
+# ★ V5.6.5 路由顺序修复：以下具体路径路由必须在 /{payment_id} 之前
+# ═══════════════════════════════════════════════════
+
+
+# ═══════════════════════════════════════════════════
+# GET /dashboard/invoice-coverage — 开票覆盖率看板
+# ★ 必须在 /{payment_id} 之前注册，否则 "dashboard" 会被当成 payment_id 解析 → 422
+# ═══════════════════════════════════════════════════
+
+@router.get("/dashboard/invoice-coverage")
+async def invoice_coverage_dashboard(
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    current_user: User = Depends(require_role(5)),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    开票覆盖率看板
+    公式：开票覆盖率 = (本月已核验发票总金额 / 本月实际总成本) * 100%
+    价税现金差额 = 本月实际总成本 - 本月已核验发票总金额
+    """
+    now = datetime.now()
+    target_year = year or now.year
+    target_month = month or now.month
+
+    # 本月已核验发票总金额
+    invoice_sql = text("""
+        SELECT COALESCE(SUM(total_amount), 0) as total_invoiced
+        FROM invoices
+        WHERE verify_status = 'verified'
+          AND EXTRACT(YEAR FROM invoice_date) = :year
+          AND EXTRACT(MONTH FROM invoice_date) = :month
+    """)
+    inv_result = await db.execute(invoice_sql, {"year": target_year, "month": target_month})
+    total_invoiced = float(inv_result.scalar() or 0)
+
+    # 本月实际总成本（从 management_cost_ledger）
+    cost_sql = text("""
+        SELECT COALESCE(SUM(amount), 0) as total_cost
+        FROM management_cost_ledger
+        WHERE period_year = :year AND period_month = :month
+    """)
+    cost_result = await db.execute(cost_sql, {"year": target_year, "month": target_month})
+    total_cost = float(cost_result.scalar() or 0)
+
+    # 计算覆盖率
+    coverage_rate = 0.0
+    if total_cost > 0:
+        coverage_rate = round((total_invoiced / total_cost) * 100, 2)
+
+    # 价税现金差额
+    tax_gap = round(total_cost - total_invoiced, 2)
+
+    # 本月发票统计
+    stats_sql = text("""
+        SELECT
+            COUNT(*) as total_count,
+            SUM(CASE WHEN is_printed THEN 1 ELSE 0 END) as printed_count,
+            SUM(CASE WHEN NOT is_printed THEN 1 ELSE 0 END) as unprinted_count
+        FROM invoices
+        WHERE verify_status = 'verified'
+          AND EXTRACT(YEAR FROM invoice_date) = :year
+          AND EXTRACT(MONTH FROM invoice_date) = :month
+    """)
+    stats_result = await db.execute(stats_sql, {"year": target_year, "month": target_month})
+    stats_row = stats_result.fetchone()
+
+    return {
+        "code": 200,
+        "data": {
+            "period": f"{target_year}-{target_month:02d}",
+            "total_invoiced": total_invoiced,
+            "total_cost": total_cost,
+            "coverage_rate": coverage_rate,
+            "tax_gap": tax_gap,
+            "invoice_stats": {
+                "total": stats_row[0] if stats_row else 0,
+                "printed": stats_row[1] if stats_row else 0,
+                "unprinted": stats_row[2] if stats_row else 0,
+            },
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════
+# GET /invoices/print-status — 查询发票打印状态列表
+# ★ 必须在 /{payment_id} 之前注册
+# ═══════════════════════════════════════════════════
+
+@router.get("/invoices/print-status")
+async def list_invoice_print_status(
+    is_printed: Optional[bool] = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(require_role(5)),
+    db: AsyncSession = Depends(get_db),
+):
+    """查询发票打印状态列表（管理员）"""
+    conditions = ["verify_status = 'verified'"]
+    params = {}
+
+    if is_printed is not None:
+        conditions.append("is_printed = :is_printed")
+        params["is_printed"] = is_printed
+
+    where_clause = " AND ".join(conditions)
+    offset = (page - 1) * page_size
+    params["limit"] = page_size
+    params["offset"] = offset
+
+    count_sql = text(f"SELECT COUNT(*) FROM invoices WHERE {where_clause}")
+    count_result = await db.execute(count_sql, params)
+    total = count_result.scalar()
+
+    query_sql = text(f"""
+        SELECT i.id, i.invoice_number, i.invoice_date, i.seller_name,
+               i.total_amount, i.is_printed, i.printed_at, i.verify_status,
+               u.name as uploader_name, p.name as printer_name
+        FROM invoices i
+        LEFT JOIN users u ON i.user_id = u.id
+        LEFT JOIN users p ON i.printed_by = p.id
+        WHERE {where_clause}
+        ORDER BY i.created_at DESC
+        LIMIT :limit OFFSET :offset
+    """)
+    result = await db.execute(query_sql, params)
+    rows = result.fetchall()
+
+    items = []
+    for row in rows:
+        row_dict = dict(row._mapping)
+        for k, v in row_dict.items():
+            if isinstance(v, Decimal):
+                row_dict[k] = float(v)
+            elif isinstance(v, (datetime, date)):
+                row_dict[k] = v.isoformat()
+        items.append(row_dict)
+
+    return {
+        "code": 200,
+        "data": {"items": items, "total": total, "page": page, "page_size": page_size},
+    }
+
+
+# ═══════════════════════════════════════════════════
+# PUT /invoices/{id}/print — 标记发票已打印（管理员）
+# ★ 必须在 /{payment_id} 之前注册
+# ═══════════════════════════════════════════════════
+
+@router.put("/invoices/{invoice_id}/print")
+async def mark_invoice_printed(
+    invoice_id: int,
+    current_user: User = Depends(require_role(5)),
+    db: AsyncSession = Depends(get_db),
+):
+    """标记发票为已打印"""
+    check_sql = text("SELECT id, is_printed FROM invoices WHERE id = :id")
+    result = await db.execute(check_sql, {"id": invoice_id})
+    row = result.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="发票不存在")
+
+    update_sql = text("""
+        UPDATE invoices
+        SET is_printed = :is_printed,
+            printed_at = CASE WHEN :is_printed THEN NOW() ELSE NULL END,
+            printed_by = CASE WHEN :is_printed THEN :user_id ELSE NULL END,
+            updated_at = NOW()
+        WHERE id = :id
+    """)
+    # 切换打印状态
+    new_status = not row[1]
+    await db.execute(update_sql, {
+        "id": invoice_id,
+        "is_printed": new_status,
+        "user_id": current_user.id,
+    })
+    await db.commit()
+
+    return {
+        "code": 200,
+        "message": f"发票 #{invoice_id} {'已标记为已打印' if new_status else '已取消打印标记'}",
+        "data": {"is_printed": new_status},
+    }
+
+
+# ═══════════════════════════════════════════════════
+# ★ 以下为通配路由 — 必须在所有具体路径之后
+# ═══════════════════════════════════════════════════
 
 
 # ═══════════════════════════════════════════════════
@@ -480,182 +672,3 @@ async def delete_payment(
     await db.commit()
 
     return {"code": 200, "message": "付款申请已删除"}
-
-
-# ═══════════════════════════════════════════════════
-# PUT /invoices/{id}/print — 标记发票已打印（管理员）
-# ═══════════════════════════════════════════════════
-
-@router.put("/invoices/{invoice_id}/print")
-async def mark_invoice_printed(
-    invoice_id: int,
-    current_user: User = Depends(require_role(5)),
-    db: AsyncSession = Depends(get_db),
-):
-    """标记发票为已打印"""
-    check_sql = text("SELECT id, is_printed FROM invoices WHERE id = :id")
-    result = await db.execute(check_sql, {"id": invoice_id})
-    row = result.fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="发票不存在")
-
-    update_sql = text("""
-        UPDATE invoices
-        SET is_printed = :is_printed,
-            printed_at = CASE WHEN :is_printed THEN NOW() ELSE NULL END,
-            printed_by = CASE WHEN :is_printed THEN :user_id ELSE NULL END,
-            updated_at = NOW()
-        WHERE id = :id
-    """)
-    # 切换打印状态
-    new_status = not row[1]
-    await db.execute(update_sql, {
-        "id": invoice_id,
-        "is_printed": new_status,
-        "user_id": current_user.id,
-    })
-    await db.commit()
-
-    return {
-        "code": 200,
-        "message": f"发票 #{invoice_id} {'已标记为已打印' if new_status else '已取消打印标记'}",
-        "data": {"is_printed": new_status},
-    }
-
-
-# ═══════════════════════════════════════════════════
-# GET /invoices/print-status — 查询发票打印状态列表
-# ═══════════════════════════════════════════════════
-
-@router.get("/invoices/print-status")
-async def list_invoice_print_status(
-    is_printed: Optional[bool] = None,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    current_user: User = Depends(require_role(5)),
-    db: AsyncSession = Depends(get_db),
-):
-    """查询发票打印状态列表（管理员）"""
-    conditions = ["verify_status = 'verified'"]
-    params = {}
-
-    if is_printed is not None:
-        conditions.append("is_printed = :is_printed")
-        params["is_printed"] = is_printed
-
-    where_clause = " AND ".join(conditions)
-    offset = (page - 1) * page_size
-    params["limit"] = page_size
-    params["offset"] = offset
-
-    count_sql = text(f"SELECT COUNT(*) FROM invoices WHERE {where_clause}")
-    count_result = await db.execute(count_sql, params)
-    total = count_result.scalar()
-
-    query_sql = text(f"""
-        SELECT i.id, i.invoice_number, i.invoice_date, i.seller_name,
-               i.total_amount, i.is_printed, i.printed_at, i.verify_status,
-               u.name as uploader_name, p.name as printer_name
-        FROM invoices i
-        LEFT JOIN users u ON i.user_id = u.id
-        LEFT JOIN users p ON i.printed_by = p.id
-        WHERE {where_clause}
-        ORDER BY i.created_at DESC
-        LIMIT :limit OFFSET :offset
-    """)
-    result = await db.execute(query_sql, params)
-    rows = result.fetchall()
-
-    items = []
-    for row in rows:
-        row_dict = dict(row._mapping)
-        for k, v in row_dict.items():
-            if isinstance(v, Decimal):
-                row_dict[k] = float(v)
-            elif isinstance(v, (datetime, date)):
-                row_dict[k] = v.isoformat()
-        items.append(row_dict)
-
-    return {
-        "code": 200,
-        "data": {"items": items, "total": total, "page": page, "page_size": page_size},
-    }
-
-
-# ═══════════════════════════════════════════════════
-# GET /dashboard/invoice-coverage — 开票覆盖率看板
-# ═══════════════════════════════════════════════════
-
-@router.get("/dashboard/invoice-coverage")
-async def invoice_coverage_dashboard(
-    year: Optional[int] = None,
-    month: Optional[int] = None,
-    current_user: User = Depends(require_role(5)),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    开票覆盖率看板
-    公式：开票覆盖率 = (本月已核验发票总金额 / 本月实际总成本) * 100%
-    价税现金差额 = 本月实际总成本 - 本月已核验发票总金额
-    """
-    now = datetime.now()
-    target_year = year or now.year
-    target_month = month or now.month
-
-    # 本月已核验发票总金额
-    invoice_sql = text("""
-        SELECT COALESCE(SUM(total_amount), 0) as total_invoiced
-        FROM invoices
-        WHERE verify_status = 'verified'
-          AND EXTRACT(YEAR FROM invoice_date) = :year
-          AND EXTRACT(MONTH FROM invoice_date) = :month
-    """)
-    inv_result = await db.execute(invoice_sql, {"year": target_year, "month": target_month})
-    total_invoiced = float(inv_result.scalar() or 0)
-
-    # 本月实际总成本（从 management_cost_ledger）
-    cost_sql = text("""
-        SELECT COALESCE(SUM(amount), 0) as total_cost
-        FROM management_cost_ledger
-        WHERE period_year = :year AND period_month = :month
-    """)
-    cost_result = await db.execute(cost_sql, {"year": target_year, "month": target_month})
-    total_cost = float(cost_result.scalar() or 0)
-
-    # 计算覆盖率
-    coverage_rate = 0.0
-    if total_cost > 0:
-        coverage_rate = round((total_invoiced / total_cost) * 100, 2)
-
-    # 价税现金差额
-    tax_gap = round(total_cost - total_invoiced, 2)
-
-    # 本月发票统计
-    stats_sql = text("""
-        SELECT
-            COUNT(*) as total_count,
-            SUM(CASE WHEN is_printed THEN 1 ELSE 0 END) as printed_count,
-            SUM(CASE WHEN NOT is_printed THEN 1 ELSE 0 END) as unprinted_count
-        FROM invoices
-        WHERE verify_status = 'verified'
-          AND EXTRACT(YEAR FROM invoice_date) = :year
-          AND EXTRACT(MONTH FROM invoice_date) = :month
-    """)
-    stats_result = await db.execute(stats_sql, {"year": target_year, "month": target_month})
-    stats_row = stats_result.fetchone()
-
-    return {
-        "code": 200,
-        "data": {
-            "period": f"{target_year}-{target_month:02d}",
-            "total_invoiced": total_invoiced,
-            "total_cost": total_cost,
-            "coverage_rate": coverage_rate,
-            "tax_gap": tax_gap,
-            "invoice_stats": {
-                "total": stats_row[0] if stats_row else 0,
-                "printed": stats_row[1] if stats_row else 0,
-                "unprinted": stats_row[2] if stats_row else 0,
-            },
-        },
-    }

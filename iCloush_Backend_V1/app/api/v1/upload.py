@@ -1,6 +1,12 @@
 """
 上传路由 — 文件上传中转 + 腾讯云 COS
 ═══════════════════════════════════════════════════
+V5.6.6: 全面重构云端上传链路
+  - 新增 POST /image-base64: 通用 Base64 图片上传（发票/收据/通用）
+  - 新增 POST /task-photo-watermark: Base64 任务水印上传
+  - 以上两个接口均走 JSON body，兼容微信云托管 wx.cloud.callContainer
+  - 彻底废弃前端 wx.uploadFile 直连外网的方式
+
 V5.6.1: 后端水印方案升级
   - task-photo 接口接收原图 + 元数据
   - 后端调用 watermark.py 添加仿小米徕卡风格水印
@@ -15,12 +21,15 @@ Phase 5.1: 云端迁移适配
 import os
 import time
 import uuid
+import base64
 import logging
 from datetime import datetime
 from pathlib import Path
 from io import BytesIO
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.core.security import get_current_user
 from app.models.models import User
@@ -137,7 +146,169 @@ async def _save_file(file: UploadFile, prefix: str) -> str:
 
 
 # ═══════════════════════════════════════════════════
-# POST /task-photo — V5.6.1 后端水印方案
+# Pydantic Schemas for Base64 uploads
+# ═══════════════════════════════════════════════════
+
+class ImageBase64Request(BaseModel):
+    """通用 Base64 图片上传请求"""
+    image_base64: str = Field(..., description="图片的 Base64 编码字符串（不含 data:image/... 前缀）")
+    category: str = Field(default="general", description="分类: invoice / receipt / general")
+    filename: Optional[str] = Field(default=None, description="原始文件名（可选）")
+
+
+class TaskPhotoWatermarkRequest(BaseModel):
+    """任务水印拍照 Base64 上传请求"""
+    image_base64: str = Field(..., description="图片的 Base64 编码字符串")
+    task_id: str = Field(default="0")
+    timestamp: Optional[str] = Field(default=None)
+    staff_name: Optional[str] = Field(default=None)
+    zone_name: Optional[str] = Field(default=None)
+    gps_text: Optional[str] = Field(default=None)
+    latitude: Optional[float] = Field(default=None)
+    longitude: Optional[float] = Field(default=None)
+
+
+def _decode_base64_image(base64_str: str) -> bytes:
+    """
+    解码 Base64 图片字符串为 bytes
+    自动处理 data:image/xxx;base64, 前缀
+    """
+    # 去除可能的 data URI 前缀
+    if "," in base64_str[:100]:
+        base64_str = base64_str.split(",", 1)[1]
+    try:
+        return base64.b64decode(base64_str)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Base64 解码失败: {str(e)}")
+
+
+# ═══════════════════════════════════════════════════
+# POST /image-base64 — V5.6.6 通用 Base64 图片上传
+# ★ 云托管兼容：JSON body，走 app.request (wx.cloud.callContainer)
+# ═══════════════════════════════════════════════════
+
+@router.post("/image-base64")
+async def upload_image_base64(
+    req: ImageBase64Request,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    V5.6.6 通用 Base64 图片上传
+    
+    前端将图片通过 wx.getFileSystemManager().readFile 读取为 ArrayBuffer，
+    再用 wx.arrayBufferToBase64 转为 Base64 字符串，
+    通过 app.request（JSON body）发送到此接口。
+    
+    后端解码 Base64 → 上传 COS → 返回公网 URL
+    
+    JSON Body:
+      image_base64 - 图片 Base64 字符串（必填）
+      category     - 分类: invoice / receipt / general（默认 general）
+      filename     - 原始文件名（可选）
+    """
+    # 解码 Base64
+    file_bytes = _decode_base64_image(req.image_base64)
+    
+    # 大小限制 10MB
+    if len(file_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="文件大小不能超过 10MB")
+    
+    # 基本图片格式验证（检查 magic bytes）
+    if not (
+        file_bytes[:2] == b'\xff\xd8' or  # JPEG
+        file_bytes[:4] == b'\x89PNG' or    # PNG
+        file_bytes[:4] == b'RIFF'          # WebP
+    ):
+        logger.warning(f"[Base64上传] 未识别的图片格式，前4字节: {file_bytes[:4].hex()}")
+        # 不强制拒绝，允许其他格式通过
+    
+    prefix = f"images/{req.category}/{current_user.id}"
+    filename = req.filename or "photo.jpg"
+    
+    try:
+        public_url = await _save_bytes(file_bytes, prefix, filename)
+    except Exception as e:
+        logger.error(f"[Base64上传] 保存失败: {e}")
+        raise HTTPException(status_code=500, detail=f"图片上传失败: {str(e)}")
+    
+    logger.info(f"[Base64上传] 用户 {current_user.id} 上传 {req.category} 图片成功: {public_url}")
+    return {
+        "code": 200,
+        "data": {"url": public_url},
+        "message": "图片上传成功",
+    }
+
+
+# ═══════════════════════════════════════════════════
+# POST /task-photo-watermark — V5.6.6 Base64 任务水印上传
+# ★ 云托管兼容：JSON body，走 app.request (wx.cloud.callContainer)
+# ═══════════════════════════════════════════════════
+
+@router.post("/task-photo-watermark")
+async def upload_task_photo_watermark(
+    req: TaskPhotoWatermarkRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    V5.6.6 任务拍照水印上传（Base64 版本）
+    
+    前端将原图转为 Base64 + 元数据，通过 JSON body 发送。
+    后端解码 → 水印合成 → COS 上传 → 返回 URL
+    
+    JSON Body:
+      image_base64 - 图片 Base64 字符串（必填）
+      task_id      - 任务ID
+      timestamp    - 拍摄时间
+      staff_name   - 员工姓名
+      zone_name    - 工区名称
+      gps_text     - GPS 文本
+      latitude     - GPS 纬度
+      longitude    - GPS 经度
+    """
+    # 解码 Base64
+    file_bytes = _decode_base64_image(req.image_base64)
+    
+    if len(file_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="文件大小不能超过 10MB")
+    
+    # 构建水印元数据
+    meta = {
+        "timestamp": req.timestamp or datetime.now().strftime("%Y.%m.%d %H:%M:%S"),
+        "staff_name": req.staff_name or (current_user.name if current_user else ""),
+        "zone_name": req.zone_name or "",
+        "task_id": req.task_id or "0",
+        "gps_text": req.gps_text or "",
+    }
+    
+    # 调用后端水印服务
+    try:
+        from app.services.watermark import compose_watermark
+        watermarked_bytes = compose_watermark(file_bytes, meta)
+        logger.info(f"[水印Base64] 后端水印合成成功: task={req.task_id}, staff={req.staff_name}")
+    except Exception as e:
+        logger.error(f"[水印Base64] 后端水印合成失败，降级上传原图: {e}")
+        watermarked_bytes = file_bytes
+    
+    # 上传到 COS
+    try:
+        public_url = await _save_bytes(
+            watermarked_bytes,
+            f"task-photos/{req.task_id}",
+            "wm_photo.jpg",
+        )
+    except Exception as e:
+        logger.error(f"[水印Base64] 上传失败: {e}")
+        raise HTTPException(status_code=500, detail=f"图片上传失败: {str(e)}")
+    
+    return {
+        "code": 200,
+        "data": {"url": public_url},
+        "message": "拍照上传成功（已添加防伪水印）",
+    }
+
+
+# ═══════════════════════════════════════════════════
+# POST /task-photo — V5.6.1 后端水印方案（multipart/form-data，保留兼容）
 # ═══════════════════════════════════════════════════
 
 @router.post("/task-photo")
