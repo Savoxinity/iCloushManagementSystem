@@ -498,7 +498,7 @@ Page({
       url: '/api/v1/vehicles/fleet/list?status=idle',
       success: function (res) {
         if (res.code === 200) {
-          var list = (res.data || []).map(function (v) {
+          var list = (Array.isArray(res.data) ? res.data : (res.data && res.data.items) || []).map(function (v) {
             return {
               id: v.id,
               label: v.plate_number + ' (' + (v.vehicle_type || '未知') + ')',
@@ -517,7 +517,7 @@ Page({
       url: '/api/v1/vehicles/routes/list',
       success: function (res) {
         if (res.code === 200) {
-          var list = (res.data || []).map(function (r) {
+          var list = (Array.isArray(res.data) ? res.data : (res.data && res.data.items) || []).map(function (r) {
             return {
               id: r.id,
               label: r.route_name + ' (' + (r.stops || []).length + '站)',

@@ -44,7 +44,7 @@ Page({
       success: function (res) {
         self.setData({ loading: false });
         if (res.code === 200) {
-          var list = (res.data || []).map(function (item) {
+          var list = (Array.isArray(res.data) ? res.data : (res.data && res.data.items) || []).map(function (item) {
             item.statusLabel = { pending: '待审核', approved: '已通过', rejected: '已驳回', auto_approved: '自动通过' }[item.status] || item.status;
             item.statusClass = { pending: 'status-pending', approved: 'status-approved', rejected: 'status-rejected', auto_approved: 'status-approved' }[item.status] || '';
             return item;

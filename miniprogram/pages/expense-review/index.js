@@ -89,7 +89,7 @@ Page({
       url: '/api/v1/accounting/categories',
       success: function (res) {
         if (res.code === 200 && res.data) {
-          var names = (res.data || []).map(function (c) { return c.name; });
+          var names = (Array.isArray(res.data) ? res.data : (res.data && res.data.items) || []).map(function (c) { return c.name; });
           self.setData({ categories: res.data, categoryNames: names });
         }
       },

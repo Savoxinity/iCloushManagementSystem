@@ -88,7 +88,7 @@ Page({
         if (res.code === 200) {
           // 计算每辆车的预警
           var today = new Date();
-          var vehicles = (res.data || []).map(function (v) {
+          var vehicles = (Array.isArray(res.data) ? res.data : (res.data && res.data.items) || []).map(function (v) {
             var alerts = [];
             var checks = [
               { key: 'inspection', label: '年检', date: v.inspection_due },

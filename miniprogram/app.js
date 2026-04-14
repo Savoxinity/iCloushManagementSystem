@@ -58,6 +58,9 @@ App({
     wsReconnectTimer: null,
     wsHeartbeatTimer: null,
     wsReconnectDelay: 1000, // 初始重连延迟1秒，指数退避最大30秒
+    wsReconnectCount: 0, // 已重连次数
+    wsReconnectMaxRetries: 5, // 最大重连次数
+    wsDomainBlocked: false, // 域名白名单拦截标记（一旦触发永久停止重连）
     // Mock开关（开发阶段开启，后端就绪后改为 false）
     useMock: USE_MOCK,
     // 排班数据全局共享（总览页 ↔ 排班页 同步）
@@ -285,6 +288,7 @@ App({
       console.log('[WebSocket] 连接成功, user_id:', userId);
       self.globalData.wsConnected = true;
       self.globalData.wsReconnectDelay = 1000;
+      self.globalData.wsReconnectCount = 0; // ★ V5.6.9: 连接成功重置重连计数
       self.startHeartbeat();
     });
 
@@ -309,9 +313,17 @@ App({
     });
 
     socket.onError(function (err) {
-      console.log('[WebSocket] 连接错误:', JSON.stringify(err));
+      var errStr = JSON.stringify(err);
+      console.log('[WebSocket] 连接错误:', errStr);
       self.globalData.wsConnected = false;
       self.stopHeartbeat();
+
+      // ★ V5.6.9: 检测域名白名单拦截，立即停止重连
+      if (errStr.indexOf('domain list') !== -1 || errStr.indexOf('not in domain') !== -1) {
+        console.warn('[WebSocket] 域名未在白名单中，永久停止重连。请在小程序后台配置 Socket 合法域名');
+        self.globalData.wsDomainBlocked = true;
+        return; // 不重连
+      }
       self.scheduleReconnect();
     });
   },
@@ -335,9 +347,23 @@ App({
 
   scheduleReconnect: function () {
     if (this.globalData.wsReconnectTimer) return;
+
+    // ★ V5.6.9: 域名被拦截时永久停止
+    if (this.globalData.wsDomainBlocked) {
+      console.warn('[WebSocket] 域名被拦截，跳过重连');
+      return;
+    }
+
+    // ★ V5.6.9: 重连次数上限
+    if (this.globalData.wsReconnectCount >= this.globalData.wsReconnectMaxRetries) {
+      console.warn('[WebSocket] 已达最大重连次数 (' + this.globalData.wsReconnectMaxRetries + ')，停止重连');
+      return;
+    }
+
     var delay = Math.min(this.globalData.wsReconnectDelay, 30000);
     var self = this;
-    console.log('[WebSocket] ' + delay + '毫秒后重连...');
+    this.globalData.wsReconnectCount++;
+    console.log('[WebSocket] ' + delay + '毫秒后重连... (第' + this.globalData.wsReconnectCount + '/' + this.globalData.wsReconnectMaxRetries + '次)');
     this.globalData.wsReconnectTimer = setTimeout(function () {
       self.globalData.wsReconnectTimer = null;
       self.globalData.wsReconnectDelay = Math.min(delay * 2, 30000);

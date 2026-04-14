@@ -81,43 +81,53 @@ Page({
     var self = this;
     self.setData({ uploading: true });
 
-    // ★ V5.6.6: 读取图片为 Base64，通过 app.request (JSON) 上传
+    // ★ V5.6.9: 异步读取图片为 Base64（兼容云沙箱环境）
     var fs = wx.getFileSystemManager();
-    try {
-      var fileData = fs.readFileSync(tempPath);
-      var base64Data = wx.arrayBufferToBase64(fileData);
-    } catch (e) {
-      self.setData({ uploading: false });
-      wx.showToast({ title: '图片读取失败: ' + e.message, icon: 'none' });
-      return;
-    }
-
-    app.request({
-      url: '/api/v1/upload/image-base64',
-      method: 'POST',
-      data: {
-        image_base64: base64Data,
-        category: 'invoice',
-        filename: 'invoice.jpg',
-      },
-      success: function (res) {
-        self.setData({ uploading: false });
-        if (res.code === 200 && res.data && res.data.url) {
-          self.setData({
-            imageUrl: res.data.url,
-            submitDisabled: false,
-          });
-          wx.showToast({ title: '图片上传成功', icon: 'success' });
-          // ★ 自动调用后端 OCR 识别
-          self.runOCR(res.data.url);
-        } else {
-          wx.showToast({ title: res.message || '上传失败', icon: 'none' });
+    fs.readFile({
+      filePath: tempPath,
+      success: function (readRes) {
+        var base64Data;
+        try {
+          base64Data = wx.arrayBufferToBase64(readRes.data);
+        } catch (e) {
+          self.setData({ uploading: false });
+          wx.showToast({ title: 'Base64转码失败', icon: 'none' });
+          return;
         }
+
+        app.request({
+          url: '/api/v1/upload/image-base64',
+          method: 'POST',
+          data: {
+            image_base64: base64Data,
+            category: 'invoice',
+            filename: 'invoice.jpg',
+          },
+          success: function (res) {
+            self.setData({ uploading: false });
+            if (res.code === 200 && res.data && res.data.url) {
+              self.setData({
+                imageUrl: res.data.url,
+                submitDisabled: false,
+              });
+              wx.showToast({ title: '图片上传成功', icon: 'success' });
+              // ★ 自动调用后端 OCR 识别
+              self.runOCR(res.data.url);
+            } else {
+              wx.showToast({ title: res.message || '上传失败', icon: 'none' });
+            }
+          },
+          fail: function (err) {
+            self.setData({ uploading: false });
+            console.error('[发票上传] Base64上传失败:', err);
+            wx.showToast({ title: '上传失败，请重试', icon: 'none' });
+          },
+        });
       },
-      fail: function (err) {
+      fail: function (readErr) {
+        console.error('[发票上传] 异步读取文件失败:', readErr);
         self.setData({ uploading: false });
-        console.error('[发票上传] Base64上传失败:', err);
-        wx.showToast({ title: '上传失败，请重试', icon: 'none' });
+        wx.showToast({ title: '图片读取失败，请重试', icon: 'none' });
       },
     });
   },

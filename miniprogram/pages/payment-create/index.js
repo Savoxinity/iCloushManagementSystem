@@ -153,46 +153,59 @@ Page({
       return;
     }
 
-    // ★ V5.6.6: 读取图片为 Base64，通过 app.request (JSON) 上传
+    // ★ V5.6.9: 异步读取图片为 Base64（兼容云沙箱环境）
+    // 同步 readFileSync 在微信云托管沙箱中可能抛 "not node js file system" 错误
+    // 改为异步 readFile 以增强兼容性
     var fs = wx.getFileSystemManager();
-    try {
-      var fileData = fs.readFileSync(tempPath);
-      var base64Data = wx.arrayBufferToBase64(fileData);
-    } catch (e) {
-      self.setData({ uploading: false, invoiceImage: tempPath });
-      self.checkCanSubmit();
-      wx.showToast({ title: '图片读取失败: ' + e.message, icon: 'none' });
-      return;
-    }
-
-    app.request({
-      url: '/api/v1/upload/image-base64',
-      method: 'POST',
-      data: {
-        image_base64: base64Data,
-        category: 'invoice',
-        filename: 'invoice.jpg',
-      },
-      success: function (res) {
-        self.setData({ uploading: false });
-        if (res.code === 200 && res.data && res.data.url) {
-          var imageUrl = res.data.url;
-          self.setData({ invoiceImage: imageUrl });
+    fs.readFile({
+      filePath: tempPath,
+      success: function (readRes) {
+        var base64Data;
+        try {
+          base64Data = wx.arrayBufferToBase64(readRes.data);
+        } catch (e) {
+          self.setData({ uploading: false, invoiceImage: tempPath });
           self.checkCanSubmit();
-          // ★ 自动调用 OCR 识别 → 结果进发票/票据池
-          self.runOCR(imageUrl);
-        } else {
-          // 上传失败但不阻塞流程，使用本地路径
-          self.setData({ invoiceImage: tempPath });
-          self.checkCanSubmit();
-          wx.showToast({ title: res.message || '上传失败，使用本地图片', icon: 'none' });
+          wx.showToast({ title: 'Base64转码失败', icon: 'none' });
+          return;
         }
+
+        app.request({
+          url: '/api/v1/upload/image-base64',
+          method: 'POST',
+          data: {
+            image_base64: base64Data,
+            category: 'invoice',
+            filename: 'invoice.jpg',
+          },
+          success: function (res) {
+            self.setData({ uploading: false });
+            if (res.code === 200 && res.data && res.data.url) {
+              var imageUrl = res.data.url;
+              self.setData({ invoiceImage: imageUrl });
+              self.checkCanSubmit();
+              // ★ 自动调用 OCR 识别 → 结果进发票/票据池
+              self.runOCR(imageUrl);
+            } else {
+              // 上传失败但不阻塞流程，使用本地路径
+              self.setData({ invoiceImage: tempPath });
+              self.checkCanSubmit();
+              wx.showToast({ title: res.message || '上传失败，使用本地图片', icon: 'none' });
+            }
+          },
+          fail: function (err) {
+            self.setData({ uploading: false, invoiceImage: tempPath });
+            self.checkCanSubmit();
+            console.error('[payment-create] Base64上传失败:', err);
+            wx.showToast({ title: '上传失败，请重试', icon: 'none' });
+          },
+        });
       },
-      fail: function (err) {
+      fail: function (readErr) {
+        console.error('[payment-create] 异步读取文件失败:', readErr);
         self.setData({ uploading: false, invoiceImage: tempPath });
         self.checkCanSubmit();
-        console.error('[payment-create] Base64上传失败:', err);
-        wx.showToast({ title: '上传失败，请重试', icon: 'none' });
+        wx.showToast({ title: '图片读取失败，请重试', icon: 'none' });
       },
     });
   },

@@ -37,7 +37,7 @@ Page({
         self.setData({ loading: false });
         if (res.code === 200) {
           var today = new Date().toISOString().slice(0, 10);
-          var list = (res.data || []).map(function (item) {
+          var list = (Array.isArray(res.data) ? res.data : (res.data && res.data.items) || []).map(function (item) {
             item.statusLabel = STATUS_LABELS[item.status] || item.status;
             if (item.created_at) {
               item.created_at_display = item.created_at.slice(0, 10);

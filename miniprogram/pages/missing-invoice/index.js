@@ -69,7 +69,7 @@ Page({
       success: function (res) {
         if (res.code === 200) {
           var now = new Date();
-          var list = (res.data || []).map(function (item) {
+          var list = (Array.isArray(res.data) ? res.data : (res.data && res.data.items) || []).map(function (item) {
             // ★ 状态机计算
             if (item.expected_invoice_date) {
               var deadline = new Date(item.expected_invoice_date);

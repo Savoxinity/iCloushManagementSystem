@@ -79,7 +79,7 @@ Page({
       success: function (res) {
         self.setData({ loading: false });
         if (res.code === 200) {
-          var list = (res.data || []).map(function (d) {
+          var list = (Array.isArray(res.data) ? res.data : (res.data && res.data.items) || []).map(function (d) {
             // 计算打卡进度
             var checkins = d.stop_checkins || [];
             var checkedCount = 0;

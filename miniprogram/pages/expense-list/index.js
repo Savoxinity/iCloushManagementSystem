@@ -57,7 +57,7 @@ Page({
       url: '/api/v1/expenses/my',
       success: function (res) {
         if (res.code === 200) {
-          expenseList = (res.data || []).map(function (item) {
+          expenseList = (Array.isArray(res.data) ? res.data : (res.data && res.data.items) || []).map(function (item) {
             item.record_type = 'expense';
             item.record_type_label = '报销';
             item.display_amount = item.claimed_amount || item.amount || 0;
@@ -87,7 +87,7 @@ Page({
       url: '/api/v1/payments/my',
       success: function (res) {
         if (res.code === 200) {
-          paymentList = (res.data || []).map(function (item) {
+          paymentList = (Array.isArray(res.data) ? res.data : (res.data && res.data.items) || []).map(function (item) {
             item.record_type = 'payment';
             item.record_type_label = '付款';
             item.display_amount = item.total_amount || 0;

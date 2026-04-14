@@ -70,7 +70,7 @@ Page({
       url: '/api/v1/missing-invoices/list?status=pending',
       success: function (res) {
         if (res.code === 200) {
-          var list = (res.data || []).map(function (item) {
+          var list = (Array.isArray(res.data) ? res.data : (res.data && res.data.items) || []).map(function (item) {
             // 计算逾期天数
             if (item.deadline) {
               var deadline = new Date(item.deadline);
