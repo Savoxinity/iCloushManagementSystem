@@ -137,12 +137,12 @@
   background: rgba(255,255,255,0.06);
   border-bottom: 1rpx solid rgba(255,255,255,0.08);
 }
-.ic-item-header text { font-size: 22rpx; color: #888; font-weight: 500; }
+.ic-item-header .ic-cell-text { font-size: 22rpx; color: #888; font-weight: 500; }
 .ic-item-row {
   display: flex; padding: 14rpx 12rpx;
   border-bottom: 1rpx solid rgba(255,255,255,0.03);
 }
-.ic-item-row text { font-size: 22rpx; color: #ccc; }
+.ic-item-row .ic-cell-text { font-size: 22rpx; color: #ccc; }
 .ic-item-col-name { flex: 3; overflow: hidden; text-overflow: ellipsis; }
 .ic-item-name-text { white-space: nowrap; }
 .ic-item-col-qty { flex: 1; text-align: center; }
@@ -178,5 +178,5 @@
 .compact-mode .ic-info-label { font-size: 24rpx; width: 140rpx; }
 .compact-mode .ic-info-value { font-size: 24rpx; }
 .compact-mode .ic-image-section { height: 360rpx; }
-.compact-mode .ic-item-header text { font-size: 20rpx; }
-.compact-mode .ic-item-row text { font-size: 20rpx; }
+.compact-mode .ic-item-header .ic-cell-text { font-size: 20rpx; }
+.compact-mode .ic-item-row .ic-cell-text { font-size: 20rpx; }

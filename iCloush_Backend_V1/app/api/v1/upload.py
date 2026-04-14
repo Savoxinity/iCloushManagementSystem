@@ -107,24 +107,47 @@ async def _upload_to_cos(file_bytes: bytes, file_key: str, content_type: str) ->
 
 async def _save_bytes(file_bytes: bytes, prefix: str, filename: str = "photo.jpg") -> str:
     """
-    保存 bytes 数据，优先 COS，降级本地
+    保存 bytes 数据到 COS
+    V5.7.0: 生产环境强制 COS，不再降级本地；开发环境保留降级
     返回公网可访问的 URL
     """
     file_key = _generate_filename(prefix, filename)
-    content_type = "image/jpeg"
+    # 根据文件扩展名推断 content_type
+    ext = os.path.splitext(filename)[1].lower()
+    content_type_map = {
+        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+        '.png': 'image/png', '.webp': 'image/webp',
+        '.gif': 'image/gif', '.bmp': 'image/bmp',
+    }
+    content_type = content_type_map.get(ext, 'image/jpeg')
 
-    # 尝试 COS
-    try:
-        cos_url = await _upload_to_cos(file_bytes, file_key, content_type)
-        return cos_url
-    except Exception as e:
-        if settings.APP_ENV == "production":
-            logger.error(f"[上传] 生产环境 COS 上传失败: {e}")
-            logger.warning("[上传] 生产环境降级到本地存储，容器重启后文件将丢失！")
-        else:
-            logger.info(f"[上传] 开发环境 COS 不可用，使用本地存储: {e}")
+    # ── COS 上传（带重试） ──
+    max_retries = 3
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            cos_url = await _upload_to_cos(file_bytes, file_key, content_type)
+            return cos_url
+        except Exception as e:
+            last_error = e
+            logger.warning(f"[上传] COS 上传第 {attempt}/{max_retries} 次失败: {e}")
+            if attempt < max_retries:
+                import asyncio
+                await asyncio.sleep(0.5 * attempt)  # 退避重试
 
-    # 降级：本地存储
+    # ── COS 全部重试失败 ──
+    is_production = getattr(settings, 'APP_ENV', 'development') == 'production'
+
+    if is_production:
+        # V5.7.0: 生产环境不再降级到本地！容器重启后文件会丢失
+        logger.error(f"[上传] 生产环境 COS 上传 {max_retries} 次全部失败: {last_error}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"云存储服务暂时不可用，请稍后重试。错误: {str(last_error)}"
+        )
+
+    # ── 仅开发环境：降级本地存储 ──
+    logger.info(f"[上传] 开发环境 COS 不可用，降级本地存储: {last_error}")
     local_path = UPLOAD_DIR / file_key
     local_path.parent.mkdir(parents=True, exist_ok=True)
     with open(local_path, "wb") as f:

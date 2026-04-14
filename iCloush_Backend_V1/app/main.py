@@ -98,11 +98,17 @@ app.include_router(ws_router)
 
 
 # ═══════════════════════════════════════════════════
-# 静态文件服务（上传的图片/发票）
+# 静态文件服务（仅开发环境 — 生产环境全部走 COS）
+# V5.7.0: 生产环境不再创建本地 uploads 目录，不再挂载静态文件服务
 # ═══════════════════════════════════════════════════
-UPLOAD_DIR = Path(__file__).parent / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+import os as _os
+if _os.environ.get("APP_ENV") != "production":
+    UPLOAD_DIR = Path(__file__).parent / "uploads"
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+else:
+    import logging as _log
+    _log.getLogger("icloush").info("[V5.7.0] 生产环境跳过本地静态文件挂载，所有文件走 COS")
 
 
 @app.get("/health")

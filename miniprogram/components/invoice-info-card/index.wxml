@@ -158,21 +158,21 @@
       <view class="ic-items-table">
         <!-- 表头 -->
         <view class="ic-item-header">
-          <text class="ic-item-col-name">项目名称</text>
-          <text class="ic-item-col-qty">数量</text>
-          <text class="ic-item-col-price">单价</text>
-          <text class="ic-item-col-amount">金额</text>
-          <text class="ic-item-col-tax">税率</text>
-          <text class="ic-item-col-tax-amt">税额</text>
+          <text class="ic-item-col-name ic-cell-text">项目名称</text>
+          <text class="ic-item-col-qty ic-cell-text">数量</text>
+          <text class="ic-item-col-price ic-cell-text">单价</text>
+          <text class="ic-item-col-amount ic-cell-text">金额</text>
+          <text class="ic-item-col-tax ic-cell-text">税率</text>
+          <text class="ic-item-col-tax-amt ic-cell-text">税额</text>
         </view>
         <!-- 明细行 -->
         <view class="ic-item-row" wx:for="{{inv.items}}" wx:key="index" wx:for-item="row">
-          <text class="ic-item-col-name ic-item-name-text">{{row.name || row.Name || '--'}}</text>
-          <text class="ic-item-col-qty">{{row.quantity || row.Quantity || '--'}}</text>
-          <text class="ic-item-col-price">{{row.unit_price || row.UnitPrice || '--'}}</text>
-          <text class="ic-item-col-amount">{{row.amount_without_tax || row.AmountWithoutTax || '--'}}</text>
-          <text class="ic-item-col-tax">{{row.tax_rate || row.TaxRate || '--'}}</text>
-          <text class="ic-item-col-tax-amt">{{row.tax_amount || row.TaxAmount || '--'}}</text>
+          <text class="ic-item-col-name ic-item-name-text ic-cell-text">{{row.name || row.Name || '--'}}</text>
+          <text class="ic-item-col-qty ic-cell-text">{{row.quantity || row.Quantity || '--'}}</text>
+          <text class="ic-item-col-price ic-cell-text">{{row.unit_price || row.UnitPrice || '--'}}</text>
+          <text class="ic-item-col-amount ic-cell-text">{{row.amount_without_tax || row.AmountWithoutTax || '--'}}</text>
+          <text class="ic-item-col-tax ic-cell-text">{{row.tax_rate || row.TaxRate || '--'}}</text>
+          <text class="ic-item-col-tax-amt ic-cell-text">{{row.tax_amount || row.TaxAmount || '--'}}</text>
         </view>
       </view>
     </view>
