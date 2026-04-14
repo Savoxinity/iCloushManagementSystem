@@ -256,32 +256,42 @@ async def invoice_coverage_dashboard(
     开票覆盖率看板
     公式：开票覆盖率 = (本月已核验发票总金额 / 本月实际总成本) * 100%
     价税现金差额 = 本月实际总成本 - 本月已核验发票总金额
+    V5.6.8: 修复 SQL 列名错误（amount→post_tax_amount, period_year/month→EXTRACT）
     """
     now = datetime.now()
     target_year = year or now.year
     target_month = month or now.month
 
-    # 本月已核验发票总金额
-    invoice_sql = text("""
-        SELECT COALESCE(SUM(total_amount), 0) as total_invoiced
-        FROM invoices
-        WHERE verify_status = 'verified'
-          AND EXTRACT(YEAR FROM invoice_date) = :year
-          AND EXTRACT(MONTH FROM invoice_date) = :month
-    """)
-    inv_result = await db.execute(invoice_sql, {"year": target_year, "month": target_month})
-    total_invoiced = float(inv_result.scalar() or 0)
+    try:
+        # 本月已核验发票总金额
+        invoice_sql = text("""
+            SELECT COALESCE(SUM(total_amount), 0) as total_invoiced
+            FROM invoices
+            WHERE verify_status = 'verified'
+              AND EXTRACT(YEAR FROM invoice_date) = :year
+              AND EXTRACT(MONTH FROM invoice_date) = :month
+        """)
+        inv_result = await db.execute(invoice_sql, {"year": target_year, "month": target_month})
+        total_invoiced = float(inv_result.scalar() or 0)
+    except Exception as e:
+        logger.error(f"[invoice-coverage] 发票金额查询失败: {e}")
+        total_invoiced = 0.0
 
-    # 本月实际总成本（从 management_cost_ledger）
-    cost_sql = text("""
-        SELECT COALESCE(SUM(amount), 0) as total_cost
-        FROM management_cost_ledger
-        WHERE period_year = :year AND period_month = :month
-    """)
-    cost_result = await db.execute(cost_sql, {"year": target_year, "month": target_month})
-    total_cost = float(cost_result.scalar() or 0)
+    try:
+        # ★ V5.6.8 修复：management_cost_ledger 实际列名是 post_tax_amount + trade_date
+        cost_sql = text("""
+            SELECT COALESCE(SUM(post_tax_amount), 0) as total_cost
+            FROM management_cost_ledger
+            WHERE EXTRACT(YEAR FROM trade_date) = :year
+              AND EXTRACT(MONTH FROM trade_date) = :month
+        """)
+        cost_result = await db.execute(cost_sql, {"year": target_year, "month": target_month})
+        total_cost = float(cost_result.scalar() or 0)
+    except Exception as e:
+        logger.error(f"[invoice-coverage] 成本查询失败: {e}")
+        total_cost = 0.0
 
-    # 计算覆盖率
+    # 计算覆盖率（防除零）
     coverage_rate = 0.0
     if total_cost > 0:
         coverage_rate = round((total_invoiced / total_cost) * 100, 2)
@@ -289,19 +299,23 @@ async def invoice_coverage_dashboard(
     # 价税现金差额
     tax_gap = round(total_cost - total_invoiced, 2)
 
-    # 本月发票统计
-    stats_sql = text("""
-        SELECT
-            COUNT(*) as total_count,
-            SUM(CASE WHEN is_printed THEN 1 ELSE 0 END) as printed_count,
-            SUM(CASE WHEN NOT is_printed THEN 1 ELSE 0 END) as unprinted_count
-        FROM invoices
-        WHERE verify_status = 'verified'
-          AND EXTRACT(YEAR FROM invoice_date) = :year
-          AND EXTRACT(MONTH FROM invoice_date) = :month
-    """)
-    stats_result = await db.execute(stats_sql, {"year": target_year, "month": target_month})
-    stats_row = stats_result.fetchone()
+    try:
+        # ★ V5.6.8 修复：is_printed 列需要 migration 后才存在，用 COALESCE 防御
+        stats_sql = text("""
+            SELECT
+                COUNT(*) as total_count,
+                COALESCE(SUM(CASE WHEN is_printed = 1 THEN 1 ELSE 0 END), 0) as printed_count,
+                COALESCE(SUM(CASE WHEN is_printed = 0 OR is_printed IS NULL THEN 1 ELSE 0 END), 0) as unprinted_count
+            FROM invoices
+            WHERE verify_status = 'verified'
+              AND EXTRACT(YEAR FROM invoice_date) = :year
+              AND EXTRACT(MONTH FROM invoice_date) = :month
+        """)
+        stats_result = await db.execute(stats_sql, {"year": target_year, "month": target_month})
+        stats_row = stats_result.fetchone()
+    except Exception as e:
+        logger.error(f"[invoice-coverage] 打印统计查询失败（is_printed 列可能不存在）: {e}")
+        stats_row = None
 
     return {
         "code": 200,
@@ -312,9 +326,9 @@ async def invoice_coverage_dashboard(
             "coverage_rate": coverage_rate,
             "tax_gap": tax_gap,
             "invoice_stats": {
-                "total": stats_row[0] if stats_row else 0,
-                "printed": stats_row[1] if stats_row else 0,
-                "unprinted": stats_row[2] if stats_row else 0,
+                "total": int(stats_row[0]) if stats_row else 0,
+                "printed": int(stats_row[1]) if stats_row else 0,
+                "unprinted": int(stats_row[2]) if stats_row else 0,
             },
         },
     }

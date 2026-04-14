@@ -23,6 +23,21 @@
 }
 .ic-no-image-text { font-size: 28rpx; color: #555; }
 
+/* V5.6.8: 图片失效占位图 */
+.ic-image-lost {
+  flex-direction: column;
+  gap: 12rpx;
+  background: #1a1a1a;
+}
+.ic-no-image-icon { font-size: 64rpx; }
+.ic-no-image-hint {
+  font-size: 22rpx;
+  color: #444;
+  padding: 0 40rpx;
+  text-align: center;
+  line-height: 1.4;
+}
+
 /* 类型角标 */
 .ic-type-corner {
   position: absolute; top: 20rpx; left: 20rpx;

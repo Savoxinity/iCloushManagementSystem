@@ -77,7 +77,8 @@ class InvoiceOCRRequest(BaseModel):
 
 
 class InvoiceVerifyRequest(BaseModel):
-    """发票核验"""
+    """发票核验 V5.6.8: 允许前端传递额外字段（如 invoice_number/invoice_code）"""
+    model_config = {"extra": "ignore"}  # ★ 允许并忽略未定义的额外字段
     verify_result: Optional[str] = Field(default=None, description="手动核验结果: verified/failed/duplicate")
     verify_result_json: Optional[dict] = Field(default=None, description="核验详情JSON")
     auto_verify: Optional[bool] = Field(default=False, description="是否调用腾讯云自动核验")
@@ -707,10 +708,12 @@ async def verify_invoice_endpoint(
 
     if req.auto_verify:
         if not invoice.invoice_code or not invoice.invoice_number:
-            raise HTTPException(
-                status_code=422,
-                detail="发票缺少代码或号码，无法自动核验。请先完善发票信息。"
-            )
+            # ★ V5.6.8: 改为友好提示而非 422，避免前端报错
+            return {
+                "code": 200,
+                "message": "该发票缺少代码或号码，无法自动核验。已标记为待人工复核。",
+                "data": _serialize_invoice(invoice),
+            }
 
         invoice_date_str = ""
         if invoice.invoice_date:

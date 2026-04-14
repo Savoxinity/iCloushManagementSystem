@@ -6,15 +6,23 @@
 
   <block wx:if="{{inv}}">
 
-    <!-- ═══ 图片区（可选） ═══ -->
+    <!-- ═══ 图片区（可选）V5.6.8: 增强 404 历史数据处理 ═══ -->
     <view wx:if="{{showImage}}" class="ic-image-section" bindtap="onPreviewImage">
+      <!-- 正常图片（未失败时显示） -->
       <image
-        wx:if="{{inv.image_url}}"
+        wx:if="{{inv.image_url && !inv._imageLoadFailed}}"
         src="{{inv.image_url}}"
         class="ic-invoice-image"
         mode="aspectFit"
         binderror="onImageError"
       />
+      <!-- 图片加载失败占位图（V5.6.8: 历史数据 404 时显示） -->
+      <view wx:elif="{{inv._imageLoadFailed}}" class="ic-no-image ic-image-lost">
+        <text class="ic-no-image-icon">🖼️</text>
+        <text class="ic-no-image-text">图片已失效（历史数据）</text>
+        <text class="ic-no-image-hint">该图片上传于本地测试环境，云端无法访问</text>
+      </view>
+      <!-- 无图片 -->
       <view wx:else class="ic-no-image">
         <text class="ic-no-image-text">暂无发票图片</text>
       </view>

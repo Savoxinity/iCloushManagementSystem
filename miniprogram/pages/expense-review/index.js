@@ -102,6 +102,9 @@ Page({
     var expense = this.data.expenses.find(function (item) { return item.id === id; });
     if (!expense) return;
 
+    // V5.6.8: 每次打开详情弹窗时重置图片失效标记
+    this.setData({ _detailImageFailed: false });
+
     var self = this;
 
     app.request({
@@ -242,12 +245,20 @@ Page({
     if (url) wx.previewImage({ urls: [url] });
   },
 
-  // ★ V5.5.2 Hotfix: 图片加载失败 fallback
+  // ★ V5.6.8: 图片加载失败 fallback（历史数据 404 处理）
   onInvThumbError: function (e) {
     console.warn('[expense-review] 发票缩略图加载失败:', e.detail);
+    var idx = e.currentTarget.dataset.idx;
+    if (idx !== undefined) {
+      // 标记该项的缩略图已失效
+      var key = 'expenses[' + idx + ']._thumbFailed';
+      this.setData({ [key]: true });
+    }
   },
   onDetailImageError: function (e) {
     console.warn('[expense-review] 发票详情图加载失败:', e.detail);
+    // 标记详情图已失效
+    this.setData({ _detailImageFailed: true });
   },
 
   // ── 查看关联发票详情 ──

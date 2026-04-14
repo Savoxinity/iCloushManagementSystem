@@ -129,6 +129,15 @@ Component({
         invoice.image_url = invoice.imageUrl;
       }
 
+      // ★ V5.6.8: 检测历史数据中的旧本地路径（/uploads/），这些图片在云端不存在
+      if (invoice.image_url && invoice.image_url.indexOf('/uploads/') >= 0) {
+        // 旧的本地上传路径，在云托管环境下会 404
+        invoice._imageIsLegacy = true;
+        invoice._originalImageUrl = invoice.image_url;
+        // 不清空 URL，先尝试加载，失败后由 onImageError 处理
+      }
+      invoice._imageLoadFailed = false;
+
       this.setData({ inv: invoice });
     },
 
@@ -142,12 +151,19 @@ Component({
       }
     },
 
-    // ── 图片加载失败 ──
+    // ── 图片加载失败（V5.6.8 增强：历史数据 404 处理） ──
     onImageError: function () {
       var inv = this.data.inv;
-      if (inv && inv.temp_image_path && inv.image_url !== inv.temp_image_path) {
+      if (!inv) return;
+
+      // 如果有备用图片路径，尝试切换
+      if (inv.temp_image_path && inv.image_url !== inv.temp_image_path) {
         this.setData({ 'inv.image_url': inv.temp_image_path });
+        return;
       }
+
+      // 所有备用方案均失败，标记为加载失败，显示占位图
+      this.setData({ 'inv._imageLoadFailed': true });
     },
 
     // ── 复制发票号码 ──

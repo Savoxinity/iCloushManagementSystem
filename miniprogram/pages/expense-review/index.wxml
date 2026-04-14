@@ -64,15 +64,19 @@
             </text>
           </view>
         </view>
-        <!-- ★ 发票缩略图预览 -->
+        <!-- ★ 发票缩略图预览 V5.6.8: 增强 404 fallback -->
         <view wx:if="{{item.invoice_info}}" class="invoice-preview">
           <image
+            wx:if="{{!item._thumbFailed}}"
             src="{{item.invoice_info.image_url || item.invoice_image_url || ''}}"
             class="inv-thumb"
             mode="aspectFill"
             binderror="onInvThumbError"
             data-idx="{{index}}"
           />
+          <view wx:else class="inv-thumb inv-thumb-lost">
+            <text style="font-size:24rpx;color:#555;">图片已失效</text>
+          </view>
           <view class="inv-preview-info">
             <text class="inv-preview-type">
               <text class="type-mini {{item.invoice_info.invoice_type_code === '专' ? 'mini-special' : 'mini-general'}}">{{item.invoice_info.invoice_type_code || '普'}}</text>
@@ -112,9 +116,9 @@
       <!-- ★ 顶部留白（空气感） -->
       <view class="detail-top-spacer"></view>
 
-      <!-- ═══ 上部：发票/凭证图片预览 ═══ -->
+      <!-- ═══ 上部：发票/凭证图片预览 V5.6.8: 增强 404 fallback ═══ -->
       <view class="detail-section detail-image-section">
-        <view wx:if="{{currentExpense.invoice_image_url || (currentExpense.invoice_info && currentExpense.invoice_info.image_url)}}" class="image-preview-box">
+        <view wx:if="{{(currentExpense.invoice_image_url || (currentExpense.invoice_info && currentExpense.invoice_info.image_url)) && !_detailImageFailed}}" class="image-preview-box">
           <image
             src="{{currentExpense.invoice_info.image_url || currentExpense.invoice_image_url}}"
             class="detail-main-image"
@@ -124,6 +128,11 @@
             binderror="onDetailImageError"
           />
           <text class="image-hint">点击查看原图</text>
+        </view>
+        <view wx:elif="{{_detailImageFailed}}" class="image-placeholder">
+          <text class="placeholder-icon">🖼️</text>
+          <text class="placeholder-text">图片已失效（历史数据）</text>
+          <text style="font-size:22rpx;color:#444;margin-top:8rpx;">该图片上传于本地测试环境</text>
         </view>
         <view wx:elif="{{currentExpense.receipt_image_url}}" class="image-preview-box">
           <image
