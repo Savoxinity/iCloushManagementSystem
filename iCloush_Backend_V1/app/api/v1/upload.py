@@ -45,21 +45,6 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 _cos_client = None
 
 
-def _get_cos_base_region() -> str:
-    """获取用于 COS SDK 和域名拼接的基础 Region（剥离 MAZ 后缀）
-    
-    腾讯云多可用区(MAZ)存储桶的坑：
-    - 环境变量 COS_REGION 可能配置为 ap-shanghai-maz
-    - 但 COS SDK 的 Region 参数和 Endpoint 域名都不需要 -maz 后缀
-    - SDK 内部用 Region 做请求路由，传 -maz 会触发 SAZOperationNotSupportOnMAZBucket
-    - MAZ 是存储桶创建时的属性，不需要在 API 调用时指定
-    
-    此函数剥离 -maz 后缀，用于 SDK Region 参数、域名拼接和 URL 生成。
-    """
-    region = settings.COS_REGION or "ap-shanghai"
-    return region.replace("-maz", "")
-
-
 def _get_cos_client():
     """延迟初始化 COS 客户端，避免未配置时报错"""
     global _cos_client
@@ -72,14 +57,9 @@ def _get_cos_client():
     try:
         from qcloud_cos import CosConfig, CosS3Client
 
-        # ★ 关键修复：Region 必须用不带 -maz 的值
-        # MAZ 是存储桶属性，不是 API Region 参数
-        # 传 ap-shanghai-maz 会导致 SAZOperationNotSupportOnMAZBucket
-        base_region = _get_cos_base_region()
-        raw_region = settings.COS_REGION
-
+        region = settings.COS_REGION
         config = CosConfig(
-            Region=base_region,  # ★ 用 ap-shanghai 而非 ap-shanghai-maz
+            Region=region,
             SecretId=settings.effective_cos_secret_id,
             SecretKey=settings.effective_cos_secret_key,
             Token=None,
@@ -88,7 +68,7 @@ def _get_cos_client():
         _cos_client = CosS3Client(config)
         logger.info(
             f"[COS] 客户端初始化成功: bucket={settings.COS_BUCKET}, "
-            f"raw_region={raw_region}, effective_region={base_region}"
+            f"region={region}"
         )
         return _cos_client
     except Exception as e:
@@ -121,9 +101,7 @@ async def _upload_to_cos(file_bytes: bytes, file_key: str, content_type: str) ->
             ContentType=content_type,
             StorageClass="STANDARD",
         )
-        # 返回公网 URL（使用 base_region 避免 MAZ 域名问题）
-        base_region = _get_cos_base_region()
-        cos_url = f"https://{settings.COS_BUCKET}.cos.{base_region}.myqcloud.com/{file_key}"
+        cos_url = f"https://{settings.COS_BUCKET}.cos.{settings.COS_REGION}.myqcloud.com/{file_key}"
         logger.info(f"[COS] 上传成功: {file_key} → {cos_url}")
         return cos_url
     except Exception as e:
@@ -499,7 +477,7 @@ async def get_sts_token(
             "secret_id": settings.effective_cos_secret_id,
             "secret_key": settings.effective_cos_secret_key,
             "bucket": settings.COS_BUCKET,
-            "region": _get_cos_base_region(),  # ★ MAZ 兼容：去掉 -maz 后缀
+            "region": settings.COS_REGION,
             "allow_prefix": f"tasks/{current_user.id}/*",
             "allow_actions": [
                 "name/cos:PutObject",
@@ -520,7 +498,7 @@ async def get_sts_token(
                 "startTime": response["startTime"],
                 "expiredTime": response["expiredTime"],
                 "bucket": settings.COS_BUCKET,
-                "region": _get_cos_base_region(),  # ★ MAZ 兼容
+                "region": settings.COS_REGION,
                 "prefix": f"tasks/{current_user.id}/",
             },
         }
@@ -536,7 +514,7 @@ async def get_sts_token(
                 "startTime": int(time.time()),
                 "expiredTime": int(time.time()) + 1800,
                 "bucket": settings.COS_BUCKET or "mock-bucket",
-                "region": _get_cos_base_region(),  # ★ MAZ 兼容
+                "region": settings.COS_REGION,
                 "prefix": f"tasks/{current_user.id}/",
             },
             "message": "开发模式：STS SDK 未安装，返回模拟凭证",
