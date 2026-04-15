@@ -45,6 +45,20 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 _cos_client = None
 
 
+def _get_cos_base_region() -> str:
+    """获取用于域名拼接的基础 Region（剥离 MAZ 后缀）
+    
+    腾讯云多可用区(MAZ)存储桶的坑：
+    - API 校验层面需要 Region 带 -maz 后缀（如 ap-shanghai-maz）
+    - 但物理网络 Endpoint 域名中不含 -maz（仍为 cos.ap-shanghai.myqcloud.com）
+    - SDK 默认用 Region 拼接域名，导致 MAZ 场景 DNS 解析失败
+    
+    此函数剥离 -maz 后缀，用于域名拼接和 URL 生成。
+    """
+    region = settings.COS_REGION or "ap-shanghai"
+    return region.replace("-maz", "")
+
+
 def _get_cos_client():
     """延迟初始化 COS 客户端，避免未配置时报错"""
     global _cos_client
@@ -57,15 +71,24 @@ def _get_cos_client():
     try:
         from qcloud_cos import CosConfig, CosS3Client
 
+        region = settings.COS_REGION
+        base_region = _get_cos_base_region()
+        # 显式指定 Endpoint，防止 SDK 用带 -maz 的 Region 拼接出不存在的域名
+        endpoint = f"cos.{base_region}.myqcloud.com"
+
         config = CosConfig(
-            Region=settings.COS_REGION,
+            Region=region,
             SecretId=settings.effective_cos_secret_id,
             SecretKey=settings.effective_cos_secret_key,
             Token=None,
             Scheme="https",
+            Endpoint=endpoint,
         )
         _cos_client = CosS3Client(config)
-        logger.info(f"[COS] 客户端初始化成功: bucket={settings.COS_BUCKET}, region={settings.COS_REGION}")
+        logger.info(
+            f"[COS] 客户端初始化成功: bucket={settings.COS_BUCKET}, "
+            f"region={region}, endpoint={endpoint}"
+        )
         return _cos_client
     except Exception as e:
         logger.error(f"[COS] 客户端初始化失败: {e}")
@@ -97,8 +120,9 @@ async def _upload_to_cos(file_bytes: bytes, file_key: str, content_type: str) ->
             ContentType=content_type,
             StorageClass="STANDARD",
         )
-        # 返回公网 URL
-        cos_url = f"https://{settings.COS_BUCKET}.cos.{settings.COS_REGION}.myqcloud.com/{file_key}"
+        # 返回公网 URL（使用 base_region 避免 MAZ 域名问题）
+        base_region = _get_cos_base_region()
+        cos_url = f"https://{settings.COS_BUCKET}.cos.{base_region}.myqcloud.com/{file_key}"
         logger.info(f"[COS] 上传成功: {file_key} → {cos_url}")
         return cos_url
     except Exception as e:
