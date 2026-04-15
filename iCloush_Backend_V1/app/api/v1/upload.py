@@ -46,14 +46,15 @@ _cos_client = None
 
 
 def _get_cos_base_region() -> str:
-    """获取用于域名拼接的基础 Region（剥离 MAZ 后缀）
+    """获取用于 COS SDK 和域名拼接的基础 Region（剥离 MAZ 后缀）
     
     腾讯云多可用区(MAZ)存储桶的坑：
-    - API 校验层面需要 Region 带 -maz 后缀（如 ap-shanghai-maz）
-    - 但物理网络 Endpoint 域名中不含 -maz（仍为 cos.ap-shanghai.myqcloud.com）
-    - SDK 默认用 Region 拼接域名，导致 MAZ 场景 DNS 解析失败
+    - 环境变量 COS_REGION 可能配置为 ap-shanghai-maz
+    - 但 COS SDK 的 Region 参数和 Endpoint 域名都不需要 -maz 后缀
+    - SDK 内部用 Region 做请求路由，传 -maz 会触发 SAZOperationNotSupportOnMAZBucket
+    - MAZ 是存储桶创建时的属性，不需要在 API 调用时指定
     
-    此函数剥离 -maz 后缀，用于域名拼接和 URL 生成。
+    此函数剥离 -maz 后缀，用于 SDK Region 参数、域名拼接和 URL 生成。
     """
     region = settings.COS_REGION or "ap-shanghai"
     return region.replace("-maz", "")
@@ -71,23 +72,23 @@ def _get_cos_client():
     try:
         from qcloud_cos import CosConfig, CosS3Client
 
-        region = settings.COS_REGION
+        # ★ 关键修复：Region 必须用不带 -maz 的值
+        # MAZ 是存储桶属性，不是 API Region 参数
+        # 传 ap-shanghai-maz 会导致 SAZOperationNotSupportOnMAZBucket
         base_region = _get_cos_base_region()
-        # 显式指定 Endpoint，防止 SDK 用带 -maz 的 Region 拼接出不存在的域名
-        endpoint = f"cos.{base_region}.myqcloud.com"
+        raw_region = settings.COS_REGION
 
         config = CosConfig(
-            Region=region,
+            Region=base_region,  # ★ 用 ap-shanghai 而非 ap-shanghai-maz
             SecretId=settings.effective_cos_secret_id,
             SecretKey=settings.effective_cos_secret_key,
             Token=None,
             Scheme="https",
-            Endpoint=endpoint,
         )
         _cos_client = CosS3Client(config)
         logger.info(
             f"[COS] 客户端初始化成功: bucket={settings.COS_BUCKET}, "
-            f"region={region}, endpoint={endpoint}"
+            f"raw_region={raw_region}, effective_region={base_region}"
         )
         return _cos_client
     except Exception as e:
@@ -498,7 +499,7 @@ async def get_sts_token(
             "secret_id": settings.effective_cos_secret_id,
             "secret_key": settings.effective_cos_secret_key,
             "bucket": settings.COS_BUCKET,
-            "region": settings.COS_REGION,
+            "region": _get_cos_base_region(),  # ★ MAZ 兼容：去掉 -maz 后缀
             "allow_prefix": f"tasks/{current_user.id}/*",
             "allow_actions": [
                 "name/cos:PutObject",
@@ -519,7 +520,7 @@ async def get_sts_token(
                 "startTime": response["startTime"],
                 "expiredTime": response["expiredTime"],
                 "bucket": settings.COS_BUCKET,
-                "region": settings.COS_REGION,
+                "region": _get_cos_base_region(),  # ★ MAZ 兼容
                 "prefix": f"tasks/{current_user.id}/",
             },
         }
@@ -535,7 +536,7 @@ async def get_sts_token(
                 "startTime": int(time.time()),
                 "expiredTime": int(time.time()) + 1800,
                 "bucket": settings.COS_BUCKET or "mock-bucket",
-                "region": settings.COS_REGION,
+                "region": _get_cos_base_region(),  # ★ MAZ 兼容
                 "prefix": f"tasks/{current_user.id}/",
             },
             "message": "开发模式：STS SDK 未安装，返回模拟凭证",
