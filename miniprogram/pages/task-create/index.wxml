@@ -141,7 +141,7 @@
       <text class="interval-hint">💡 示例：烘干机清理绒毛 — 每14天自动发布</text>
     </view>
 
-    <!-- ★ V5.6.1: 必须拍照取证开关 -->
+    <!-- ★ V5.6.1: 必须拍照取证开关 + V5.7.3: 示范照片 -->
     <view class="form-section">
       <view class="section-label">
         <text class="label-icon">◈</text>
@@ -153,6 +153,24 @@
           <text class="switch-desc">开启后，员工提交任务时必须拍照，且仅允许现场拍摄（禁止相册），照片自动添加防伪水印。</text>
         </view>
         <switch checked="{{requirePhoto}}" bindchange="onRequirePhotoChange" color="#C9A84C" />
+      </view>
+      <!-- ★ V5.7.3: 示范照片上传（非必填） -->
+      <view class="example-photo-row">
+        <view class="example-photo-header">
+          <text class="example-photo-title">示范照片</text>
+          <text class="example-photo-hint">可选，为员工提供拍照参考</text>
+        </view>
+        <view wx:if="{{examplePhotoUrl}}" class="example-photo-preview" bindtap="previewExamplePhoto">
+          <image class="example-preview-img" src="{{examplePhotoUrl}}" mode="aspectFill" />
+          <view class="example-remove-btn" catchtap="removeExamplePhoto"><text>×</text></view>
+          <view wx:if="{{examplePhotoUploading}}" class="example-uploading-mask">
+            <text>上传中...</text>
+          </view>
+        </view>
+        <view wx:else class="example-add-btn" bindtap="chooseExamplePhoto">
+          <text class="example-add-icon">+</text>
+          <text class="example-add-text">添加示范照片</text>
+        </view>
       </view>
     </view>
 

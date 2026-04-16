@@ -1,5 +1,6 @@
 // ============================================
 // 任务编辑页 — Task Edit Console
+// V5.7.3: 新增示范照片编辑
 // 权限：班组长(3)及以上可编辑
 // ============================================
 var app = getApp();
@@ -24,6 +25,8 @@ Page({
     pointsReward: 10,
     intervalDays: '',          // 周期任务间隔天数
     requirePhoto: false,       // ★ V5.6.1: 必须拍照取证开关
+    examplePhotoUrl: '',         // ★ V5.7.3: 示范照片URL
+    examplePhotoUploading: false, // 示范照片上传中
 
     // 选择器数据
     taskTypes: [
@@ -165,6 +168,7 @@ Page({
           taskStatus: raw.status || 0,
           intervalDays: raw.interval_days || '',
           requirePhoto: raw.requires_photo || raw.require_photo || false,
+          examplePhotoUrl: raw.example_photo_url || '',
         });
 
         wx.setNavigationBarTitle({ title: '编辑: ' + (raw.title || '').slice(0, 8) });
@@ -222,6 +226,68 @@ Page({
 
   // ★ V5.6.1: 必须拍照取证开关
   onRequirePhotoChange: function (e) { this.setData({ requirePhoto: e.detail.value }); },
+
+  // ★ V5.7.3: 示范照片上传
+  chooseExamplePhoto: function () {
+    var self = this;
+    if (self.data.examplePhotoUploading) {
+      wx.showToast({ title: '正在上传，请稍候', icon: 'none' });
+      return;
+    }
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: function (res) {
+        var tempPath = res.tempFiles[0].tempFilePath;
+        self.setData({ examplePhotoUrl: tempPath, examplePhotoUploading: true });
+        wx.showLoading({ title: '上传示范照片...', mask: true });
+        var fs = wx.getFileSystemManager();
+        fs.readFile({
+          filePath: tempPath,
+          encoding: 'base64',
+          success: function (fileRes) {
+            app.request({
+              url: '/api/v1/upload/image-base64',
+              method: 'POST',
+              data: {
+                image_base64: fileRes.data,
+                category: 'example-photo',
+                filename: 'example_photo.jpg',
+              },
+              success: function (uploadRes) {
+                wx.hideLoading();
+                self.setData({ examplePhotoUploading: false });
+                if (uploadRes.code === 200 && uploadRes.data && uploadRes.data.url) {
+                  self.setData({ examplePhotoUrl: uploadRes.data.url });
+                  wx.showToast({ title: '示范照片已更新', icon: 'success' });
+                } else {
+                  wx.showToast({ title: '上传失败', icon: 'none' });
+                }
+              },
+              fail: function () {
+                wx.hideLoading();
+                self.setData({ examplePhotoUploading: false });
+                wx.showToast({ title: '网络异常，请重试', icon: 'none' });
+              },
+            });
+          },
+          fail: function () {
+            wx.hideLoading();
+            self.setData({ examplePhotoUploading: false });
+            wx.showToast({ title: '读取图片失败', icon: 'none' });
+          },
+        });
+      },
+    });
+  },
+  removeExamplePhoto: function () {
+    this.setData({ examplePhotoUrl: '' });
+  },
+  previewExamplePhoto: function () {
+    var url = this.data.examplePhotoUrl;
+    if (url) { wx.previewImage({ urls: [url], current: url }); }
+  },
 
   // ── 员工选择器 ──────────────────────────────────────────
   openStaffPicker: function () { this.setData({ showStaffPicker: true }); },
@@ -302,6 +368,8 @@ Page({
       is_recurring: data.taskType === 'periodic',
       // ★ V5.6.1: 必须拍照取证
       requires_photo: data.requirePhoto,
+      // ★ V5.7.3: 示范照片
+      example_photo_url: data.examplePhotoUrl || null,
     };
 
     app.request({

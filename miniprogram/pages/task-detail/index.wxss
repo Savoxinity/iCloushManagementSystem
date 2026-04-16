@@ -145,3 +145,32 @@
 .photo-notice{display:flex;align-items:flex-start;gap:8rpx;padding:12rpx 16rpx;margin-bottom:16rpx;background:rgba(239,68,68,0.08);border-radius:8rpx;border:1rpx solid rgba(239,68,68,0.2);}
 .notice-icon{font-size:24rpx;flex-shrink:0;margin-top:2rpx;}
 .notice-text{font-size:22rpx;color:#EF4444;line-height:1.5;}
+
+/* ═══ V5.7.3 新增样式 ═══ */
+
+/* ★ 示范照片区域 */
+.example-photo-section{padding:20rpx 24rpx;border-bottom:1rpx solid #1A1A1A;}
+.example-photo-card{position:relative;border-radius:14rpx;overflow:hidden;border:1rpx solid rgba(201,168,76,0.3);background:#111111;}
+.example-photo-img{width:100%;height:360rpx;}
+.example-photo-label{display:flex;align-items:center;gap:8rpx;padding:12rpx 16rpx;background:rgba(201,168,76,0.08);}
+.example-label-icon{font-size:24rpx;}
+.example-label-text{font-size:22rpx;color:#C9A84C;font-weight:500;}
+
+/* ★ 取证照片回溯区域 */
+.proof-photos-section{padding:20rpx 24rpx;border-bottom:1rpx solid #1A1A1A;}
+.proof-photo-grid{display:flex;flex-wrap:wrap;gap:10rpx;margin-bottom:10rpx;}
+.proof-photo-thumb{width:160rpx;height:160rpx;border-radius:12rpx;overflow:hidden;border:1rpx solid rgba(201,168,76,0.2);}
+.proof-thumb-img{width:100%;height:100%;}
+.proof-photo-hint{display:block;font-size:20rpx;color:#666666;margin-top:6rpx;}
+
+/* ★ 管理员审核取证照片展示 */
+.review-evidence{margin-bottom:20rpx;}
+.review-evidence-title{display:block;font-size:24rpx;color:#C9A84C;font-weight:600;margin-bottom:12rpx;}
+.review-evidence-grid{display:flex;flex-wrap:wrap;gap:10rpx;}
+.review-evidence-thumb{width:200rpx;height:200rpx;border-radius:12rpx;overflow:hidden;border:2rpx solid rgba(201,168,76,0.3);}
+.review-evidence-img{width:100%;height:100%;}
+.review-no-evidence{padding:20rpx;background:rgba(245,158,11,0.08);border-radius:12rpx;margin-bottom:16rpx;text-align:center;}
+.review-no-evidence-text{font-size:24rpx;color:#F59E0B;}
+
+/* ★ 上传中动画 */
+.ai-uploading{background:rgba(59,130,246,0.3);}

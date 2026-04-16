@@ -1,4 +1,4 @@
-<!-- 任务详情页：V5.6.1 水印相机修复 + 强制拍照 + 后端徕卡水印 -->
+<!-- 任务详情页：V5.7.3 任务取证闭环 + 示范照片 -->
 <view class="page-container">
 
   <!-- ★ 驳回警告横幅 -->
@@ -76,6 +76,29 @@
     <text class="desc-text">{{task.description}}</text>
   </view>
 
+  <!-- ★★★ V5.7.3 模块四：示范照片展示 ★★★ -->
+  <view wx:if="{{examplePhotoUrl}}" class="example-photo-section">
+    <text class="section-title">标准示范</text>
+    <view class="example-photo-card" bindtap="previewExamplePhoto">
+      <image class="example-photo-img" src="{{examplePhotoUrl}}" mode="aspectFill" />
+      <view class="example-photo-label">
+        <text class="example-label-icon">📋</text>
+        <text class="example-label-text">标准示范（点击放大）</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- ★★★ V5.7.3 模块二：已提交取证照片回溯（员工+管理员均可见） ★★★ -->
+  <view wx:if="{{proofPhotos.length > 0}}" class="proof-photos-section">
+    <text class="section-title">取证照片（已提交）</text>
+    <view class="proof-photo-grid">
+      <view wx:for="{{proofPhotos}}" wx:key="*this" class="proof-photo-thumb" bindtap="previewProofPhoto" data-url="{{item}}">
+        <image class="proof-thumb-img" src="{{item}}" mode="aspectFill" />
+      </view>
+    </view>
+    <text class="proof-photo-hint">共 {{proofPhotos.length}} 张取证照片，点击可放大查看</text>
+  </view>
+
   <!-- ★ 员工执行区（仅 status === 1 或 2 时显示） -->
   <view wx:if="{{canExecute}}" class="action-section">
     <text class="section-title">执行操作</text>
@@ -89,7 +112,7 @@
       <view class="count-btn" bindtap="increaseCount"><text>＋</text></view>
       <button class="count-submit-btn" bindtap="submitCount">提交计件</button>
     </view>
-    <!-- ★ V5.6.1 拍照取证（后端水印方案） -->
+    <!-- ★ V5.7.3 拍照取证（后端水印方案） -->
     <view class="photo-section">
       <view class="photo-header">
         <text class="photo-label">拍照取证</text>
@@ -99,7 +122,7 @@
       <!-- ★ 强制拍照提示 -->
       <view wx:if="{{task.requires_photo}}" class="photo-notice">
         <text class="notice-icon">🔒</text>
-        <text class="notice-text">此任务要求必须拍照取证，仅支持现场拍摄（禁止相册选择），照片将自动添加防伪水印。</text>
+        <text class="notice-text">此任务要求必须拍照取证，仅支持现场拍摄（禁止相册），照片将自动添加防伪水印。</text>
       </view>
       <view class="photo-grid">
         <view wx:for="{{uploadedPhotos}}" wx:key="id" class="photo-thumb" bindtap="previewPhoto" data-url="{{item.url}}">
@@ -134,9 +157,21 @@
     </view>
   </view>
 
-  <!-- ★ 管理端审核工作台（仅管理员 + 待审核状态） -->
+  <!-- ★★★ V5.7.3 模块二：管理端审核工作台（含取证照片展示） ★★★ -->
   <view wx:if="{{canReview}}" class="review-workstation">
     <text class="section-title">管理审核</text>
+    <!-- ★ 审核时展示取证照片（不能盲审） -->
+    <view wx:if="{{proofPhotos.length > 0}}" class="review-evidence">
+      <text class="review-evidence-title">📷 员工取证照片（{{proofPhotos.length}}张）</text>
+      <view class="review-evidence-grid">
+        <view wx:for="{{proofPhotos}}" wx:key="*this" class="review-evidence-thumb" bindtap="previewProofPhoto" data-url="{{item}}">
+          <image class="review-evidence-img" src="{{item}}" mode="aspectFill" />
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{proofPhotos.length === 0 && task.requires_photo}}" class="review-no-evidence">
+      <text class="review-no-evidence-text">⚠️ 此任务要求拍照取证，但未收到取证照片</text>
+    </view>
     <view class="review-actions">
       <button class="review-btn approve-btn {{reviewing ? 'loading' : ''}}" bindtap="approveTask" disabled="{{reviewing}}">
         <text class="review-btn-icon">✓</text>

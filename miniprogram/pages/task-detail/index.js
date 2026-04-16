@@ -1,5 +1,10 @@
 // ============================================
-// 任务详情页 — V5.6.1 水印相机修复 + 强制拍照
+// 任务详情页 — V5.7.3 任务取证闭环 + 示范照片
+// ============================================
+// 模块一：修复删除按钮冒泡Bug + 水印预览
+// 模块二：员工历史回溯 + 管理员审核图片展示
+// 模块三：水印引擎前端激活（后端已OK）
+// 模块四：示范照片展示
 // ============================================
 var app = getApp();
 var util = require('../../utils/util');
@@ -10,12 +15,15 @@ Page({
     taskId: null, task: {}, canExecute: false, canReview: false,
     isAdmin: false, isRejected: false,
     // ★ 接单网关
-    isPending: false,       // status === 0，待接单
-    accepting: false,       // 正在调用接单 API
+    isPending: false,
+    accepting: false,
     inputCount: 1, uploadedPhotos: [], uploading: false, submitting: false,
     reviewing: false,
     aiReview: { result: 'pending', resultLabel: '审核中', comment: '人工智能正在分析...', reviewedAt: '' },
     executionRecords: [],
+    // ★ V5.7.3: 取证照片历史 + 示范照片
+    proofPhotos: [],          // 已提交的取证照片URL列表（从后端获取）
+    examplePhotoUrl: '',      // 示范照片URL
   },
 
   onLoad: function (options) {
@@ -54,7 +62,6 @@ Page({
           status: raw.status, priority: raw.priority,
           points_reward: raw.points_reward,
           progress: raw.progress, target: raw.target, unit: raw.unit,
-          // ★ V5.6.1: require_photo 字段
           requires_photo: raw.requires_photo || raw.require_photo || false,
           description: raw.description || '按标准操作规程执行，完成后拍照取证提交。',
           deadline: raw.deadline, assigned_to: raw.assigned_to,
@@ -93,12 +100,18 @@ Page({
         var canExecute = raw.status === 1 || raw.status === 2;
         var canReview = self.data.isAdmin && raw.status === 3;
 
+        // ★ V5.7.3: 取证照片历史 + 示范照片
+        var proofPhotos = raw.proof_photo_urls || [];
+        var examplePhotoUrl = raw.example_photo_url || '';
+
         self.setData({
           task: task,
           isPending: isPending,
           canExecute: canExecute,
           canReview: canReview,
           isRejected: raw.is_rejected || false,
+          proofPhotos: proofPhotos,
+          examplePhotoUrl: examplePhotoUrl,
         });
         wx.setNavigationBarTitle({ title: task.title.slice(0, 10) });
 
@@ -217,49 +230,38 @@ Page({
   },
 
   // ============================================
-  // ★ V5.6.1 拍照取证（后端水印方案）
+  // ★ V5.7.3 拍照取证（后端水印方案）
   // ============================================
-  // 修复要点：
-  //   1. 仅允许相机拍摄（sourceType: ['camera']），禁用相册
-  //   2. 使用 watermarkUtil.uploadPhotoWithWatermark 走云托管链路
-  //   3. 完整 fail/catch 错误处理，杜绝无限 loading
-  //   4. uploading 状态锁防止重复触发
   takePhoto: function () {
     var self = this;
 
-    // 防重复触发
     if (self.data.uploading) {
       wx.showToast({ title: '上一张正在上传，请稍候', icon: 'none' });
       return;
     }
-    // 最多6张
     if (self.data.uploadedPhotos.length >= 6) {
       wx.showToast({ title: '最多上传6张照片', icon: 'none' });
       return;
     }
 
-    // ★ 仅允许相机拍摄，禁用相册（防篡改）
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
-      sourceType: ['camera'],   // ★ 只允许拍照，不允许从相册选择
+      sourceType: ['camera'],
       camera: 'back',
       success: function (res) {
         var tempPath = res.tempFiles[0].tempFilePath;
         var localId = Date.now();
 
-        // 先在列表中显示"上传中"占位
         var photos = self.data.uploadedPhotos.slice();
         photos.push({ id: localId, url: tempPath, ai_status: 'uploading' });
         self.setData({ uploading: true, uploadedPhotos: photos });
 
         wx.showLoading({ title: '水印处理中...', mask: true });
 
-        // ★ 调用新的后端水印上传接口
         watermarkUtil.uploadPhotoWithWatermark(tempPath, self.data.taskId)
           .then(function (publicUrl) {
             wx.hideLoading();
-            // 更新照片URL为后端返回的带水印URL
             var updatedPhotos = [];
             for (var i = 0; i < self.data.uploadedPhotos.length; i++) {
               var p = self.data.uploadedPhotos[i];
@@ -286,11 +288,9 @@ Page({
             }, 2000);
           })
           .catch(function (err) {
-            // ★ 关键修复：上传失败必须 hideLoading + showToast
             wx.hideLoading();
             console.error('[拍照上传] 失败:', err);
 
-            // 移除失败的占位照片
             var filtered = [];
             for (var i = 0; i < self.data.uploadedPhotos.length; i++) {
               if (self.data.uploadedPhotos[i].id !== localId) {
@@ -308,6 +308,8 @@ Page({
     });
   },
 
+  // ★ V5.7.3 模块一：修复删除按钮冒泡Bug
+  // 使用 catchtap 替代 bindtap，WXML 中已改为 catchtap="removePhoto"
   removePhoto: function (e) {
     var targetId = e.currentTarget.dataset.id;
     var filtered = [];
@@ -317,6 +319,7 @@ Page({
     this.setData({ uploadedPhotos: filtered });
   },
 
+  // ★ V5.7.3: 预览照片（支持取证照片和示范照片）
   previewPhoto: function (e) {
     var urls = [];
     for (var i = 0; i < this.data.uploadedPhotos.length; i++) {
@@ -326,8 +329,25 @@ Page({
     if (urls.length > 0) wx.previewImage({ urls: urls, current: e.currentTarget.dataset.url });
   },
 
+  // ★ V5.7.3 模块二：预览已提交的取证照片（历史回溯）
+  previewProofPhoto: function (e) {
+    var current = e.currentTarget.dataset.url;
+    var urls = this.data.proofPhotos || [];
+    if (urls.length > 0) {
+      wx.previewImage({ urls: urls, current: current });
+    }
+  },
+
+  // ★ V5.7.3 模块四：预览示范照片
+  previewExamplePhoto: function () {
+    var url = this.data.examplePhotoUrl;
+    if (url) {
+      wx.previewImage({ urls: [url], current: url });
+    }
+  },
+
   // ============================================
-  // ★ V5.6.1 提交任务（强制拍照拦截）
+  // ★ V5.7.3 提交任务（强制拍照拦截）
   // ============================================
   submitTask: function () {
     var task = this.data.task;
@@ -335,13 +355,11 @@ Page({
     var uploading = this.data.uploading;
     var self = this;
 
-    // 正在上传时拦截
     if (uploading) {
       wx.showToast({ title: '照片正在上传，请稍候', icon: 'none' });
       return;
     }
 
-    // ★ V5.6.1: 强制拍照拦截（require_photo / requires_photo）
     if (task.requires_photo && uploadedPhotos.length === 0) {
       wx.showModal({
         title: '拍照取证（必填）',
@@ -352,7 +370,6 @@ Page({
       return;
     }
 
-    // 检查是否有有效照片（已上传完成的）
     var validPhotos = [];
     for (var i = 0; i < uploadedPhotos.length; i++) {
       var p = uploadedPhotos[i];

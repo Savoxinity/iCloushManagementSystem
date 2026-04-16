@@ -162,6 +162,9 @@ class Task(Base):
     # 拍照
     requires_photo: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # ★ V5.7.3: 示范照片URL（管理员发布任务时可选上传）
+    example_photo_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+
     # 负责人
     assignee_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
 

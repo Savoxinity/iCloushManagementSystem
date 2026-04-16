@@ -44,6 +44,7 @@ class TaskCreateRequest(BaseModel):
     target: Optional[int] = None           # 前端发 target
     unit: str = "件"
     requires_photo: bool = False
+    example_photo_url: Optional[str] = None  # ★ V5.7.3: 示范照片URL
     assignee_id: Optional[int] = None      # 后端原字段
     assigned_to: Optional[List[int]] = None  # 前端发 assigned_to（数组）
     deadline: Optional[str] = None
@@ -61,6 +62,7 @@ class TaskEditRequest(BaseModel):
     target: Optional[int] = None           # 前端发 target
     unit: Optional[str] = None
     requires_photo: Optional[bool] = None
+    example_photo_url: Optional[str] = None  # ★ V5.7.3: 示范照片URL
     assignee_id: Optional[int] = None
     assigned_to: Optional[List[int]] = None  # 前端发 assigned_to（数组）
     deadline: Optional[str] = None
@@ -404,6 +406,7 @@ async def create_task(
         target_count=actual_target,
         unit=req.unit,
         requires_photo=req.requires_photo,
+        example_photo_url=req.example_photo_url,  # ★ V5.7.3
         status=0 if not actual_assignee else 2,
         assignee_id=actual_assignee,
     )
@@ -480,6 +483,16 @@ async def _get_task_or_404(task_id: int, db: AsyncSession) -> Task:
 
 def _serialize_task(task: Task) -> dict:
     STATUS_MAP = {0: "待接单", 1: "已接单", 2: "进行中", 3: "待审核", 4: "已完成", 5: "已驳回"}
+
+    # ★ V5.7.3: 从执行流水中提取取证照片URL
+    proof_photo_urls = []
+    if hasattr(task, 'records') and task.records:
+        for record in task.records:
+            if record.action_type in ('submit', 'photo') and record.photo_urls:
+                for url in record.photo_urls:
+                    if url and url not in proof_photo_urls:
+                        proof_photo_urls.append(url)
+
     return {
         "id": task.id,
         "title": task.title,
@@ -497,6 +510,8 @@ def _serialize_task(task: Task) -> dict:
         "current_progress": task.current_progress,
         "unit": task.unit,
         "requires_photo": task.requires_photo,
+        "example_photo_url": getattr(task, 'example_photo_url', None),  # ★ V5.7.3
+        "proof_photo_urls": proof_photo_urls,  # ★ V5.7.3: 取证照片URL列表
         "assignee_id": task.assignee_id,
         "assigned_to": task.assignee_id,      # 前端 task-edit 读 assigned_to
         "assignee_name": task.assignee.name if task.assignee else None,
